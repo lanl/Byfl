@@ -1,0 +1,404 @@
+#! /usr/bin/env perl
+
+##################################################
+# Wrap gcc with options for ByFl instrumentation #
+# By Scott Pakin <pakin@lanl.gov>                #
+##################################################
+
+use constant DEBUG => 0;
+
+use Cwd qw(abs_path);
+use File::Basename;
+use File::Spec;
+use File::stat;
+use File::Temp qw(tempdir);
+use Getopt::Long;
+use ParseGccOpts;
+use Switch;
+use warnings;
+use strict;
+
+# Specify some installation locations.
+my $dragonegg = '@DRAGONEGG@';
+my $byfl_libdir = '@PROJ_libdir@';
+my $llvm_libdir = '@LLVM_INST_LIBDIR@';
+
+# Store the name of this script and the name of the underlying compiler.
+my $progname = basename $0;
+my $compiler = substr($progname, 3);
+
+# Let the user increase this script's verbosity.
+my $verbosity = defined $ENV{"BF_VERBOSE"} ? 0 + $ENV{"BF_VERBOSE"} : 0;
+
+# Let the user request static analysis in addition to instrumentation.
+my $static_analysis = 0;
+
+# Take bytesflops options from the BF_OPTS environment variable.
+my @bf_options = split(" ", $ENV{"BF_OPTS"} || "");
+
+# Let the user disable either the bytesflops plugin, DragonEgg IR
+# emission, or everything beyond command-line filtering.
+my $bf_disable = defined $ENV{"BF_DISABLE"} ? $ENV{"BF_DISABLE"} : "none";
+
+# Define a function that optionally prints, then executes a system
+# command, aborting on failure.  If the first argument is "NO FAIL",
+# then return an error code rather than aborting.
+sub execute_command (@)
+{
+    my $die_on_fail = 1;
+    if ($_[0] eq "NO FAIL") {
+        $die_on_fail = 0;
+        shift;
+    }
+    my @command = @_;
+    if ($verbosity > 0) {
+        print STDERR join(" ", map {/\s/ ? "'$_'" : $_} @command), "\n";
+    }
+    return $? >> 8 if system(@command) == 0 || !$die_on_fail;
+    die "${progname}: Aborting\n";
+}
+
+# Define a subroutine that initializes the default and gcc-specific
+# library search paths.
+my @default_lib_path;       # Linker's default search path
+my @gcc_lib_path;           # Additional path elements gcc passes to ld
+sub initialize_lib_paths ()
+{
+    # Find the default library path with the compiler and ld's help.
+    my $sysroot = "/";    # Directory to substitute for "=" in a SEARCH_DIR
+    if (!@default_lib_path) {
+        local $/ = undef;
+        open(GCCINFO, "$compiler -v -Wl,--verbose 2>&1|") || die "${progname}: $!\n";
+        my $gccinfo = <GCCINFO>;
+        close GCCINFO;
+        $sysroot = $1 if $gccinfo =~ /\b--with-sysroot=(\S+)/s;
+        if ($gccinfo =~ /\bLIBRARY_PATH=([^\n]+)/gs) {
+            # Search path passed via -L flags from gcc to ld
+            push @gcc_lib_path, split ":", $1;
+        }
+        while ($gccinfo =~ /\bSEARCH_DIR\(\"(.*?)\"\);/gs) {
+            # Search path from the default linker script
+            my $dirname = $1;
+            $dirname =~ s/^=/$sysroot/;
+            push @default_lib_path, File::Spec->canonpath($dirname);
+        }
+    }
+}
+
+# Define a function that finds a .a file specified with "-l<libname>"
+# given <libname> and a search path (list of arguments to -L).
+sub find_archive_file ($@)
+{
+    # Search each path in turn for the given .a file.
+    my $aname = "lib" . $_[0] . ".a";
+    foreach my $dirname (@_[1..$#_], @gcc_lib_path, @default_lib_path) {
+        my $filespec = File::Spec->catfile($dirname, $aname);
+        return $filespec if -e $filespec;
+    }
+    return undef;
+}
+
+# Define a function that extracts a .bc file from a .o file wrapper.
+# This function returns the new filename.
+sub extract_bitcode ($)
+{
+    # Quit early if we can.
+    my $ofile = $_[0];
+    my ($base, $dir, $suffix) = fileparse $ofile, "\\.[^.]+";
+    return $ofile if $suffix ne ".o";
+    my $bcfile = File::Spec->abs2rel(File::Spec->catfile($dir, $base . ".bc"));
+    return $bcfile if -e $bcfile;     # We've already extracted the .bc file.
+
+    # Extract the bitcode if we can.
+    return $ofile if execute_command("NO FAIL",
+                                     "objcopy", "--output-target=binary",
+                                     "--only-section=.bitcode",
+                                     $ofile, $bcfile) != 0;
+    if (-z $bcfile) {
+        # objcopy successfully found no .bitcode section and returned
+        # a zero-byte file -- delete it and pretend objcopy failed.
+        unlink $bcfile;
+        return $ofile;
+    }
+    return $bcfile;
+}
+
+# Define a function that converts a .a file containing LLVM bitcode
+# wrapped within a .o wrapper into a .bc file containing real LLVM
+# bitcode.  This function returns the new filename.
+sub convert_archive_file ($)
+{
+    # Quit early if we can.
+    my $afile = $_[0];
+    return $afile if -e $afile && !-w $afile;    # We can't write the file so it must not contain our bitcode wrappers.
+
+    # Create a work directory and cd into it.
+    my $workdir = tempdir($progname . "-XXXXXX",
+                          DIR => ".",
+                          CLEANUP => 1);
+    $afile = abs_path($afile);
+    chdir $workdir || die "${progname}: $!\n";
+    local $SIG{"__DIE__"} = sub ($) {
+        # Leave the work directory before aborting.
+        chdir "..";
+        die $_[0];
+    };
+
+    # Extract the contents of the .a file.
+    execute_command("ar", ($verbosity > 0 ? "xv" : "x"), $afile);
+
+    # Extract a .bc file from each .o file.
+    my @bcfiles;
+    foreach my $ofile (<*.o>) {
+        my $bcfile = extract_bitcode $ofile;
+        push @bcfiles, $bcfile if $bcfile ne $ofile;
+    }
+
+    # Convert each .bc file to a real .o file.
+    foreach my $bcfile (@bcfiles) {
+        execute_command("llc", $bcfile);
+        my $sfile = $bcfile;
+        $sfile =~ s/\.bc$/.s/;
+        my $ofile = $bcfile;
+        $ofile =~ s/\.bc$/.o/;
+        execute_command("as", "-o", $ofile, $sfile);
+    }
+
+    # Re-archive the real .o files into a single .a file.
+    execute_command("ar", $verbosity > 0 ? "rv" : "r", $afile, glob "*.o");
+
+    # Leave the work directory so it can be removed.
+    chdir "..";
+    return $afile;
+}
+
+###########################################################################
+
+# Parse the command line.
+Getopt::Long::Configure("pass_through");
+GetOptions("bf-verbose!"    => \$verbosity,
+           "bf-static!"     => \$static_analysis,
+           "bf-dragonegg=s" => \$dragonegg,
+           "bf-libdir=s"    => \$byfl_libdir,
+           "bf-disable=s"   => \$bf_disable)
+    || die "${progname}: Failed to parse the command line\n";
+switch ($bf_disable) {
+    case "none" {
+        # Disable nothing; run normally.
+    }
+    case "dragonegg" {
+        # Disable DragonEgg entirely and just use the underlying compiler.
+        exit execute_command($compiler, grep {!m/^--?bf-/} @ARGV);
+    }
+    case "bitcode" {
+        # Use the DragonEgg plugin for code optimization, but generate
+        # native output files.
+        exit execute_command($compiler, "-fplugin=$dragonegg", grep {!m/^--?bf-/} @ARGV);
+    }
+    case "byfl" {
+        # Disable the bytesflops plugin (handled later).
+    }
+    else {
+        die "${progname}: I don't know how to disable \"$bf_disable\""
+            . ' (must be one of "none", "dragonegg", "bitcode", or "byfl")' . "\n";
+    }
+}
+push @bf_options,  grep {/^--?bf-/} @ARGV;
+@bf_options = map {s/^--/-/; $_} @bf_options;
+my @parse_info = parse_gcc_options(grep {!/^--?bf-/} @ARGV);
+my %build_type = %{$parse_info[0]};
+my @target_filenames = @{$parse_info[1]};
+my @compiler_opts = @{$parse_info[2]};
+my @linker_opts = @{$parse_info[3]};
+my @leftover_values = @{$parse_info[4]};
+
+# Check if we're neither compiling nor linking.
+if (!defined $build_type{"compile"} && !defined $build_type{"link"}) {
+    # Preprocessing only -- pass all of our arguments to the compiler.
+    exit execute_command(($compiler, @ARGV));
+}
+
+# Define a map from source files to object files.
+my %src2obj;        # Map from a source-file name to an object-file name
+my @source_files;   # Subset of @leftover_values that represents source code
+my @object_files;   # Subset of @target_filenames that represents object code
+foreach my $fname (@leftover_values) {
+    my ($base, $dir, $suffix) = fileparse $fname, "\\.[^.]+";
+    push @source_files, $fname if $suffix !~ /\.[oa]$/ && $suffix ne ".so";
+}
+if (defined $build_type{"link"}) {
+    # Linking -- object files are generated implicitly from source files.
+    foreach my $srcname (@source_files) {
+        my ($base, $dir, $suffix) = fileparse $srcname, "\\.[^.]+";
+        push @object_files, $base . ".o";
+    }
+}
+else {
+    # Compiling only -- object files are a subset of @target_filenames.
+    @object_files = grep {/\.o$/} @target_filenames;
+}
+if ($#source_files != $#object_files) {
+    my $vs = sprintf "%d vs. %d", 1+$#source_files, 1+$#object_files;
+    die "${progname}: Source-file list and object-file list contain different number of elements ($vs)";
+}
+foreach my $i (0 .. $#source_files) {
+    $src2obj{$source_files[$i]} = $object_files[$i];
+}
+
+# If we're compiling, then add options to invoke the DragonEgg plugin
+# and produce LLVM IR.
+if (defined $build_type{"compile"}) {
+    # Construct a command line.
+    my @command_line = ($compiler,
+                        "-g",
+                        "-fplugin=$dragonegg",
+                        "-fplugin-arg-dragonegg-emit-ir");
+    foreach my $opt_arg (@compiler_opts) {
+        my ($opt, $arg) = @$opt_arg;
+        if (defined $arg) {
+            # The option has an argument.
+            if ($opt eq "O" || $opt eq "g") {
+                push @command_line, "-$opt$arg";
+            }
+            elsif ($opt eq "o") {
+                # Ignore -o.  We'll be generating intermediate bitcode
+                # files and later producing object files from those.
+            }
+            elsif ($opt =~ /^([xIJ]|M[FTQ])$/) {
+                # A few options do not accept an equals sign; they
+                # require a space.
+                push @command_line, ("-$opt", $arg);
+            }
+            else {
+                push @command_line, "-$opt=$arg";
+            }
+        }
+        else {
+            # The option does not have an argument.
+            if ($opt eq "c" || substr($opt, 0, 1) eq "g") {
+                # Ignore -c.  We'll soon be replacing it with -S.
+                # Ignore -g.  We'll be adding it in explicitly.
+            }
+            else {
+                push @command_line, "-" . $opt;
+            }
+        }
+    }
+    push @command_line, "-S";    # Override options that conflict with -S.
+    push @command_line, @source_files;
+
+    # Execute the command line.
+    execute_command @command_line;
+
+    # Run the Byfl LLVM pass on each bitcode file generated.  Then,
+    # very sneakily embed the bitcode within a .o file so as not to
+    # confuse the invoking Makefile.
+    foreach my $srcfile (@source_files) {
+        # Run the Byfl LLVM pass.
+        my $ofile = $src2obj{$srcfile};
+        my $sfile = basename $srcfile;
+        $sfile =~ s/\.[^.]+$/.s/;
+        my $bcfile = $sfile;
+        $bcfile =~ s/\.s$/.bc/;
+        if ($bf_disable eq "byfl") {
+            # Disable the bytesflops plugin if instructed to do so.
+            execute_command ("opt", "$sfile", "-o", $bcfile);
+        }
+        else {
+            # Normally, run the bytesflops plugin on the generated LLVM IR.
+            execute_command ("opt", "-load", "$byfl_libdir/bytesflops.so",
+                             "-bytesflops", @bf_options,
+                             "-analyze", "$sfile") if $static_analysis;
+            execute_command ("opt", "-load", "$byfl_libdir/bytesflops.so",
+                             "-bytesflops", @bf_options,
+                             "-std-compile-opts",
+                             "$sfile", "-o", $bcfile);
+        }
+
+        # Embed the LLVM bitcode within a .o file.
+        execute_command ($compiler, "-o", $ofile, "-c", "-x", "c", "/dev/null");
+        execute_command ("objcopy", "--add-section", ".bitcode=$bcfile",
+                         "--set-section-flags", ".bitcode=alloc", $ofile);
+
+        # Remove the .s and .bc files.
+        print STDERR "rm -f $sfile $bcfile\n" if $verbosity > 0;
+        unlink ($sfile, $bcfile) || die "${progname}: $!\n";
+    }
+}
+
+# If we're linking, extract LLVM bitcode from all of our object files
+# and replace ld options with clang options.
+if (defined $build_type{"link"}) {
+    # Convert the linker options from gcc/ld to clang.
+    my @llvm_ld_options;     # Options to pass to clang
+    my @Ldirs;               # Directories listed with -L
+    my @lfiles;              # Libraries listed with -l
+    foreach my $opt_arg (@linker_opts) {
+        my ($opt, $arg) = @$opt_arg;
+        if ($opt eq "L") {
+            push @Ldirs, $arg;
+            push @llvm_ld_options, "-L$arg";
+        }
+        elsif ($opt eq "l") {
+            push @lfiles, $arg;
+        }
+        elsif ($opt eq "o") {
+            push @llvm_ld_options, ("-o", $arg);
+        }
+        elsif ($opt eq "pg") {
+            push @llvm_ld_options, "-pg";
+        }
+        else {
+            push @llvm_ld_options, "-Xlinker=-$opt";
+            push @llvm_ld_options, "-Xlinker=$arg" if defined $arg;
+        }
+    }
+
+    # Add a few default options.  We explicitly add the compiler's
+    # default library search path because it will likely differ from
+    # clang's.  Also, note that we both add "-L$byfl_libdir" and
+    # name libbyfl.bc explicitly.  The former is needed to resolve
+    # the library dependence specified in bytesflops.cpp, and the
+    # latter is needed to give libbyfl.bc precedence over libbyfl.a.
+    initialize_lib_paths();
+    foreach my $dirname (@gcc_lib_path) {
+        push @llvm_ld_options, "-L" . $dirname;
+    }
+    push @llvm_ld_options, ("-L$byfl_libdir", "-L$llvm_libdir",
+                            "-Wl,--allow-multiple-definition", "-lm");
+    push @llvm_ld_options, ("$byfl_libdir/libbyfl.bc", "-lstdc++") if $bf_disable eq "none";
+    push @llvm_ld_options, "-lstdc++" if $compiler eq "g++" || $bf_disable eq "none";
+    push @llvm_ld_options, "-lgfortran" if $compiler eq "gfortran";
+
+    # Construct a list of linker inputs.
+    my @llvm_ld_inputs;    # Ordered list of .a and .o files.
+    foreach my $fname (@leftover_values) {
+        my $gen_o = $src2obj{$fname};     # A .o file generated from source
+        if (defined $gen_o) {
+            push @llvm_ld_inputs, $gen_o;
+        }
+        else {
+            push @llvm_ld_inputs, $fname;
+        }
+    }
+    @llvm_ld_inputs = map {extract_bitcode $_} @llvm_ld_inputs;
+
+    # Add all libraries specified with -l to the linker inputs.
+    foreach my $lfile (@lfiles) {
+        my $afile = find_archive_file($lfile, @Ldirs);
+        if (!defined $afile) {
+            push @llvm_ld_options, "-l$lfile";
+            next;
+        }
+        my $bcafile = convert_archive_file $afile;
+        if ($bcafile =~ /\.bc$/) {
+            push @llvm_ld_inputs, $bcafile;
+        }
+        else {
+            push @llvm_ld_options, "-l$lfile";
+        }
+    }
+
+    # Run the linker.
+    execute_command("clang", @llvm_ld_inputs, @llvm_ld_options);
+}

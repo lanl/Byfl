@@ -1,0 +1,24 @@
+##===- projects/bytesflops/lib/bytesflops/Makefile -----------------*- Makefile -*-===##
+
+###################################
+# Build the LLVM bytesflops pass  #
+# (part of the Bytesflops tool)	  #
+#				  #
+# By Scott Pakin <pakin@lanl.gov> #
+###################################
+
+#
+# Indicate where we are relative to the top of the source tree.
+#
+LEVEL=../..
+
+#
+# Build the bytesflops pass as a loadable module.
+#
+LIBRARYNAME=bytesflops
+LOADABLE_MODULE=1
+
+#
+# Include Makefile.common so we know what to do.
+#
+include $(LEVEL)/Makefile.common

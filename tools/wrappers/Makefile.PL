@@ -1,0 +1,12 @@
+# Install the ParseGccOpts helper module
+# By Scott Pakin <pakin@lanl.gov>
+
+use ExtUtils::MakeMaker;
+
+symlink "bf-gcc", "bf-g++";
+symlink "bf-gcc", "bf-gfortran";
+WriteMakefile(
+    NAME            => "ParseGccOpts",
+    VERSION_FROM    => "lib/ParseGccOpts.pm",
+    EXE_FILES       => ["bf-gcc", "bf-g++", "bf-gfortran"]
+);

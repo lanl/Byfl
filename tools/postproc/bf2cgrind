@@ -1,0 +1,505 @@
+#! /usr/bin/env perl
+
+###############################################
+# Convert the BYFL_FUNC lines from bytesflops #
+# output into the Callgrind Profile Format    #
+#                                             #
+# By Scott Pakin <pakin@lanl.gov>             #
+###############################################
+
+use Getopt::Long;
+use File::Basename;
+use warnings;
+use strict;
+
+###########################################################################
+
+# Define a class that represents a function and all of its
+# inclusive/exclusive data.
+package FunctionInfo;
+
+# Construct a new FunctionInfo object from a list of tags and a list of values.
+sub new ($$$$) {
+    # Construct ourself.
+    my $this = shift;
+    my $class = ref($this) || $this;
+    my $self = {};
+    bless $self, $class;
+
+    # Construct a hash out of our arguments and append it to a list.
+    my %measurements;
+    my @tags = @{$_[0]};
+    my @values = @{$_[1]};
+    foreach my $i (0 .. $#tags) {
+        my $tag = $tags[$i];
+        $measurements{$tag} = $values[$i];
+        $self->{funcname} = $values[$i] if $tag eq "Function";
+    }
+    $self->{all_instances} = [\%measurements];   # Data from each call point
+    $self->{parents} = [];                       # List of parent objects
+    $self->{children} = [];                      # List of child objects
+    $self->{child_data} = {};                    # Data from each child
+    return $self;
+}
+
+# Merge another FunctionInfo object's data with ours.
+sub merge ($$) {
+    my $self = shift;
+    my $other = $_[0];
+    push @{$self->{all_instances}}, @{$other->{all_instances}};
+}
+
+# Search all instances of our data for an instance matching the given
+# parent name.
+sub data_for ($$) {
+    my $self = shift;
+    my $parentname = $_[0];
+    foreach my $data (@{$self->{all_instances}}) {
+        return $data if $data->{parent_func_1} eq $parentname;
+    }
+    die "${0}: Failed to find a parent named \"$parentname\"";
+}
+
+# Compute the sum of all values in a list of hashes from tag to value.
+sub sum_hashes (@) {
+    # Start with a set of zero values.
+    my $self = shift;
+    my %totals;
+    foreach my $tag (keys %{$self->{all_instances}->[0]}) {
+        if ($tag eq "Function") {
+            $totals{$tag} = $self->{funcname};
+        }
+        elsif ($tag eq "Parent_func_1") {
+            $totals{$tag} = "N/A";
+        }
+        else {
+            $totals{$tag} = 0;
+        }
+    }
+
+    # Add the values from each given hash and return the resulting hash.
+    foreach my $hash (@_) {
+        while (my ($tag, $value) = each %$hash) {
+            if ($tag !~ /^(Function|Parent_func_\d+)$/) {
+                $totals{$tag} += $value;
+            }
+        }
+    }
+    return \%totals;
+}
+
+package main;
+
+###########################################################################
+
+# Parse the command line.
+my $progname = basename $0;
+my $multiplier = 1;           # Value by which to multiply each derived value
+my @ignored_tags = ();        # List of tags to ignore
+my $usagestr = "Usage: $progname [--exclude=<column_name>[, ...]] [--multiply=<integer>] <executable name> <bytesflops output>\n";
+GetOptions("m|multiply=i" => \$multiplier,
+           "x|exclude=s"  => \@ignored_tags)
+    or die $usagestr;
+die $usagestr if $#ARGV != 1;
+my $exe_name = $ARGV[0];
+my $byfl_output = $ARGV[1];
+@ignored_tags = map {split /,/} @ignored_tags;
+
+# Construct a map of function names to addresses.
+my %fname2addr;
+open(NM, "nm $exe_name|") || die "open(\"$exe_name\"): $!\n";
+while (my $oneline = <NM>) {
+    chomp $oneline;
+    next if $oneline !~ /^([0-9a-f]+) [Tt] (\w+)$/;
+    $fname2addr{$2} = $1;
+}
+close NM;
+
+# Define a subroutine that maps a function name to a triple of
+# {demangled name, filename, line number}.
+my %previous_function_location;     # Memoization of find_function_location's results
+sub find_function_location ($) {
+    # Check if we've already seen this function name.
+    my $funcname = $_[0];
+    my $prev_result = $previous_function_location{$funcname};
+    return @$prev_result if defined $prev_result;
+
+    # Run external utilities to find where the function is defined.
+    # Return a dummy location if any error occurs.
+    my $longfuncname = $funcname;
+    my ($filename, $lineno) = ("??", 0);
+    do {
+        # Use c++filt to demangle C++ names.
+        if (substr($funcname, 0, 2) eq "_Z") {
+            open(CPPFILT, "c++filt $funcname|") || die "open: $!\n";
+            chomp($longfuncname = <CPPFILT>);
+            close CPPFILT or last;
+        }
+
+        # Find the function's filename and line number using addr2line.
+        my $address = $fname2addr{$funcname};
+        if (!defined $address) {
+            warn "${progname}: Failed to find $funcname in $exe_name\n";
+        }
+        else {
+            # Get the filename and line number.
+            open(A2L, "addr2line --exe=$exe_name $address|") || die "open: $!\n";
+            my $oneline = <A2L>;
+            die "${progname}: Failed to parse addr2line's output\n" if $oneline !~ /^([^:]+):(\d+)/;
+            ($filename, $lineno) = ($1, $2);
+            close A2L;
+        }
+    };
+    my @result = ($longfuncname, $filename, $lineno);
+    $previous_function_location{$funcname} = \@result;
+    return @result;
+}
+
+# As our first pass, read all of the BYFL_FUNC lines from the file
+# into an essentially linear data structure, combining counters from
+# functions with the same parent.
+my @columntags;           # Symbolic tag for each data column
+my %tag2column;           # Map from a tag to a column number
+my %fname2parent2data;    # Map from function name to parent name to data
+my $funccol;              # Column number of the Function tag
+my $parentcol;            # Column number of the Parent_func_1 tag
+open(BYFL, "<$byfl_output") || die "open(\"$byfl_output\"): $!\n";
+while (my $oneline = <BYFL>) {
+    # Process the header line.
+    if (substr($oneline, 0, 17) eq "BYFL_FUNC_HEADER:") {
+        chomp $oneline;
+        @columntags = split " ", $oneline;
+        shift @columntags;    # Drop the "BYFL_FUNC_HEADER:" tag.
+        foreach my $i (0 .. $#columntags) {
+            $tag2column{$columntags[$i]} = $i;
+        }
+        $funccol = $tag2column{"Function"};
+        $parentcol = $tag2column{"Parent_func_1"};
+        next;
+    }
+
+    # Process each data line.
+    next if substr($oneline, 0, 10) ne "BYFL_FUNC:";
+    chomp $oneline;
+    my @rawdata = split " ", $oneline;
+    shift @rawdata;           # Drop the "BYFL_FUNC:" tag.
+    my $funcname = $rawdata[$tag2column{"Function"}];
+    my $parentname = defined $parentcol && defined $rawdata[$parentcol] ? $rawdata[$parentcol] : "-";
+    if (defined $fname2parent2data{$funcname}->{$parentname}) {
+        my @newdata = @{$fname2parent2data{$funcname}->{$parentname}};
+        foreach my $col (0 .. $funccol-1) {
+            $newdata[$col] += $rawdata[$col];
+        }
+        $fname2parent2data{$funcname}->{$parentname} = \@newdata;
+    }
+    else {
+        $fname2parent2data{$funcname}->{$parentname} = [@rawdata[0 .. $funccol-1]];
+    }
+}
+my @flattened_input;     # Flattened view of %fname2parent2data
+while (my ($funcname, $allparents) = each %fname2parent2data) {
+    while (my ($parentname, $data) = each %$allparents) {
+        push @flattened_input, [@$data, $funcname, $parentname];
+    }
+}
+
+# As our second pass, create a FunctionInfo object for each {function,
+# parent} combination.
+my %funcname2info;     # Map from a function name to its FunctionInfo representation
+my %funcname2parents;  # Map from a function name to its parent(s)'s names
+my %invocations;       # Map from a function name to a child name to an invocation tally
+foreach my $input_line (@flattened_input) {
+    my $newfuncobj = new FunctionInfo([@columntags[0 .. $#{$input_line}]], $input_line);
+    my $funcname = $newfuncobj->{funcname};
+    my $oldfuncobj = $funcname2info{$funcname};
+    if (defined $oldfuncobj) {
+        # We've seen this function before but with a different parent.
+        $oldfuncobj->merge($newfuncobj);
+    }
+    else {
+        # Store a reference to this function, as it's the first time
+        # we've seen it.
+        $funcname2info{$funcname} = $newfuncobj;
+    }
+    if (defined $tag2column{"Parent_func_1"}) {
+        # Store extra data if we additionall have call-graph information.
+        my %newvalues = %{$newfuncobj->{all_instances}->[0]};
+        my $parentname = $newvalues{"Parent_func_1"} || "-";
+        push @{$funcname2parents{$funcname}}, $parentname;
+        $invocations{$parentname}->{$funcname} = $newvalues{"Invocations"} if defined $newvalues{"Invocations"};
+    }
+}
+
+# Point each FunctionInfo object to its parent and child object(s).
+if (defined $tag2column{"Parent_func_1"}) {
+    $funcname2info{"-"} = new FunctionInfo(\@columntags, [(0) x @columntags]);
+    $funcname2info{"-"}->{funcname} = "-";
+    while (my ($name, $obj) = each %funcname2info) {
+        $obj->{parents} = [map {$funcname2info{$_}} @{$funcname2parents{$name}}];
+        foreach my $parentobj (@{$obj->{parents}}) {
+            push @{$parentobj->{children}}, $obj;
+        }
+    }
+}
+
+# We now have each function's exclusive data.  Add it up and store it.
+while (my ($name, $obj) = each %funcname2info) {
+    $obj->{exclusive} = $obj->sum_hashes(@{$obj->{all_instances}});
+}
+
+# Ensure that the call graph is acyclic.
+sub find_call_graph_cycles (@);
+sub find_call_graph_cycles (@) {
+    my @call_stack = @_;
+    my ($obj, @ancestors) = @call_stack;
+    if (grep /^$obj->{funcname}$/, map {$_->{funcname}} @ancestors) {
+        # We found a cycle.
+        return @call_stack;
+    }
+    foreach my $childobj (@{$obj->{children}}) {
+        # Recursively see if any of our children are involved in a cycle.
+        my @cycle = find_call_graph_cycles($childobj, @call_stack);
+        return @cycle if @cycle;
+    }
+    return ();
+}
+if (defined $tag2column{"Parent_func_1"}) {
+    my @cycle = find_call_graph_cycles($funcname2info{"-"});
+    if (@cycle) {
+        # We found a cycle in the graph.  Issue a warning and turn off
+        # call-graph profiling.
+        my $firstobj = shift @cycle;
+        my @cycle_desc;     # Demangled name of every function in the cycle
+        foreach my $obj (@cycle) {
+            my ($funcname, undef, undef) = find_function_location $obj->{funcname};
+            push @cycle_desc, $funcname;
+            last if $obj == $firstobj;
+        }
+        unshift @cycle_desc, $cycle_desc[$#cycle_desc];
+        warn sprintf "Call graph contains a cycle: %s; excluding call-graph data from the output\n", join(" ==> ", @cycle_desc);
+        undef $tag2column{"Parent_func_1"};
+    }
+}
+
+# Distribute child data to parents.
+sub merge_from_children ($);
+sub merge_from_children ($) {
+    # Ensure that all of our children have computed the sum of their
+    # children's data values.
+    my $obj = $_[0];
+    my @children = @{$obj->{children}};
+    foreach my $childobj (@children) {
+        merge_from_children($childobj);
+    }
+
+    # Add up the total contribution we received from each child.
+    $obj->{total_child_data} = $obj->sum_hashes(values %{$obj->{child_data}});
+
+    # Push to our parents the sum of the total contribution from all
+    # of our children and our parent-specific data.
+    my $funcname = $obj->{funcname};
+    foreach my $per_parent_data (@{$obj->{all_instances}}) {
+        my $parentname = $per_parent_data->{Parent_func_1};
+        $parentname = "-" if !defined $parentname;
+        my $parentobj = $funcname2info{$parentname};
+        $parentobj->{child_data}->{$funcname} = $obj->sum_hashes($obj->{total_child_data}, $per_parent_data);
+    }
+}
+merge_from_children($funcname2info{"-"}) if defined $tag2column{"Parent_func_1"};
+
+# Define a map from each possible column tag to its description.
+my %tag2desc = (
+    Bytes_LD    => "Bytes loaded",
+    Bytes_ST    => "Bytes stored",
+    Ops_LD      => "Load operations",
+    Ops_ST      => "Store operations",
+    Flops       => "Floating-point operations",
+    FP_bits     => "Floating-point operation bits",
+    Ops_ALU     => "ALU operations (unary + binary)",
+    Op_ALU_bits => "ALU operation bits",
+    Uniq_bytes  => "Unique bytes (loads + stores)",
+    Cond_brs    => "Conditional or indirect branches",
+    Invocations => "Function invocations");
+
+# Define a map from each possible column tag to its description.
+my @allcolumntags;     # Measured plus derived column tags for numeric columns
+@allcolumntags = grep !/^(Function|Parent_func_\d+)$/, @columntags;
+my %known_tag = map {$_ => 1} @allcolumntags;   # Set of tags that appear in the input data
+my %tag2func;          # Map from a tag to a function that computes it
+foreach my $tag (@allcolumntags) {
+    $tag2desc{$tag} = $tag if !defined $tag2desc{$tag};
+}
+do {
+    my $have_loads = defined $known_tag{"Bytes_LD"};
+    my $have_stores = defined $known_tag{"Bytes_ST"};
+    my $have_flops = defined $known_tag{"Flops"};
+    my $have_fp_bits = defined $known_tag{"FP_bits"};
+    my $have_ops = defined $known_tag{"Ops_ALU"};
+    my $have_op_bits = defined $known_tag{"Op_ALU_bits"};
+    my $have_uniq_bytes = defined $known_tag{"Uniq_bytes"};
+    my $have_cbrs = defined $known_tag{"Cond_brs"};
+    my $multstr = $multiplier == 1 ? "" : "$multiplier*";
+    my $safe_div = sub ($$) {
+        # Return the current multiplier times a quotient or 0 if the
+        # denominator is zero.
+        my ($num, $den) = @_;
+        return $den == 0 ? 0 : $multiplier*1.0*$num/$den;
+    };
+    my $have_bytes = $have_loads && $have_stores;
+    if ($have_bytes) {
+        my $tag = "Loads_stores";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Loads per store (bytes)";
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{Bytes_LD}, $_[0]->{Bytes_ST}) };
+    }
+    if ($have_bytes && $have_flops) {
+        my $tag = "Bytes_flops";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Bytes per flop";
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{Bytes_LD} + $_[0]->{Bytes_ST}, $_[0]->{Flops}) };
+    }
+    if ($have_bytes && $have_fp_bits) {
+        my $tag = "Bits_fp_bits";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Bits per flop bit";
+        $tag2func{$tag} = sub { 8 * $safe_div->($_[0]->{Bytes_LD} + $_[0]->{Bytes_ST}, $_[0]->{FP_bits}) };
+    }
+    if ($have_bytes && $have_ops) {
+        my $tag = "Bytes_ops";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Bytes per op";
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{Bytes_LD} + $_[0]->{Bytes_ST}, $_[0]->{Ops_ALU}) };
+    }
+    if ($have_bytes && $have_op_bits) {
+        my $tag = "Bits_op_bits";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Bits per op bit";
+        $tag2func{$tag} = sub { 8 * $safe_div->($_[0]->{Bytes_LD} + $_[0]->{Bytes_ST}, $_[0]->{Op_ALU_bits}) };
+    }
+    if ($have_bytes && $have_uniq_bytes) {
+        my $tag = "Bytes_ubytes";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Bytes per unique byte (loads + stores)";
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{Bytes_LD} + $_[0]->{Bytes_ST}, $_[0]->{Uniq_bytes}) };
+    }
+    if ($have_uniq_bytes && $have_flops) {
+        my $tag = "Ubytes_flops";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Unique bytes per flop";
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{Uniq_bytes}, $_[0]->{Flops}) };
+    }
+    if ($have_uniq_bytes && $have_fp_bits) {
+        my $tag = "Ubits_fp_bits";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Unique bits per flop bit";
+        $tag2func{$tag} = sub { 8 * $safe_div->($_[0]->{Uniq_bytes}, $_[0]->{FP_bits}) };
+    }
+    if ($have_uniq_bytes && $have_ops) {
+        my $tag = "Ubytes_ops";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Unique bytes per op";
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{Uniq_bytes}, $_[0]->{Ops_ALU}) };
+    }
+    if ($have_uniq_bytes && $have_op_bits) {
+        my $tag = "Ubits_op_bits";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Unique bits per op bit";
+        $tag2func{$tag} = sub { 8 * $safe_div->($_[0]->{Uniq_bytes}, $_[0]->{Op_ALU_bits}) };
+    }
+    if ($have_flops && $have_cbrs) {
+        my $tag = "Flops_cbrs";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Flops per conditional branch";
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{Flops}, $_[0]->{Cond_brs}) };
+    }
+    if ($have_ops && $have_cbrs) {
+        my $tag = "Ops_cbrs";
+        push @allcolumntags, $tag;
+        $tag2desc{$tag} = "${multstr}Operations per conditional branch";
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{Ops_ALU}, $_[0]->{Cond_brs}) };
+    }
+};
+
+# Remove any excluded column tags and sort the result.
+my %droptags = map {lc $_ => 1} @ignored_tags;
+@allcolumntags = grep {!defined $droptags{lc $_}} @allcolumntags;
+@allcolumntags = sort {$tag2desc{$a} cmp $tag2desc{$b}} @allcolumntags;
+
+# Sort all of our FunctionInfo objects by filename, then line number,
+# then function name.
+my @sorted_objects;
+foreach my $obj (values %funcname2info) {
+    my $funcname = $obj->{funcname};
+    next if $funcname eq "-";
+    my @location = find_function_location($funcname);
+    push @sorted_objects, [@location, $obj];
+}
+@sorted_objects = sort {$a->[1] cmp $b->[1] ||
+                        $a->[2] <=> $b->[2] ||
+                        $a->[0] cmp $b->[0]} @sorted_objects;
+
+# Output a Callgrind header.
+print "version: 1\n";
+print "creator: $0\n";
+my @augmented_column_tags = @allcolumntags;
+if (defined $tag2desc{"Bytes_LD"} && defined $tag2desc{"Bytes_ST"}) {
+    # Add a derived metric Bytes, which is the sum of the bytes loaded
+    # and stored.
+    my $tag = "Bytes = Bytes_LD + Bytes_ST";
+    push @augmented_column_tags, $tag;
+    my $multstr = $multiplier == 1 ? "" : "$multiplier*";
+    $tag2desc{$tag} = "${multstr}Bytes (loaded + stored)";
+}
+foreach my $tag (sort @augmented_column_tags) {
+    print "event: \L$tag\E: $tag2desc{$tag}\n";
+}
+print "events: \L@allcolumntags\E\n";
+
+# Output one Callgrind stanza per object.
+my $prev_filename = "";
+my $prev_funcname = "";
+foreach my $objinfo (@sorted_objects) {
+    # Output the function name and location.
+    my ($funcname, $filename, $lineno, $obj) = @$objinfo;
+    if ($filename ne $prev_filename) {
+        print "\n";
+        print "fl=$filename";
+        $prev_filename = $filename;
+    }
+    print "\n";
+    print "fn=$funcname\n";
+    print $lineno;
+
+    # Output the function's exclusive data.
+    my %exclusive = %{$obj->{exclusive}};
+    foreach my $tag (@allcolumntags) {
+        my $func = $tag2func{$tag};
+        if (defined $func) {
+            printf " %.0f", $func->(\%exclusive);
+        }
+        else {
+            print " ", $exclusive{$tag};
+        }
+    }
+    print "\n";
+
+    # Output the per-child data, if any.
+    while (my ($childname, $childinfo) = each %{$obj->{child_data}}) {
+        my ($cfuncname, $cfilename, $clineno) = find_function_location($childname);
+        print "cfl=$cfilename\n" if $cfilename ne $filename;
+        print "cfn=$cfuncname\n";
+        my $calls = $invocations{$funcname}->{$childname} || 1;
+        print "calls=$calls $clineno\n";
+        my $childdatastr = "";
+        foreach my $tag (@allcolumntags) {
+            my $func = $tag2func{$tag};
+            if (defined $func) {
+                $childdatastr .= sprintf " %.0f", $func->($childinfo);
+            }
+            else {
+                $childdatastr .= " $childinfo->{$tag}";
+            }
+        }
+        print $lineno, $childdatastr, "\n";
+    }
+}
