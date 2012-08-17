@@ -20,9 +20,10 @@ Byfl does the equivalent of transforming the code into the following:
     double array[100000][100];
     volatile double sum = 0.0;
 
-    for (int row=0; row<100000; row++)
+    for (int row=0; row<100000; row++) {
       sum += array[row][0];
-    bytes_accessed += 3*sizeof(double);
+      bytes_accessed += 3*sizeof(double);
+    }
 
 In the above, one can consider the `bytes_accessed` variable as a "software performance counter," as it is maintained entirely by software.
 
@@ -36,35 +37,40 @@ The name "Byfl" comes from "bytes/flops".  The very first version of the code co
 Installation
 ------------
 
-### Prerequisites: LLVM and friends
+### Automatic installation
 
-I test Byfl against the LLVM trunk.  The LLVM 3.1 release might work, but given the choice, you should attempt a source build.  See the following URLs for instructions on building LLVM (the compiler infrastructure), Clang (an LLVM-based C/C++ compiler), and DragonEgg (optional but recommended tool for using GCC compilers as LLVM front ends):
+Byfl relies on [LLVM](http://www.llvm.org/), [Clang](http://clang.llvm.org/), and [DragonEgg](http://dragonegg.llvm.org/).  These are huge and must be built from trunk (i.e., the post-3.1-release development code).  My [`build-llvm-byfl`](https://github.com/downloads/losalamos/Byfl/build-llvm-byfl) script automatically downloads all of these plus Byfl into a temporary directory, configures them, builds them, and installs the result into a directory you specify.
 
-* http://llvm.org/docs/GettingStarted.html#checkout
+Byfl also relies on [GCC](http://gcc.gnu.org/).  You should already have GCC installed and in your path before running [`build-llvm-byfl`](https://github.com/downloads/losalamos/Byfl/build-llvm-byfl).  The LLVM guys currently seem to do most of their testing with GCC 4.6 so that's your best bet for having everything work.
 
-* http://clang.llvm.org/get_started.html
 
-* http://dragonegg.llvm.org/
+### Manual installation
 
-With Clang and DragonEgg in place, I use the following `configure` line in my top-level LLVM directory:
+Manual installation is good if you periodically want to update Byfl and its prerequisites without doing having to re-download everything every time.  Byfl depends on LLVM (the compiler infrastructure), Clang (an LLVM-based C/C++ compiler), and DragonEgg (a technically optional but strongly recommended tool for using GCC compilers as LLVM front ends).  See the following URLs for instructions on building each of these:
 
-    ./configure --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions --enable-libffi --with-oprofile CC=gcc CXX=g++ REQUIRES_RTTI=1
+* **LLVM:** [http://llvm.org/docs/GettingStarted.html#checkout](http://llvm.org/docs/GettingStarted.html#checkout)
 
-Run `make` to build LLVM and Clang.  DragonEgg will complain that it doesn't know `make all` so `cd` to `projects/dragonegg` and run `make` expicitly.  Copy `dragonegg.so` to your LLVM `lib` directory (e.g., `/usr/local/lib`).
+* **Clang:** [http://clang.llvm.org/get_started.html](http://clang.llvm.org/get_started.html)
 
-### Byfl
+* **DragonEgg:** [http://dragonegg.llvm.org/](http://dragonegg.llvm.org/)
 
-Relative to LLVM/Clang/DragonEgg, Byfl is easy to configure, build, and install:
+I use the following `configure` line in my top-level LLVM directory:
+
+    ./configure --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC=gcc CXX=g++ REQUIRES_RTTI=1
+
+Run `make` to build LLVM and Clang and `make install` to install them.  Then, with the LLVM `bin` directory in your path, run `make` in the DragonEgg directory.  Copy `dragonegg.so` to your LLVM `lib` directory.
+
+The following steps can then be used to build and install Byfl:
 
     cd autoconf
-    ./AutoRegen.sh
+    yes $HOME/llvm | ./AutoRegen.sh
     mkdir ../build
     cd ../build
     ../configure --disable-assertions --enable-optimized --enable-debug-runtime --enable-debug-symbols DRAGONEGG=/usr/local/lib/dragonegg.so CXX=g++ CXXFLAGS="-g -O2 -std=c++0x" --with-llvmsrc=$HOME/llvm --with-llvmobj=$HOME/llvm
     make
     make install
 
-The `$HOME/llvm` lines in the above refer to your LLVM _source_ (not installation) directory.
+The `$HOME/llvm` lines in the above refer to your LLVM _source_ (not installation) directory.  Also, be sure to adjust the location of `dragonegg.so` as appropriate.
 
 
 Usage
@@ -248,6 +254,12 @@ This approach can be useful for instrumenting code in languages other than C, C+
 ### Postprocessing Byfl output
 
 Byfl installs two scripts to convert Byfl output (lines beginning with `BYFL`) into formats readable by various GUIs.  `bf2cgrind` converts Byfl output into [KCachegrind](http://kcachegrind.sourceforge.net/) input, and `bf2hpctk` converts Byfl output into [HPCToolkit](http://www.hpctoolkit.org/) input.  (The latter program is more robust and appears to be more actively maintained.)  Run each of those scripts with no arguments to see the usage text.
+
+
+License
+-------
+
+Los Alamos National Security, LLC (LANS) owns the copyright to Byfl, which it identifies internally as LA-CC-12-039.  The license is BSD-ish with a "modifications must be indicated" clause.  See [LICENSE.md](LICENSE.md) for the full text.
 
 
 Author
