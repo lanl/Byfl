@@ -95,11 +95,15 @@ Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc
 
 "Bits" are simply bytes*8.  "Flop bits" are the total number of bits in all inputs and outputs to each floating-point function.  As motivation, consider the operation `A = B + C`, where `A`, `B`, and `C` reside in memory.  This operation consumes 12 bytes per flop if the arguments are all single-precision but 24 bytes per flop if the arguments are all double-precision.  Similarly, `A = -B` consumes either 8 or 16 bytes per flop based on the argument type.  However, all of these examples consume one bit per flop bit regardless of numerical precision: every bit loaded or stored either enters or exits the floating-point unit.  Bit:flop-bit ratios above 1.0 imply that more memory is moved than fed into the floating-point unit; Bit:flop-bit ratios below 1.0 imply register reuse.
 
-The Byfl wrapper scripts accept a number of options to provide more information about your program at a cost of increased execution times.  The following can be specified either on the command line or within the `BYFL_OPTS` environment variable.  (The former takes precedence.)
+The Byfl wrapper scripts accept a number of options to provide more information about your program at a cost of increased execution times.  The following can be specified either on the command line or within the `BF_OPTS` environment variable.  (The former takes precedence.)
 
 <dl>
 <dt><code>-bf-all-ops</code></dt>
 <dd>Tally <em>all</em> ALU operations, not just floating-point operations.</dd>
+
+<dl>
+<dt><code>-bf-types</code></dt>
+<dd>Tally <em>type-specific</em> loads and stores of register friendly types.  The current set of included types are: single- and double-precision floating point values, 8-,16-, 32- and 64- integer values, and pointers. Remaining types will be categorized as <em>other types</em>.  Note that this flag will enable the <code>-bf-all-ops</code> option if not supplied on the command line.</dd>
 
 <dt><code>-bf-every-bb</code></dt>
 <dd>Output counters for every <a href="http://en.wikipedia.org/wiki/Basic_block">basic block</a> executed.
@@ -262,7 +266,9 @@ License
 Los Alamos National Security, LLC (LANS) owns the copyright to Byfl, which it identifies internally as LA-CC-12-039.  The license is BSD-ish with a "modifications must be indicated" clause.  See [LICENSE.md](https://github.com/losalamos/Byfl/blob/master/LICENSE.md) for the full text.
 
 
-Author
-------
-
-Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)
+Authors
+-------
+<dl>
+<dd>Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)</dd>
+<dd>Pat McCormick, [_pat@lanl.gov_](mailto:pat@lanl.gov)</dd>
+</dl>

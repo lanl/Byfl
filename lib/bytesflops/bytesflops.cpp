@@ -3,6 +3,7 @@
  * and the number of floating-point operations performed.
  *
  * By Scott Pakin <pakin@lanl.gov>
+      Pat McCormick <pat@lanl.gov>
  */
 
 #include "llvm/ADT/StringMap.h"
@@ -55,6 +56,12 @@ namespace {
   TallyAllOps("bf-all-ops", cl::init(false), cl::NotHidden,
               cl::desc("Tally all operations, not just floating-point operations"));
 
+  // Define a command-line option for tallying load/store operations
+  // based on various data types (note this also implies --bf-all-ops).
+  static cl::opt<bool>
+  TallyTypes("bf-types", cl::init(false), cl::NotHidden,
+	     cl::desc("Tally type information with loads and stores (note this flag enables --bf-all-ops)."));
+
   // Define a command-line option for merging basic-block measurements
   // to reduce the output volume.
   static cl::opt<int>
@@ -92,15 +99,49 @@ namespace {
 
   private:
     static const int CLEAR_LOADS;
+    static const int CLEAR_FLOAT_LOADS;
+    static const int CLEAR_DOUBLE_LOADS;
+    static const int CLEAR_INT_LOADS;
+    static const int CLEAR_PTR_LOADS;
+    static const int CLEAR_OTHER_TYPE_LOADS;
+
     static const int CLEAR_STORES;
+    static const int CLEAR_FLOAT_STORES;
+    static const int CLEAR_DOUBLE_STORES;
+    static const int CLEAR_INT_STORES;
+    static const int CLEAR_PTR_STORES;
+    static const int CLEAR_OTHER_TYPE_STORES;
+
     static const int CLEAR_FLOPS;
     static const int CLEAR_FP_BITS;
     static const int CLEAR_OPS;
     static const int CLEAR_OP_BITS;
+
     GlobalVariable* load_var;  // Global reference to bf_load_count, a 64-bit load counter
     GlobalVariable* store_var; // Global reference to bf_store_count, a 64-bit store counter
-    GlobalVariable* load_inst_var;  // Global reference to bf_load_ins_count, a 64-bit load-instruction counter
-    GlobalVariable* store_inst_var; // Global reference to bf_store_ins_count, a 64-bit store-instruction counter
+
+    // TODO: We might want to collapse types into a single array-based set of counters to 
+    // make the code a bit cleaner... 
+    GlobalVariable* load_inst_var;              // Global reference to bf_load_ins_count, a 64-bit load-instruction counter
+    GlobalVariable* load_float_inst_var;        // Global reference to bf_float_load_ins_count, a 64-bit load-instruction counter for single-precision floats
+    GlobalVariable* load_double_inst_var;       // Global reference to bf_double_load_ins_count, a 64-bit load-instruction counter for double-precision floats
+    GlobalVariable* load_int8_inst_var;         // Global reference to bf_int8_load_ins_count, a 64-bit load-instruction counter for 8-bit integers
+    GlobalVariable* load_int16_inst_var;        // Global reference to bf_int16_load_ins_count, a 64-bit load-instruction counter for 16-bit integers
+    GlobalVariable* load_int32_inst_var;        // Global reference to bf_int32_load_ins_count, a 64-bit load-instruction counter for 32-bit integers
+    GlobalVariable* load_int64_inst_var;        // Global reference to bf_int64_load_ins_count, a 64-bit load-instruction counter for 64-bit integers
+    GlobalVariable* load_ptr_inst_var;          // Global reference to bf_ptr_load_ins_count, a 64-bit load-instruction counter for pointers
+    GlobalVariable* load_other_type_inst_var;   // Global reference to bf_other_type_load_ins_count, a 64-bit load-instruction counter for other types
+
+    GlobalVariable* store_inst_var;             // Global reference to bf_store_ins_count, a 64-bit store-instruction counter
+    GlobalVariable* store_float_inst_var;       // Global reference to bf_float_store_ins_count, a 64-bit store-instruction counter for single-precision floats
+    GlobalVariable* store_double_inst_var;      // Global reference to bf_double_store_ins_count, a 64-bit store-instruction counter for double-precision floats
+    GlobalVariable* store_int8_inst_var;        // Global reference to bf_int8_store_ins_count, a 64-bit store-instruction counter for 8-bit integers
+    GlobalVariable* store_int16_inst_var;       // Global reference to bf_int16_store_ins_count, a 64-bit store-instruction counter for 16-bit integers
+    GlobalVariable* store_int32_inst_var;       // Global reference to bf_int32_store_ins_count, a 64-bit store-instruction counter for 32-bit integers
+    GlobalVariable* store_int64_inst_var;       // Global reference to bf_int64_store_ins_count, a 64-bit store-instruction counter for 64-bit integers
+    GlobalVariable* store_ptr_inst_var;         // Global reference to bf_ptr_store_ins_count, a 64-bit store-instruction counter for pointers
+    GlobalVariable* store_other_type_inst_var; // Global reference to bf_other_type_store_ins_count, a 64-bit store-instruction counter for other types     
+
     GlobalVariable* flop_var;  // Global reference to bf_flop_count, a 64-bit flop counter
     GlobalVariable* fp_bits_var;  // Global reference to bf_fp_bits_count, a 64-bit FP-bit counter
     GlobalVariable* op_var;    // Global reference to bf_op_count, a 64-bit operation counter
@@ -355,16 +396,76 @@ namespace {
       if (InstrumentEveryBB || TallyByFunction) {
         if (ThreadSafety)
           CallInst::Create(take_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
+
         if (must_clear & CLEAR_LOADS) {
           new StoreInst(zero, load_var, false, insert_before);
-	  if (TallyAllOps)
+	  if (TallyAllOps) {
 	    new StoreInst(zero, load_inst_var, false, insert_before);
+
+	    if (TallyTypes) {
+	      if (must_clear & CLEAR_FLOAT_LOADS) 
+		new StoreInst(zero, load_float_inst_var, false, insert_before);
+
+	      if (must_clear & CLEAR_DOUBLE_LOADS) 
+		new StoreInst(zero, load_double_inst_var, false, insert_before);
+
+	      // We currently treat all int-based loads as being in
+	      // the same category -- this means we will likely get
+	      // extra code here when only one type was counted.
+	      // This was a trade off between more code here or some 
+	      // overhead for function calls.  No clue on how best to 
+	      // strike a blance here...
+	      if (must_clear & CLEAR_INT_LOADS) { 
+		new StoreInst(zero, load_int8_inst_var, false,  insert_before);
+		new StoreInst(zero, load_int16_inst_var, false, insert_before);
+		new StoreInst(zero, load_int32_inst_var, false, insert_before);
+		new StoreInst(zero, load_int64_inst_var, false, insert_before);
+	      }
+
+	      if (must_clear & CLEAR_PTR_LOADS) 
+		new StoreInst(zero, load_ptr_inst_var, false,  insert_before);
+	      
+	      if (must_clear & CLEAR_OTHER_TYPE_LOADS) 
+		new StoreInst(zero, load_other_type_inst_var, false,  insert_before);
+	    }
+	  }
 	}
+
         if (must_clear & CLEAR_STORES) {
           new StoreInst(zero, store_var, false, insert_before);
-	  if (TallyAllOps)
+	  if (TallyAllOps) {
 	    new StoreInst(zero, store_inst_var, false, insert_before);
+	    
+	    if (TallyTypes) {
+
+	      if (must_clear & CLEAR_FLOAT_STORES)
+                new StoreInst(zero, store_float_inst_var, false, insert_before);
+
+              if (must_clear & CLEAR_DOUBLE_STORES)
+                new StoreInst(zero, store_double_inst_var, false, insert_before);
+
+	      // We currently treat all int-based loads as being in
+	      // the same category -- this means we will likely get
+	      // extra code here when only one type was counted.
+	      // This was a trade off between more code here or some 
+	      // overhead for function calls.  No clue on how best to 
+	      // strike a blance here...
+              if (must_clear & CLEAR_INT_STORES) {
+                new StoreInst(zero, store_int8_inst_var, false,  insert_before);
+                new StoreInst(zero, store_int16_inst_var, false, insert_before);
+                new StoreInst(zero, store_int32_inst_var, false, insert_before);
+                new StoreInst(zero, store_int64_inst_var, false, insert_before);
+              }
+
+              if (must_clear & CLEAR_PTR_STORES)
+                new StoreInst(zero, store_ptr_inst_var, false,  insert_before);
+	      
+              if (must_clear & CLEAR_OTHER_TYPE_STORES)
+                new StoreInst(zero, store_other_type_inst_var, false,  insert_before);
+	    }
+	  }
 	}
+
         if (must_clear & CLEAR_FLOPS)
           new StoreInst(zero, flop_var, false, insert_before);
         if (must_clear & CLEAR_FP_BITS)
@@ -461,6 +562,15 @@ namespace {
 		increment_global_variable(iter, load_inst_var, one);
               must_clear |= CLEAR_LOADS;
               static_loads++;
+
+	      if (TallyTypes) {
+		Type *data_type = mem_value->getType();
+		if (data_type->isSingleValueType()) {
+		  // We only instrument types that are register
+		  // (single value) friendly...
+		  instrument_load_types(iter, data_type, must_clear);
+		}
+	      }
             }
             else
               if (opcode == Instruction::Store) {
@@ -469,6 +579,15 @@ namespace {
 		  increment_global_variable(iter, store_inst_var, one);
                 must_clear |= CLEAR_STORES;
                 static_stores++;
+
+		if (TallyTypes) {
+		  Type *data_type = mem_value->getType();
+		  if (data_type->isSingleValueType()) {
+		    // We only instrument stores that are register
+		    // (single value) friendly...
+		    instrument_store_types(iter, data_type, must_clear);
+		  }
+		}
               }
 
             // If requested by the user, also insert a call to
@@ -671,6 +790,74 @@ namespace {
       BranchInst::Create(&old_entry, new_entry);
     }
 
+    // Instrument the current basic block iterator (representing a
+    // load) for type-specific characteristics.
+    void instrument_load_types(BasicBlock::iterator &iter, 
+                               Type *data_type, 
+                               int &must_clear) {
+
+      if (data_type->isFloatTy()) {
+        increment_global_variable(iter, load_float_inst_var, one);
+        must_clear |= CLEAR_FLOAT_LOADS;
+      } else if (data_type->isDoubleTy()) {
+        increment_global_variable(iter, load_double_inst_var, one);
+        must_clear |= CLEAR_DOUBLE_LOADS;
+      } else if (data_type->isIntegerTy(8)) {
+        increment_global_variable(iter, load_int8_inst_var, one);
+        must_clear |= CLEAR_INT_LOADS;
+      } else if (data_type->isIntegerTy(16)) {
+        increment_global_variable(iter, load_int16_inst_var, one);
+        must_clear |= CLEAR_INT_LOADS;
+      } else if (data_type->isIntegerTy(32)) {
+        increment_global_variable(iter, load_int32_inst_var, one);
+        must_clear |= CLEAR_INT_LOADS;
+      } else if (data_type->isIntegerTy(64)) {
+        increment_global_variable(iter, load_int64_inst_var, one);
+        must_clear |= CLEAR_INT_LOADS;
+      } else if (data_type->isPointerTy()) {
+        increment_global_variable(iter, load_ptr_inst_var, one);
+        must_clear |= CLEAR_PTR_LOADS;
+      } else {
+        increment_global_variable(iter, load_other_type_inst_var, one);
+        must_clear |= CLEAR_OTHER_TYPE_LOADS;            
+      }
+    }
+
+    
+    // Instrument the current basic block iterator (representing a
+    // store) for type-specific characteristics.
+    void instrument_store_types(BasicBlock::iterator &iter, 
+                                Type *data_type,
+                                int &must_clear) {
+      
+      if (data_type->isFloatTy()) {
+        increment_global_variable(iter, store_float_inst_var, one);
+        must_clear |= CLEAR_FLOAT_STORES;
+      } else if (data_type->isDoubleTy()) {
+        increment_global_variable(iter, store_double_inst_var, one);
+        must_clear |= CLEAR_DOUBLE_STORES;
+      } else if (data_type->isIntegerTy(8)) {
+        increment_global_variable(iter, store_int8_inst_var, one);
+        must_clear |= CLEAR_INT_STORES;
+      } else if (data_type->isIntegerTy(16)) {
+        increment_global_variable(iter, store_int16_inst_var, one);
+        must_clear |= CLEAR_INT_STORES;
+      } else if (data_type->isIntegerTy(32)) {
+        increment_global_variable(iter, store_int32_inst_var, one);
+        must_clear |= CLEAR_INT_STORES;
+      } else if (data_type->isIntegerTy(64)) {
+        increment_global_variable(iter, store_int64_inst_var, one);
+        must_clear |= CLEAR_INT_STORES;
+      } else if (data_type->isPointerTy()) {
+        increment_global_variable(iter, store_ptr_inst_var, one);
+        must_clear |= CLEAR_PTR_STORES;
+      } else {
+        increment_global_variable(iter, store_other_type_inst_var, one);
+        must_clear |= CLEAR_OTHER_TYPE_STORES;                    
+      }
+    }
+
+
     // Optimize the instrumented code by deleting back-to-back
     // mega-lock releases and acquisitions.
     void reduce_mega_lock_activity(Function& function) {
@@ -752,14 +939,33 @@ namespace {
       LLVMContext& globctx = module.getContext();
       IntegerType* i64type = Type::getInt64Ty(globctx);
 
-      load_var = declare_TLS_global(module, i64type, "bf_load_count");
-      store_var = declare_TLS_global(module, i64type, "bf_store_count");
-      load_inst_var = declare_TLS_global(module, i64type, "bf_load_ins_count");
-      store_inst_var = declare_TLS_global(module, i64type, "bf_store_ins_count");
-      flop_var = declare_TLS_global(module, i64type, "bf_flop_count");
-      fp_bits_var = declare_TLS_global(module, i64type, "bf_fp_bits_count");
-      op_var = declare_TLS_global(module, i64type, "bf_op_count");
-      op_bits_var = declare_TLS_global(module, i64type, "bf_op_bits_count");
+      load_var                  = declare_TLS_global(module, i64type, "bf_load_count");
+      store_var                 = declare_TLS_global(module, i64type, "bf_store_count");
+
+      load_inst_var             = declare_TLS_global(module, i64type, "bf_load_ins_count");
+      load_float_inst_var       = declare_TLS_global(module, i64type, "bf_load_float_ins_count");
+      load_double_inst_var      = declare_TLS_global(module, i64type, "bf_load_double_ins_count");
+      load_int8_inst_var        = declare_TLS_global(module, i64type, "bf_load_int8_ins_count");
+      load_int16_inst_var       = declare_TLS_global(module, i64type, "bf_load_int16_ins_count");
+      load_int32_inst_var       = declare_TLS_global(module, i64type, "bf_load_int32_ins_count");
+      load_int64_inst_var       = declare_TLS_global(module, i64type, "bf_load_int64_ins_count");
+      load_ptr_inst_var         = declare_TLS_global(module, i64type, "bf_load_ptr_ins_count");
+      load_other_type_inst_var  = declare_TLS_global(module, i64type, "bf_load_other_type_ins_count");
+
+      store_inst_var            = declare_TLS_global(module, i64type, "bf_store_ins_count");
+      store_float_inst_var      = declare_TLS_global(module, i64type, "bf_store_float_ins_count");
+      store_double_inst_var     = declare_TLS_global(module, i64type, "bf_store_double_ins_count");
+      store_int8_inst_var       = declare_TLS_global(module, i64type, "bf_store_int8_ins_count");
+      store_int16_inst_var      = declare_TLS_global(module, i64type, "bf_store_int16_ins_count");
+      store_int32_inst_var      = declare_TLS_global(module, i64type, "bf_store_int32_ins_count");
+      store_int64_inst_var      = declare_TLS_global(module, i64type, "bf_store_int64_ins_count");
+      store_ptr_inst_var        = declare_TLS_global(module, i64type, "bf_store_ptr_ins_count");
+      store_other_type_inst_var = declare_TLS_global(module, i64type, "bf_store_other_type_ins_count");
+
+      flop_var                  = declare_TLS_global(module, i64type, "bf_flop_count");
+      fp_bits_var               = declare_TLS_global(module, i64type, "bf_fp_bits_count");
+      op_var                    = declare_TLS_global(module, i64type, "bf_op_count");
+      op_bits_var               = declare_TLS_global(module, i64type, "bf_op_bits_count");
 
       // Assign a few constant values.
       not_end_of_bb = ConstantInt::get(globctx, APInt(32, 0));
@@ -802,8 +1008,16 @@ namespace {
         report_fatal_error("-bf-merge requires a positive integer argument");
       create_global_constant(module, "bf_bb_merge", uint64_t(merge_count));
 
+      // Tallying of types requires us to enable TallAllOps...
+      if (TallyTypes && !TallyAllOps) {
+	TallyAllOps = true;
+      }
+
       // Assign a value to bf_all_ops.
       create_global_constant(module, "bf_all_ops", bool(TallyAllOps));
+
+      // Assign a value to bf_types.
+      create_global_constant(module, "bf_types", bool(TallyTypes));
 
       // Assign a value to bf_per_func.
       create_global_constant(module, "bf_per_func", bool(TallyByFunction));
@@ -989,12 +1203,24 @@ namespace {
     }
   };
 
-  const int BytesFlops::CLEAR_LOADS   =  1;
-  const int BytesFlops::CLEAR_STORES  =  2;
-  const int BytesFlops::CLEAR_FLOPS   =  4;
-  const int BytesFlops::CLEAR_FP_BITS =  8;
-  const int BytesFlops::CLEAR_OPS     = 16;
-  const int BytesFlops::CLEAR_OP_BITS = 32;
+  const int BytesFlops::CLEAR_LOADS             =  1;
+  const int BytesFlops::CLEAR_STORES            =  2;
+  const int BytesFlops::CLEAR_FLOPS             =  4;
+  const int BytesFlops::CLEAR_FP_BITS           =  8;
+  const int BytesFlops::CLEAR_OPS               = 16;
+  const int BytesFlops::CLEAR_OP_BITS           = 32;
+
+  const int BytesFlops::CLEAR_FLOAT_LOADS       = 64;
+  const int BytesFlops::CLEAR_DOUBLE_LOADS      = 128;
+  const int BytesFlops::CLEAR_INT_LOADS         = 256;
+  const int BytesFlops::CLEAR_PTR_LOADS         = 512;
+  const int BytesFlops::CLEAR_OTHER_TYPE_LOADS  = 1024;
+
+  const int BytesFlops::CLEAR_FLOAT_STORES      = 2048;
+  const int BytesFlops::CLEAR_DOUBLE_STORES     = 4096;
+  const int BytesFlops::CLEAR_INT_STORES        = 8192;
+  const int BytesFlops::CLEAR_PTR_STORES        = 16384;
+  const int BytesFlops::CLEAR_OTHER_TYPE_STORES = 32768;
 
   char BytesFlops::ID = 0;
   static RegisterPass<BytesFlops> H("bytesflops", "Bytes:flops instrumentation");
