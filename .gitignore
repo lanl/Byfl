@@ -4,3 +4,4 @@ autoconf/autom4te.cache/
 /configure
 /build
 *~ 
+/examples

@@ -19,8 +19,10 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetData.h"
+
 #include <vector>
 #include <set>
+#include <cxxabi.h>
 
 using namespace std;
 using namespace llvm;
@@ -636,7 +638,17 @@ namespace {
                   // front of its name) in order to keep track of
                   // calls to uninstrumented functions.
 		  if (TallyByFunction) {
-		    string augmented_callee_name(string("+") + callee_name.str());
+		    string augmented_callee_name;
+
+		    // Attempt to demangle function names so the masses can follow along...
+		    int status;
+		    char *demangled_name = __cxxabiv1::__cxa_demangle(callee_name.str().c_str(), NULL, 0, &status);
+		    if (status == 0 && demangled_name != 0) {
+		      augmented_callee_name = string("+") + string(demangled_name);
+		      free(demangled_name);
+		    } else {
+		      augmented_callee_name = string("+") + callee_name.str();
+		    }
 		    Constant* argument = map_func_name_to_arg(module, StringRef(augmented_callee_name));
 		    callinst_create(tally_function, argument, iter);
 		  }
