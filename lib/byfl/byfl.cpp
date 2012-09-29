@@ -651,8 +651,8 @@ void bf_report_bb_tallies (void)
          << setw(HDR_COL_WIDTH) << "FP_bits";
     if (bf_all_ops) {
       cout << ' '
-           << setw(HDR_COL_WIDTH) << "Ops_ALU" << ' '
-           << setw(HDR_COL_WIDTH) << "Op_ALU_bits";
+           << setw(HDR_COL_WIDTH) << "Int_Ops" << ' '
+           << setw(HDR_COL_WIDTH) << "Int_Op_bits";
       if (bf_types) {
 	cout << ' ' 
 	     << setw(HDR_COL_WIDTH) << "Flt_LD" << ' '
@@ -811,8 +811,8 @@ private:
          << setw(HDR_COL_WIDTH) << "FP_bits";
     if (bf_all_ops) {
       cout << ' '
-           << setw(HDR_COL_WIDTH) << "Ops_ALU" << ' '
-           << setw(HDR_COL_WIDTH) << "Op_ALU_bits";
+           << setw(HDR_COL_WIDTH) << "Int_Ops" << ' '
+           << setw(HDR_COL_WIDTH) << "Int_Op_bits";
       if (bf_types) {
 	cout << ' ' 
 	     << setw(HDR_COL_WIDTH) << "Flt_LD" << ' '
@@ -956,7 +956,7 @@ private:
       cout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
     cout << tag << ": " << setw(25) << counter_totals.flops << " flops\n";
     if (bf_all_ops) {
-      cout << tag << ": " << setw(25) << counter_totals.ops << " ALU ops\n";
+      cout << tag << ": " << setw(25) << counter_totals.ops << " integer ops\n";
       cout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
            << counter_totals.load_ins << " loads + "
            << counter_totals.store_ins << " stores)\n";
@@ -991,7 +991,7 @@ private:
       cout << tag << ": " << setw(25) << global_unique_bytes*8 << " unique bits\n";
     cout << tag << ": " << setw(25) << counter_totals.fp_bits << " flop bits\n";
     if (bf_all_ops)
-      cout << tag << ": " << setw(25) << counter_totals.op_bits << " ALU op bits\n";
+      cout << tag << ": " << setw(25) << counter_totals.op_bits << " integer op bits\n";
     cout << tag << ": " << separator << '\n';
 
     // Report vector-operation measurements.
@@ -1021,7 +1021,7 @@ private:
       if (counter_totals.load_ins > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)counter_totals.ops / (double)counter_totals.load_ins
-             << " ALU ops per load instruction\n";
+             << " integer ops per load instruction\n";
       if (global_mem_ops > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_bytes*8 / (double)global_mem_ops
@@ -1050,7 +1050,7 @@ private:
       if (counter_totals.ops > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)num_vec_ops / (double)counter_totals.ops
-             << " vector operations per ALU op\n";
+             << " vector operations per integer op\n";
     }
     cout << tag << ": " << separator << '\n';
     if (counter_totals.flops > 0) {
@@ -1064,10 +1064,10 @@ private:
     if (counter_totals.ops > 0)
       cout << tag << ": " << fixed << setw(25) << setprecision(4)
            << (double)global_bytes / (double)counter_totals.ops
-           << " bytes per ALU op\n"
+           << " bytes per integer op\n"
            << tag << ": " << fixed << setw(25) << setprecision(4)
            << (double)global_bytes*8.0 / (double)counter_totals.op_bits
-           << " bits per ALU op bit\n";
+           << " bits per integer op bit\n";
     if (bf_unique_bytes && (counter_totals.flops > 0 || counter_totals.ops > 0)) {
       cout << tag << ": " << separator << '\n';
       if (counter_totals.flops > 0)
@@ -1080,10 +1080,10 @@ private:
       if (counter_totals.ops > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_unique_bytes / (double)counter_totals.ops
-             << " unique bytes per ALU op\n"
+             << " unique bytes per integer op\n"
              << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
-             << " unique bits per ALU op bit\n";
+             << " unique bits per inteer op bit\n";
     }
     if (bf_unique_bytes && !partition)
       cout << tag << ": " << fixed << setw(25) << setprecision(4)

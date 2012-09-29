@@ -633,7 +633,8 @@ namespace {
               if (func) {
                 StringRef callee_name = func->getName();
                 if (!callee_name.startswith("_ZN10bytesflops")
-                    && !callee_name.startswith("llvm.dbg")) {
+                    && !callee_name.startswith("llvm.dbg")
+		    && callee_name != "bf_categorize_counters") {
                   // Tally the caller (with a distinguishing "+" in
                   // front of its name) in order to keep track of
                   // calls to uninstrumented functions.
@@ -680,27 +681,28 @@ namespace {
                   num_bits = ConstantInt::get(bbctx, APInt(64, instruction_operand_bits(inst)));
                 }
 
-                // If the user requested a count of *all* operations, not
-                // just floating-point operations, increment the operation
-                // counter and the operation bit counter.
-                if (TallyAllOps) {
-                  increment_global_variable(iter, op_var, num_elts);
-                  must_clear |= CLEAR_OPS;
-                  increment_global_variable(iter, op_bits_var, num_bits);
-                  must_clear |= CLEAR_OP_BITS;
-                  static_ops++;
-                }
-
-                // Increment the flop counter and floating-point bit
-                // counter for any binary instruction with a
-                // floating-point type.
-                if (tally_fp) {
+		if (tally_fp) {
+		  // Increment the flop counter and floating-point bit
+		  // counter for any binary instruction with a
+		  // floating-point type.
                   increment_global_variable(iter, flop_var, num_elts);
                   must_clear |= CLEAR_FLOPS;
                   increment_global_variable(iter, fp_bits_var, num_bits);
                   must_clear |= CLEAR_FP_BITS;
                   static_flops++;
-                }
+		} else {
+		  // If the user requested a count of *all* operations, not
+		  // just floating-point operations, increment the operation
+		  // counter and the operation bit counter for non-floating point
+		  // operations.
+		  if (TallyAllOps) {
+		    increment_global_variable(iter, op_var, num_elts);
+		    must_clear |= CLEAR_OPS;
+		    increment_global_variable(iter, op_bits_var, num_bits);
+		    must_clear |= CLEAR_OP_BITS;
+		    static_ops++;
+		  }
+		}
 
                 // If the user requested a characterization of vector
                 // operations, see if we have a vector operation and
@@ -976,6 +978,7 @@ namespace {
 
       flop_var                  = declare_TLS_global(module, i64type, "bf_flop_count");
       fp_bits_var               = declare_TLS_global(module, i64type, "bf_fp_bits_count");
+
       op_var                    = declare_TLS_global(module, i64type, "bf_op_count");
       op_bits_var               = declare_TLS_global(module, i64type, "bf_op_bits_count");
 
