@@ -187,6 +187,9 @@ extern const char* bf_string_to_symbol (const char *nonunique);
 extern void bf_report_vector_operations (size_t call_stack_depth);
 extern void bf_get_vector_statistics(uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
 extern void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
+extern void bf_get_reuse_distance (vector<uint64_t>** hist, uint64_t* unique_addrs);
+extern void bf_get_median_reuse_distance (uint64_t* median_value, uint64_t* mad_value);
+
 
 // Define a stack of tallies of all of our counters across <=
 // num_merged basic blocks.  This *ought* to be a top-level variable
@@ -300,9 +303,10 @@ public:
 
 
 extern void initialize_byfl(void);
-extern void initialize_ubytes(void);
+extern void initialize_reuse(void);
 extern void initialize_symtable(void);
 extern void initialize_threading(void);
+extern void initialize_ubytes(void);
 extern void initialize_vectors(void);
 extern void bf_push_basic_block (void);
 extern uint64_t bf_tally_unique_addresses (void);
@@ -326,9 +330,10 @@ void bf_initialize_if_necessary (void)
   static bool initialized = false;
   if (!__builtin_expect(initialized, true)) {
     initialize_byfl();
-    initialize_ubytes();
+    initialize_reuse();
     initialize_symtable();
     initialize_threading();
+    initialize_ubytes();
     initialize_vectors();
     initialized = true;
   }
@@ -643,13 +648,20 @@ private:
     }
   }
 
+
   // Report the total counter values across all basic blocks.
   void report_totals (const char* partition, ByteFlopCounters& counter_totals) {
     uint64_t global_bytes = counter_totals.loads + counter_totals.stores;
     uint64_t global_mem_ops = counter_totals.load_ins + counter_totals.store_ins;
     uint64_t global_unique_bytes = 0;
-    if (bf_unique_bytes && !partition)
-      global_unique_bytes = bf_tally_unique_addresses();
+    vector<uint64_t>* reuse_hist;   // Histogram of reuse distances
+    uint64_t reuse_unique;          // Unique bytes as measured by the reuse-distance calculator
+    bf_get_reuse_distance(&reuse_hist, &reuse_unique);
+    if (reuse_unique > 0)
+      global_unique_bytes = reuse_unique;
+    else
+      if (bf_unique_bytes && !partition)
+        global_unique_bytes = bf_tally_unique_addresses();
 
     // Report the dynamic basic-block count.
     string tag("BYFL_SUMMARY");
@@ -673,6 +685,17 @@ private:
       cout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
            << counter_totals.load_ins << " loads + "
            << counter_totals.store_ins << " stores)\n";
+    }
+    if (reuse_unique > 0) {
+      uint64_t median_value;
+      uint64_t mad_value;
+      bf_get_median_reuse_distance(&median_value, &mad_value);
+      cout << tag << ": " << setw(25);
+      if (median_value == ~(uint64_t)0)
+	cout << "infinite" << " median reuse distance\n";
+      else
+	cout << median_value << " median reuse distance (+/- "
+	     << mad_value << ")\n";
     }
     cout << tag << ": " << separator << '\n';
 
@@ -701,7 +724,7 @@ private:
              << " elements per vector\n"
              << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)total_vec_bits / (double)num_vec_ops
-             << " bits per elements\n";
+             << " bits per element\n";
       cout << tag << ": " << separator << '\n';
     }
 

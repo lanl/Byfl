@@ -112,10 +112,13 @@ sub parse_gcc_options (@)
                         },
                         "I=s" => sub {
                             $for_compiler->($_[0], $_[1]);
-			},
+                        },
                         "J=s" => sub {
                             $for_compiler->($_[0], $_[1]);
-			},
+                        },
+                        "isystem=s" => sub {
+                            $for_compiler->($_[0], $_[1]);
+                        },
                         "pg" => sub {
                             $for_compiler->($_[0], undef);
                             $for_linker->($_[0], undef);

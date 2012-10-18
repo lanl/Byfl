@@ -8,6 +8,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/BasicBlock.h"
 #include "llvm/Constants.h"
+#include "llvm/DataLayout.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Function.h"
 #include "llvm/GlobalValue.h"
@@ -17,7 +18,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetData.h"
 #include <vector>
 #include <set>
 
@@ -25,7 +25,6 @@ using namespace std;
 using namespace llvm;
 
 namespace {
-
   // Define a command-line option for outputting results at the end of
   // every basic block instead of only once at the end of the program.
   static cl::opt<bool>
@@ -87,6 +86,24 @@ namespace {
   TallyVectors("bf-vectors", cl::init(false), cl::NotHidden,
                cl::desc("Tally vector lengths and counts"));
 
+  // Define a command-line option for tracking reuse distance.
+  typedef enum {RD_LOADS, RD_STORES, RD_BOTH} ReuseDistType;
+  static cl::bits<ReuseDistType>
+  ReuseDist("bf-reuse-dist", cl::NotHidden, cl::CommaSeparated, cl::ValueOptional,
+	    cl::desc("Keep track of data reuse distance"),
+	    cl::values(clEnumValN(RD_LOADS,  "loads",  "Keep track of loads"),
+		       clEnumValN(RD_STORES, "stores", "Keep track of stores"),
+		       clEnumValN(RD_BOTH,   "",       "Keep track of both loads and stores"),
+		       clEnumValEnd));
+  unsigned int rd_bits = 0;    // Same as ReuseDist.getBits() but with RD_BOTH expanded
+
+  // Define a command-line option for pruning reuse distance.
+  static cl::opt<unsigned long long>
+  MaxReuseDist("bf-max-rdist", cl::init(~(unsigned long long)0 - 1),
+	       cl::NotHidden,
+               cl::desc("Treat addresses not touched after this many accesses as untouched"),
+               cl::value_desc("accesses"));
+
   // Define a pass over each basic block in the module.
   struct BytesFlops : public FunctionPass {
 
@@ -125,6 +142,7 @@ namespace {
     Function* take_mega_lock;    // Pointer to bf_acquire_mega_lock()
     Function* release_mega_lock; // Pointer to bf_release_mega_lock()
     Function* tally_vector;      // Pointer to bf_tally_vector_operation()
+    Function* reuse_dist_prog;   // Pointer to bf_reuse_dist_addrs_prog()
     StringMap<Constant*> func_name_to_arg;   // Map from a function name to an IR function argument
     set<string>* instrument_only;   // Set of functions to instrument; NULL=all
     set<string>* dont_instrument;   // Set of functions not to instrument; NULL=none
@@ -436,7 +454,7 @@ namespace {
         // Perform per-basic-block variable initialization.
         BasicBlock& bb = *func_iter;
         LLVMContext& bbctx = bb.getContext();
-        TargetData& target_data = getAnalysis<TargetData>();
+        DataLayout& target_data = getAnalysis<DataLayout>();
         BasicBlock::iterator terminator_inst = bb.end();
         terminator_inst--;
         int must_clear = 0;   // Keep track of which counters we need to clear.
@@ -471,21 +489,23 @@ namespace {
                 static_stores++;
               }
 
-            // If requested by the user, also insert a call to
-            // bf_assoc_addresses_with_prog() and perhaps
-            // bf_assoc_addresses_with_func().
-            if (TrackUniqueBytes) {
-              // Determine the starting address that was loaded or stored.
+	    // Determine the memory address that was loaded or stored.
+	    CastInst* mem_addr = NULL;
+	    if (TrackUniqueBytes || rd_bits > 0) {
               BasicBlock::iterator next_iter = iter;
               next_iter++;
               Value* mem_ptr =
                 opcode == Instruction::Load
                 ? cast<LoadInst>(inst).getPointerOperand()
                 : cast<StoreInst>(inst).getPointerOperand();
-              CastInst* mem_addr = new PtrToIntInst(mem_ptr,
-                                                    IntegerType::get(bbctx, 64),
-                                                    "", next_iter);
+              mem_addr = new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64),
+					  "", next_iter);
+	    }
 
+            // If requested by the user, also insert a call to
+            // bf_assoc_addresses_with_prog() and perhaps
+            // bf_assoc_addresses_with_func().
+            if (TrackUniqueBytes) {
               // Conditionally insert a call to bf_assoc_addresses_with_func().
               if (TallyByFunction) {
                 vector<Value*> arg_list;
@@ -495,13 +515,22 @@ namespace {
                 callinst_create(assoc_addrs_with_func, arg_list, terminator_inst);
               }
 
-              // Unconditionally insert a call to
-              // bf_assoc_addresses_with_prog().
+              // Unconditionally insert a call to bf_assoc_addresses_with_prog().
               vector<Value*> arg_list;
               arg_list.push_back(mem_addr);
               arg_list.push_back(num_bytes);
               callinst_create(assoc_addrs_with_prog, arg_list, terminator_inst);
             }
+
+	    // If requested by the user, also insert a call to
+	    // bf_reuse_dist_addrs_prog().
+	    if ((opcode == Instruction::Load && (rd_bits&(1<<RD_LOADS)) != 0)
+		|| (opcode == Instruction::Store && (rd_bits&(1<<RD_STORES)) != 0)) {
+	      vector<Value*> arg_list;
+	      arg_list.push_back(mem_addr);
+	      arg_list.push_back(num_bytes);
+	      callinst_create(reuse_dist_prog, arg_list, terminator_inst);
+	    }
           }
           else
             // The instruction isn't a load or a store.  See if it's a
@@ -551,7 +580,7 @@ namespace {
 
                 // If the user requested a count of *all* operations, not
                 // just floating-point operations, increment the operation
-                // counter and the operation bit counter.
+                // counter and the operation-bit counter.
                 if (TallyAllOps) {
                   increment_global_variable(iter, op_var, num_elts);
                   must_clear |= CLEAR_OPS;
@@ -732,9 +761,9 @@ namespace {
       }
     }
 
-    // Indicate that we need access to TargetData.
+    // Indicate that we need access to DataLayout.
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<TargetData>();
+      AU.addRequired<DataLayout>();
     }
 
   public:
@@ -818,6 +847,9 @@ namespace {
 
       // Assign a value to bf_vectors.
       create_global_constant(module, "bf_vectors", bool(TallyVectors));
+
+      // Assign a value to bf_max_reuse_dist.
+      create_global_constant(module, "bf_max_reuse_distance", uint64_t(MaxReuseDist));
 
       // Inject external declarations for
       // bf_initialize_if_necessary(), bf_push_basic_block(), and
@@ -933,6 +965,25 @@ namespace {
                              &module);
           assoc_addrs_with_func->setCallingConv(CallingConv::C);
         }
+      }
+
+      // Simplify ReuseDist.getBits() into rd_bits.
+      rd_bits = ReuseDist.getBits();
+      if ((rd_bits&(1<<RD_BOTH)) != 0)
+	rd_bits = (1<<RD_LOADS) | (1<<RD_STORES);
+
+      // Inject external declarations for bf_reuse_dist_addrs_prog().
+      if (rd_bits > 0) {
+        vector<Type*> all_function_args;
+        all_function_args.push_back(IntegerType::get(globctx, 64));
+        all_function_args.push_back(IntegerType::get(globctx, 64));
+        FunctionType* void_func_result =
+          FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+	reuse_dist_prog =
+          Function::Create(void_func_result, GlobalValue::ExternalLinkage,
+			   "_ZN10bytesflops24bf_reuse_dist_addrs_progEmm",
+                           &module);
+	reuse_dist_prog->setCallingConv(CallingConv::C);
       }
 
       // Inject external declarations for bf_acquire_mega_lock() and
