@@ -1460,14 +1460,19 @@ AC_SUBST(RDYNAMIC)
 
 dnl Prepare for a DragonEgg build of the Bytesflops
 dnl helper library.
+AC_ARG_VAR([LLVMCC], [LLVM-capable C compiler])
+AC_ARG_VAR([LLVMCXX], [LLVM-capable C++ compiler])
+AC_ARG_VAR([LLVMCC_EMITIR_FLAG], [Flags to make LLVMCC output LLVM IR])
+AC_ARG_VAR([DRAGONEGG], [Full path to DragonEgg plugin (i.e, dragonegg.so)])
 LLVMCC_EMITIR_FLAG=${LLVMCC_EMITIR_FLAG:-'-fplugin=$(DRAGONEGG) -fplugin-arg-dragonegg-emit-ir'}
-AC_SUBST(LLVMCC_EMITIR_FLAG)
-AC_PATH_PROG(LLVMCC, gcc, /usr/bin/gcc)
-AC_SUBST(LLVMCC)
-AC_PATH_PROG(LLVMCXX, g++, /usr/bin/g++)
-AC_SUBST(LLVMCXX)
+if test -z "$LLVMCC" ; then
+   AC_PATH_PROG(LLVMCC, gcc, /usr/bin/gcc)
+fi
+if test -z "$LLVMCXX" ; then
+   AC_PATH_PROG(LLVMCXX, g++, /usr/bin/g++)
+fi
 DRAGONEGG=${DRAGONEGG:-$LLVM_LIBDIR/dragonegg.so}
-AC_SUBST(DRAGONEGG)
+AC_ARG_VAR([LLVMCC_OPTION], [Either "gcc" or "clang" to categorize LLVMCC/LLVMCXX])
 LLVMCC_OPTION=${LLVMCC_OPTION:-gcc}
 AC_SUBST(LLVMCC_OPTION)
 AC_ARG_WITH(llvm-libdir,

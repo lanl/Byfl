@@ -46,6 +46,9 @@ public:
   iterator end() { return the_map->end(); }
   const_iterator end() const { return the_map->end(); }
 
+  // Ditto for the size() method.
+  size_t size() const { return the_map->size(); }
+
   // The find() method first checks the cache then falls back to the
   // unordered_map.
   iterator find (const Key& key) {
@@ -77,6 +80,29 @@ public:
       prev_iter[cache_size-1] = iter;
     }
     return iter;
+  }
+
+  // The erase() method erases the key:value pair from both the cache
+  // and the unordered_map.
+  size_t erase (const Key& key) {
+    // Linear-search the cache.
+    for (size_t i=0; i<cache_size; i++) {
+      if (compare_keys(key, prev_key[i])) {
+        // Hit -- bubble up.
+        if (i > 0) {
+          Key temp_key = prev_key[i-1];
+          typename umap_type::iterator temp_iter = prev_iter[i-1];
+          prev_key[i-1] = prev_key[i];
+          prev_iter[i-1] = prev_iter[i];
+          prev_key[i] = temp_key;
+          prev_iter[i] = temp_iter;
+        }
+        break;
+      }
+    }
+
+    // Remove the key:value pair from the unordered map.
+    return the_map->erase(key);
   }
 
   // operator[] uses find() to find or create a key:value pair.

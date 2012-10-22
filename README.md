@@ -95,7 +95,7 @@ Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc
 
 "Bits" are simply bytes*8.  "Flop bits" are the total number of bits in all inputs and outputs to each floating-point function.  As motivation, consider the operation `A = B + C`, where `A`, `B`, and `C` reside in memory.  This operation consumes 12 bytes per flop if the arguments are all single-precision but 24 bytes per flop if the arguments are all double-precision.  Similarly, `A = -B` consumes either 8 or 16 bytes per flop based on the argument type.  However, all of these examples consume one bit per flop bit regardless of numerical precision: every bit loaded or stored either enters or exits the floating-point unit.  Bit:flop-bit ratios above 1.0 imply that more memory is moved than fed into the floating-point unit; Bit:flop-bit ratios below 1.0 imply register reuse.
 
-The Byfl wrapper scripts accept a number of options to provide more information about your program at a cost of increased execution times.  The following can be specified either on the command line or within the `BYFL_OPTS` environment variable.  (The former takes precedence.)
+The Byfl wrapper scripts accept a number of options to provide more information about your program at a cost of increased execution times.  The following can be specified either on the command line or within the `BF_OPTS` environment variable.  (The former takes precedence.)
 
 <dl>
 <dt><code>-bf-all-ops</code></dt>
@@ -106,6 +106,9 @@ The Byfl wrapper scripts accept a number of options to provide more information 
 
 <dt><code>-bf-merge-bb=</code><i>number</i></dt>
 <dd>When used with <code>-bf-every-bb</code>, merge every <i>number</i> basic-block readings into a single line of output.  (I typically specify <code>-bf-merge-bb=1000000</code>.)
+
+<dt><code>-bf-vectors</code></dt>
+<dd>Report statistics on vector operations (element sizes and number of elements).  Unfortunately, at the time of this writing (July 2012), LLVM's autovectorizer is extremely limited and is unable to manipulate arbitrary-length vectors&mdash;even though the IR supports them.</dd>
 
 <dt><code>-bf-by-func</code></dt>
 <dd>Output counters for every function executed.</dd>
@@ -125,9 +128,14 @@ The Byfl wrapper scripts accept a number of options to provide more information 
 <dt><code>-bf-unique-bytes</code></dt>
 <dd>Keep track of <em>unique</em> memory locations accessed.  For example, if a program accesses 8 bytes at address <code>A</code>, then at <code>B</code>, thenat <code>A</code> again, Byfl will report this as 24 bytes but only 16 unique bytes.</dd>
 
-<dt><code>-bf-vectors</code></dt>
-<dd>Report statistics on vector operations (element sizes and number of elements).  Unfortunately, at the time of this writing (July 2012), LLVM's autovectorizer is extremely limited and is unable to manipulate arbitrary-length vectors&mdash;even though the IR supports them.</dd>
+<dt><code>-bf-reuse-dist</code></dt>
+<dd>Output the program's median reuse distance and the median absolute deviation of that.  Reuse distance is a measure of memory locality: the number of unique memory locations accessed  between successive accesses to the same location.  The median of this therefore represents the cache size (given a perfect, byte-accessible cache) for which 50% of memory accesses will hit in the cache.  (Unique bytes, described above, represents the 100% mark.)  Larger values imply the application is putting more pressure on the memory system.</dd>
+
+<dt><code>-bf-max-rdist</code></dt>
+<dd>Reduce <code>-bf-reuse-dist</code>'s memory requirements by periodically pruning reuse distances above the given length.  This option should be used with care because setting the maximum distance below the true distance may produce nonsensical results (e.g., infinite reuse distances).</dd>
 </dl>
+
+Almost all of the options listed above incur a cost in execution time and memory footprint.  `-bf-unique-bytes` is very slow and very memory-hungry: It performs a hash-table lookup and a bit-vector write -- and multiple of those if used with `-bf-by-func` -- for every byte read or written by the program.  `-bf-reuse-dist` is very, _very_ slow and very, _very_ memory-hungry: It reads and writes a hash table and inserts and deletes splay-tree nodes for every byte read or written by the program.  While Byfl slows down applications by less than 2x when specifying no options, it would not be unusual to observe a 5000x slowdown when specifying `-bf-reuse-dist`.
 
 The following represents some sample output from a code instrumented with Byfl and most of the preceding options:
 
@@ -165,12 +173,13 @@ The following represents some sample output from a code instrumented with Byfl a
     BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
     BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
     BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                         512                  256                    2                    1                   32                 6144                   35                 6336
+    600
+    BYFL_BB:                         512                    0                    2                    0                   32                 6144                   34                 6272
     BYFL_FUNC_HEADER:             Bytes_LD             Bytes_ST               Ops_LD               Ops_ST                Flops              FP_bits              Ops_ALU          Op_ALU_bits           Uniq_bytes             Cond_brs          Invocations Function
-    BYFL_FUNC:                         512                  768                    2                   65                   32                 6144                  675                72416                  768                   32                    1 main
+    BYFL_FUNC:                         512                  512                    2                   64                   32                 6144                  674                72352                  512                   32                    1 main
     BYFL_CALLEE_HEADER:   Invocations Byfl Function
-    BYFL_CALLEE:                    3 No   llvm.lifetime.end
-    BYFL_CALLEE:                    3 No   llvm.lifetime.start
+    BYFL_CALLEE:                    2 No   llvm.lifetime.end
+    BYFL_CALLEE:                    2 No   llvm.lifetime.start
     BYFL_CALLEE:                    1 No   __printf_chk
     BYFL_VECTOR_HEADER:             Elements             Elt_bits Type                Tally Function
     BYFL_VECTOR:                          32                   64 FP                      1 main
@@ -178,40 +187,41 @@ The following represents some sample output from a code instrumented with Byfl a
     BYFL_SUMMARY:                        34 basic blocks
     BYFL_SUMMARY:                        32 conditional or indirect branches
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                      1280 bytes (512 loaded + 768 stored)
-    BYFL_SUMMARY:                       768 unique bytes
+    BYFL_SUMMARY:                      1024 bytes (512 loaded + 512 stored)
+    BYFL_SUMMARY:                       512 unique bytes
     BYFL_SUMMARY:                        32 flops
-    BYFL_SUMMARY:                       675 ALU ops
-    BYFL_SUMMARY:                        67 memory ops (2 loads + 65 stores)
+    BYFL_SUMMARY:                       674 ALU ops
+    BYFL_SUMMARY:                        66 memory ops (2 loads + 64 stores)
+    BYFL_SUMMARY:                       511 median reuse distance (+/- 0)
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                     10240 bits (4096 loaded + 6144 stored)
-    BYFL_SUMMARY:                      6144 unique bits
+    BYFL_SUMMARY:                      8192 bits (4096 loaded + 4096 stored)
+    BYFL_SUMMARY:                      4096 unique bits
     BYFL_SUMMARY:                      6144 flop bits
-    BYFL_SUMMARY:                     72416 ALU op bits
+    BYFL_SUMMARY:                     72352 ALU op bits
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                         1 vector operations
     BYFL_SUMMARY:                   32.0000 elements per vector
-    BYFL_SUMMARY:                   64.0000 bits per elements
+    BYFL_SUMMARY:                   64.0000 bits per element
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                    0.6667 bytes loaded per byte stored
-    BYFL_SUMMARY:                  337.5000 ALU ops per load instruction
-    BYFL_SUMMARY:                  152.8358 bits loaded/stored per memory op
+    BYFL_SUMMARY:                    1.0000 bytes loaded per byte stored
+    BYFL_SUMMARY:                  337.0000 ALU ops per load instruction
+    BYFL_SUMMARY:                  124.1212 bits loaded/stored per memory op
     BYFL_SUMMARY:                    1.0000 flops per conditional/indirect branch
-    BYFL_SUMMARY:                   21.0938 ops per conditional/indirect branch
+    BYFL_SUMMARY:                   21.0625 ops per conditional/indirect branch
     BYFL_SUMMARY:                    0.0312 vector ops per conditional/indirect branch
     BYFL_SUMMARY:                    0.0312 vector operations (FP & int) per flop
     BYFL_SUMMARY:                    0.0015 vector operations per ALU op
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                   40.0000 bytes per flop
-    BYFL_SUMMARY:                    1.6667 bits per flop bit
-    BYFL_SUMMARY:                    1.8963 bytes per ALU op
-    BYFL_SUMMARY:                    0.1414 bits per ALU op bit
+    BYFL_SUMMARY:                   32.0000 bytes per flop
+    BYFL_SUMMARY:                    1.3333 bits per flop bit
+    BYFL_SUMMARY:                    1.5193 bytes per ALU op
+    BYFL_SUMMARY:                    0.1132 bits per ALU op bit
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                   24.0000 unique bytes per flop
-    BYFL_SUMMARY:                    1.0000 unique bits per flop bit
-    BYFL_SUMMARY:                    1.1378 unique bytes per ALU op
-    BYFL_SUMMARY:                    0.0848 unique bits per ALU op bit
-    BYFL_SUMMARY:                    1.6667 bytes per unique byte
+    BYFL_SUMMARY:                   16.0000 unique bytes per flop
+    BYFL_SUMMARY:                    0.6667 unique bits per flop bit
+    BYFL_SUMMARY:                    0.7596 unique bytes per ALU op
+    BYFL_SUMMARY:                    0.0566 unique bits per ALU op bit
+    BYFL_SUMMARY:                    2.0000 bytes per unique byte
     BYFL_SUMMARY: -----------------------------------------------------------------
 
 The Byfl options listed above are accepted directly by the Byfl compiler pass.  In addition, the Byfl wrapper scripts (but not the compiler pass) accept the following options:

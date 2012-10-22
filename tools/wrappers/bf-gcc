@@ -377,6 +377,17 @@ if (defined $build_type{"link"}) {
         if (defined $gen_o) {
             push @llvm_ld_inputs, $gen_o;
         }
+        elsif ($fname =~ /\.a$/) {
+            my $bcafile = convert_archive_file $fname;
+            if ($bcafile =~ /\.bc$/) {
+                # Instrumented library
+                push @llvm_ld_inputs, $bcafile;
+            }
+            else {
+                # Uninstrumented library
+                push @llvm_ld_options, $fname;
+            }
+        }
         else {
             push @llvm_ld_inputs, $fname;
         }

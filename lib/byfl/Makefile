@@ -17,7 +17,7 @@ LEVEL=../..
 #
 LIBRARYNAME = byfl
 BYTECODE_LIBRARY = 1
-SOURCES = byfl.cpp ubytes.cpp symtable.cpp threading.cpp vectors.cpp
+SOURCES = byfl.cpp reuse-dist.cpp symtable.cpp threading.cpp ubytes.cpp vectors.cpp
 EXTRA_DIST = cachemap.h
 
 #
