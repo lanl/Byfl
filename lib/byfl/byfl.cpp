@@ -3,6 +3,7 @@
  * (core functions)
  *
  * By Scott Pakin <pakin@lanl.gov>
+ *    Pat McCormick <pat@lanl.gov>
  */
 
 #include <iostream>
@@ -13,11 +14,15 @@
 #include <algorithm>
 #include <stdio.h>
 #include <string.h>
+#include <locale>
+
 #include "cachemap.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
 using namespace std;
+
+const unsigned int HDR_COL_WIDTH = 20;
 
 // Define the different ways a basic block can terminate.
 typedef enum {
@@ -30,73 +35,191 @@ typedef enum {
 // Encapsulate of all of our counters into a single structure.
 class ByteFlopCounters {
 public:
-  uint64_t loads;           // Number of bytes loaded
-  uint64_t stores;          // Number of bytes stored
-  uint64_t load_ins;        // Number of load instructions executed
-  uint64_t store_ins;       // Number of store instructions executed
-  uint64_t flops;           // Number of floating-point operations performed
-  uint64_t fp_bits;         // Number of bits consumed or produced by all FP operations
-  uint64_t ops;             // Number of operations of any type performed
-  uint64_t op_bits;         // Number of bits consumed or produced by any operation
-  uint64_t cond_brs;        // Number of conditional branches performed
-  uint64_t b_blocks;        // Number of basic blocks executed
+  uint64_t loads;                // Number of bytes loaded
+  uint64_t stores;               // Number of bytes stored
+
+  // TODO: We might want to gahter type counters into an array-based
+  // set of counters to clean the code up a bit... 
+  uint64_t load_ins;             // Number of load instructions executed
+  uint64_t load_float_ins;       // Number of single-precision floating point load "instructions" 
+  uint64_t load_double_ins;      // Number of double-precision floating point load "instructions" 
+  uint64_t load_int8_ins;        // Number of 8-bit integer load "instructions"
+  uint64_t load_int16_ins;       // Number of 16-bit integer load "instructions"
+  uint64_t load_int32_ins;       // Number of 32-bit integer load "instructions"
+  uint64_t load_int64_ins;       // Number of 64-bit integer load "instructions"
+  uint64_t load_ptr_ins;         // Number of pointer load "instructions"
+  uint64_t load_other_type_ins;  // Number of "other" data types load "instructions"
+
+  uint64_t store_ins;            // Number of store instructions executed
+  uint64_t store_float_ins;      // Number of single-precision floating point store "instructions" 
+  uint64_t store_double_ins;     // Number of double-precision floating point store "instructions" 
+  uint64_t store_int8_ins;       // Number of 8-bit integer store "instructions"
+  uint64_t store_int16_ins;      // Number of 16-bit integer store "instructions"
+  uint64_t store_int32_ins;      // Number of 32-bit integer store "instructions"
+  uint64_t store_int64_ins;      // Number of 64-bit integer store "instructions"
+  uint64_t store_ptr_ins;        // Number of pointer store "instructions"
+  uint64_t store_other_type_ins; // Number of "other" data types store "instructions"
+
+  uint64_t flops;                // Number of floating-point operations performed
+  uint64_t fp_bits;              // Number of bits consumed or produced by all FP operations
+  uint64_t ops;                  // Number of operations of any type performed
+  uint64_t op_bits;              // Number of bits consumed or produced by any operation
+  uint64_t cond_brs;             // Number of conditional branches performed
+  uint64_t b_blocks;             // Number of basic blocks executed
 
   // Initialize all of the counters.
-  ByteFlopCounters (uint64_t initial_loads=0,    uint64_t initial_stores=0,
-                    uint64_t initial_load_ins=0, uint64_t initial_store_ins=0,
-                    uint64_t initial_flops=0,    uint64_t initial_fp_bits=0,
-                    uint64_t initial_ops=0,      uint64_t initial_op_bits=0,
-                    uint64_t initial_cbrs=0,     uint64_t initial_b_blocks=0) {
-    loads = initial_loads;
-    stores = initial_stores;
-    load_ins = initial_load_ins;
-    store_ins = initial_store_ins;
-    flops = initial_flops;
-    fp_bits = initial_fp_bits;
-    ops = initial_ops;
-    op_bits = initial_op_bits;
-    cond_brs = initial_cbrs;
-    b_blocks = initial_b_blocks;
+  ByteFlopCounters (uint64_t initial_loads=0,            uint64_t initial_stores=0,
+                    uint64_t initial_load_ins=0, 
+		    uint64_t initial_load_float_ins=0,   uint64_t initial_load_double_ins=0,
+		    uint64_t initial_load_int8_ins=0,    uint64_t initial_load_int16_ins=0, 
+		    uint64_t initial_load_int32_ins=0,   uint64_t initial_load_int64_ins=0, 
+		    uint64_t initial_load_ptr_ins=0,     uint64_t initial_load_other_type_ins=0, 
+		    uint64_t initial_store_ins=0, 
+		    uint64_t initial_store_float_ins=0,  uint64_t initial_store_double_ins=0,
+		    uint64_t initial_store_int8_ins=0,   uint64_t initial_store_int16_ins=0, 
+		    uint64_t initial_store_int32_ins=0,  uint64_t initial_store_int64_ins=0, 
+		    uint64_t initial_store_ptr_ins=0,    uint64_t initial_store_other_type_ins=0, 
+                    uint64_t initial_flops=0,            uint64_t initial_fp_bits=0,
+                    uint64_t initial_ops=0,              uint64_t initial_op_bits=0,
+                    uint64_t initial_cbrs=0,             uint64_t initial_b_blocks=0) {
+
+    loads                = initial_loads;
+    stores               = initial_stores;
+
+    load_ins             = initial_load_ins;
+    load_float_ins       = initial_load_float_ins;
+    load_double_ins      = initial_load_double_ins;
+    load_int8_ins        = initial_load_int8_ins;
+    load_int16_ins       = initial_load_int16_ins;
+    load_int32_ins       = initial_load_int32_ins;
+    load_int64_ins       = initial_load_int64_ins;
+    load_ptr_ins         = initial_load_ptr_ins;
+    load_other_type_ins  = initial_load_other_type_ins;
+
+    store_ins            = initial_store_ins;
+    store_float_ins      = initial_store_float_ins;
+    store_double_ins     = initial_store_double_ins;
+    store_int8_ins       = initial_store_int8_ins;
+    store_int16_ins      = initial_store_int16_ins;
+    store_int32_ins      = initial_store_int32_ins;
+    store_int64_ins      = initial_store_int64_ins;
+    store_ptr_ins        = initial_store_ptr_ins;
+    store_other_type_ins = initial_store_other_type_ins;
+
+    flops                = initial_flops;
+    fp_bits              = initial_fp_bits;
+    ops                  = initial_ops;
+    op_bits              = initial_op_bits;
+    cond_brs             = initial_cbrs;
+    b_blocks             = initial_b_blocks;
   }
 
   // Accumulate new values into our counters.
-  void accumulate (uint64_t more_loads,    uint64_t more_stores,
-                   uint64_t more_load_ins, uint64_t more_store_ins,
-                   uint64_t more_flops,    uint64_t more_fp_bits,
-                   uint64_t more_ops,      uint64_t more_op_bits,
-                   uint64_t more_cbrs,     uint64_t more_b_blocks) {
+  void accumulate (uint64_t more_loads,            uint64_t more_stores,
+                   uint64_t more_load_ins, 
+		   uint64_t more_load_float_ins,   uint64_t more_load_double_ins,
+		   uint64_t more_load_int8_ins,    uint64_t more_load_int16_ins, 
+		   uint64_t more_load_int32_ins,   uint64_t more_load_int64_ins, 
+		   uint64_t more_load_ptr_ins,     uint64_t more_load_other_type_ins, 
+		   uint64_t more_store_ins,
+		   uint64_t more_store_float_ins,  uint64_t more_store_double_ins,
+		   uint64_t more_store_int8_ins,   uint64_t more_store_int16_ins, 
+		   uint64_t more_store_int32_ins,  uint64_t more_store_int64_ins, 
+		   uint64_t more_store_ptr_ins,    uint64_t more_store_other_type_ins, 
+                   uint64_t more_flops,            uint64_t more_fp_bits,
+                   uint64_t more_ops,              uint64_t more_op_bits,
+                   uint64_t more_cbrs,             uint64_t more_b_blocks) {
+
     loads += more_loads;
     stores += more_stores;
-    load_ins += more_load_ins;
-    store_ins += more_store_ins;
-    flops += more_flops;
-    fp_bits += more_fp_bits;
-    ops += more_ops;
-    op_bits += more_op_bits;
-    cond_brs += more_cbrs;
-    b_blocks += more_b_blocks;
+
+    load_ins             += more_load_ins;
+    load_float_ins       += more_load_float_ins;
+    load_double_ins      += more_load_double_ins;
+    load_int8_ins        += more_load_int8_ins;
+    load_int16_ins       += more_load_int16_ins;
+    load_int32_ins       += more_load_int32_ins;
+    load_int64_ins       += more_load_int64_ins;
+    load_ptr_ins         += more_load_ptr_ins;
+    load_other_type_ins  += more_load_other_type_ins;
+
+    store_ins            += more_store_ins;
+    store_float_ins      += more_store_float_ins;
+    store_double_ins     += more_store_double_ins;
+    store_int8_ins       += more_store_int8_ins;
+    store_int16_ins      += more_store_int16_ins;
+    store_int32_ins      += more_store_int32_ins;
+    store_int64_ins      += more_store_int64_ins;
+    store_ptr_ins        += more_store_ptr_ins;
+    store_other_type_ins += more_store_other_type_ins;
+
+    flops                += more_flops;
+    fp_bits              += more_fp_bits;
+    ops                  += more_ops;
+    op_bits              += more_op_bits;
+    cond_brs             += more_cbrs;
+    b_blocks             += more_b_blocks;
   }
 
   // Accumulate another counter's values into our counters.
   void accumulate (ByteFlopCounters* other) {
-    loads += other->loads;
-    stores += other->stores;
-    load_ins += other->load_ins;
-    store_ins += other->store_ins;
-    flops += other->flops;
-    fp_bits += other->fp_bits;
-    ops += other->ops;
-    op_bits += other->op_bits;
-    cond_brs += other->cond_brs;
-    b_blocks += other->b_blocks;
+
+    loads                += other->loads;
+    stores               += other->stores;
+
+    load_ins             += other->load_ins;
+    load_float_ins       += other->load_float_ins;
+    load_double_ins      += other->load_double_ins;
+    load_int8_ins        += other->load_int8_ins;
+    load_int16_ins       += other->load_int16_ins;
+    load_int32_ins       += other->load_int32_ins;
+    load_int64_ins       += other->load_int64_ins;
+    load_ptr_ins         += other->load_ptr_ins;
+    load_other_type_ins  += other->load_other_type_ins;
+
+    store_ins            += other->store_ins;
+    store_float_ins      += other->store_float_ins;
+    store_double_ins     += other->store_double_ins;
+    store_int8_ins       += other->store_int8_ins;
+    store_int16_ins      += other->store_int16_ins;
+    store_int32_ins      += other->store_int32_ins;
+    store_int64_ins      += other->store_int64_ins;
+    store_ptr_ins        += other->store_ptr_ins;
+    store_other_type_ins += other->store_other_type_ins;
+
+    flops                += other->flops;
+    fp_bits              += other->fp_bits;
+    ops                  += other->ops;
+    op_bits              += other->op_bits;
+    cond_brs             += other->cond_brs;
+    b_blocks             += other->b_blocks;
   }
 
   // Return the difference of our counters and another set of counters.
   ByteFlopCounters* difference (ByteFlopCounters* other) {
     return new ByteFlopCounters(loads - other->loads,
                                 stores - other->stores,
+
                                 load_ins - other->load_ins,
+				load_float_ins - other->load_float_ins, 
+				load_double_ins - other->load_double_ins,
+				load_int8_ins - other->load_int8_ins,
+				load_int16_ins - other->load_int16_ins,
+				load_int32_ins - other->load_int32_ins,
+				load_int64_ins - other->load_int64_ins,
+				load_ptr_ins - other->load_ptr_ins,
+				load_other_type_ins - other->load_other_type_ins,
+
                                 store_ins - other->store_ins,
+				store_float_ins - other->store_float_ins,
+                                store_double_ins - other->store_double_ins,
+                                store_int8_ins - other->store_int8_ins,
+				store_int16_ins - other->store_int16_ins,
+				store_int32_ins - other->store_int32_ins,
+				store_int64_ins - other->store_int64_ins,
+				store_ptr_ins - other->store_ptr_ins,
+				store_other_type_ins - other->store_other_type_ins,
+
                                 flops - other->flops,
                                 fp_bits - other->fp_bits,
                                 ops - other->ops,
@@ -107,28 +230,67 @@ public:
 
   // Reset all of our counters to zero.
   void reset (void) {
-    loads = 0;
-    stores = 0;
-    load_ins = 0;
-    store_ins = 0;
-    flops = 0;
-    fp_bits = 0;
-    ops = 0;
-    op_bits = 0;
-    cond_brs = 0;
-    b_blocks = 0;
+    loads                = 0;
+    stores               = 0;
+
+    load_ins             = 0;
+    load_float_ins       = 0;
+    load_double_ins      = 0;
+    load_int8_ins        = 0;
+    load_int16_ins       = 0;
+    load_int32_ins       = 0;
+    load_int64_ins       = 0;
+    load_ptr_ins         = 0;
+    load_other_type_ins  = 0;
+
+    store_ins            = 0;
+    store_float_ins      = 0;
+    store_double_ins     = 0;
+    store_int8_ins       = 0;
+    store_int16_ins      = 0;
+    store_int32_ins      = 0;
+    store_int64_ins      = 0;
+    store_ptr_ins        = 0;
+    store_other_type_ins = 0;
+
+    flops                = 0;
+    fp_bits              = 0;
+    ops                  = 0;
+    op_bits              = 0;
+    cond_brs             = 0;
+    b_blocks             = 0;
  }
+
 };
 
 // The following values get reset at the end of every basic block.
-__thread uint64_t bf_load_count = 0;    // Tally of the number of bytes loaded
-__thread uint64_t bf_store_count = 0;   // Tally of the number of bytes stored
-__thread uint64_t bf_load_ins_count = 0;    // Tally of the number of load instructions performed
-__thread uint64_t bf_store_ins_count = 0;   // Tally of the number of store instructions performed
-__thread uint64_t bf_flop_count = 0;    // Tally of the number of FP operations performed
-__thread uint64_t bf_fp_bits_count = 0; // Tally of the number of bits used by all FP operations
-__thread uint64_t bf_op_count = 0;      // Tally of the number of operations performed
-__thread uint64_t bf_op_bits_count = 0; // Tally of the number of bits used by all operations
+__thread uint64_t bf_load_count                 = 0;   // Tally of the number of bytes loaded
+__thread uint64_t bf_store_count                = 0;   // Tally of the number of bytes stored
+
+__thread uint64_t bf_load_ins_count             = 0;   // Tally of the number of load instructions performed
+__thread uint64_t bf_load_float_ins_count       = 0;   // Tally of the number of single-precision load instructions performed
+__thread uint64_t bf_load_double_ins_count      = 0;   // Tally of the number of double-precision load instructions performed
+__thread uint64_t bf_load_int8_ins_count        = 0;   // Tally of the number of int8 load instructions performed
+__thread uint64_t bf_load_int16_ins_count       = 0;   // Tally of the number of int16 load instructions performed
+__thread uint64_t bf_load_int32_ins_count       = 0;   // Tally of the number of int32 load instructions performed
+__thread uint64_t bf_load_int64_ins_count       = 0;   // Tally of the number of int64 load instructions performed
+__thread uint64_t bf_load_ptr_ins_count         = 0;   // Tally of the number of pointer load instructions performed
+__thread uint64_t bf_load_other_type_ins_count  = 0;   // Tally of the number of other type load instructions performed
+
+__thread uint64_t bf_store_ins_count            = 0;   // Tally of the number of store instructions performed
+__thread uint64_t bf_store_float_ins_count      = 0;   // Tally of the number of single-precision store instructions performed
+__thread uint64_t bf_store_double_ins_count     = 0;   // Tally of the number of double-precision store instructions performed
+__thread uint64_t bf_store_int8_ins_count       = 0;   // Tally of the number of int8 store instructions performed
+__thread uint64_t bf_store_int16_ins_count      = 0;   // Tally of the number of int16 store instructions performed
+__thread uint64_t bf_store_int32_ins_count      = 0;   // Tally of the number of int32 store instructions performed
+__thread uint64_t bf_store_int64_ins_count      = 0;   // Tally of the number of int64 store instructions performed
+__thread uint64_t bf_store_ptr_ins_count        = 0;   // Tally of the number of pointer store instructions performed
+__thread uint64_t bf_store_other_type_ins_count = 0;   // Tally of the number of other type store instructions performed                   
+
+__thread uint64_t bf_flop_count                 = 0;   // Tally of the number of FP operations performed
+__thread uint64_t bf_fp_bits_count              = 0;   // Tally of the number of bits used by all FP operations
+__thread uint64_t bf_op_count                   = 0;   // Tally of the number of operations performed
+__thread uint64_t bf_op_bits_count              = 0;   // Tally of the number of bits used by all operations
 
 // The following values represent more persistent counter and other state.
 static uint64_t num_merged = 0;    // Number of basic blocks merged so far
@@ -172,12 +334,13 @@ const char* bf_categorize_counters (void)
 }
 
 // The following constants are defined by the instrumented code.
-extern uint64_t bf_bb_merge;  // Number of basic blocks to merge to compress the output
-extern uint8_t bf_all_ops;    // 1=bf_op_count and bf_op_bits_count are valid
-extern uint8_t bf_per_func;   // 1=Tally and output per-function data
-extern uint8_t bf_call_stack; // 1=Maintain a function call stack
-extern uint8_t bf_unique_bytes;   // 1=Tally and output unique bytes
-extern uint8_t bf_vectors;    // 1=Bin then output vector characteristics
+extern uint64_t bf_bb_merge;    // Number of basic blocks to merge to compress the output
+extern uint8_t bf_all_ops;      // 1=bf_op_count and bf_op_bits_count are valid
+extern uint8_t bf_types;        // 1=enables bf_all_ops and count loads/stores per type 
+extern uint8_t bf_per_func;     // 1=Tally and output per-function data
+extern uint8_t bf_call_stack;   // 1=Maintain a function call stack
+extern uint8_t bf_unique_bytes; // 1=Tally and output unique bytes
+extern uint8_t bf_vectors;      // 1=Bin then output vector characteristics
 
 namespace bytesflops {
 
@@ -426,7 +589,26 @@ void bf_accumulate_bb_tallies (bb_end_t end_of_basic_block)
   // Add the current values to the per-BB totals.
   ByteFlopCounters* current_bb = bb_totals().back();
   current_bb->accumulate(bf_load_count, bf_store_count,
-                         bf_load_ins_count, bf_store_ins_count,
+                         bf_load_ins_count, 
+			 bf_load_float_ins_count, 
+			 bf_load_double_ins_count,
+			 bf_load_int8_ins_count,
+			 bf_load_int16_ins_count,
+			 bf_load_int32_ins_count,
+			 bf_load_int64_ins_count,
+			 bf_load_ptr_ins_count, 
+			 bf_load_other_type_ins_count, 
+
+			 bf_store_ins_count,
+                         bf_store_float_ins_count,
+                         bf_store_double_ins_count,
+                         bf_store_int8_ins_count,
+                         bf_store_int16_ins_count,
+                         bf_store_int32_ins_count,
+                         bf_store_int64_ins_count,
+			 bf_store_ptr_ins_count, 
+			 bf_store_other_type_ins_count, 
+
                          bf_flop_count, bf_fp_bits_count,
                          bf_op_count, bf_op_bits_count,
                          uint64_t(end_of_basic_block == BB_END_COND),
@@ -466,16 +648,36 @@ void bf_report_bb_tallies (void)
   // If this is our first invocation, output a basic-block header line.
   if (__builtin_expect(!showed_header, 0)) {
     cout << "BYFL_BB_HEADER: "
-         << setw(20) << "Bytes_LD" << ' '
-         << setw(20) << "Bytes_ST" << ' '
-         << setw(20) << "Ops_LD" << ' '
-         << setw(20) << "Ops_ST" << ' '
-         << setw(20) << "Flops" << ' '
-         << setw(20) << "FP_bits";
-    if (bf_all_ops)
+         << setw(HDR_COL_WIDTH) << "Bytes_LD" << ' '
+         << setw(HDR_COL_WIDTH) << "Bytes_ST" << ' '
+         << setw(HDR_COL_WIDTH) << "Ops_LD" << ' '
+         << setw(HDR_COL_WIDTH) << "Ops_ST" << ' '
+         << setw(HDR_COL_WIDTH) << "Flops" << ' '
+         << setw(HDR_COL_WIDTH) << "FP_bits";
+    if (bf_all_ops) {
       cout << ' '
-           << setw(20) << "Ops_ALU" << ' '
-           << setw(20) << "Op_ALU_bits";
+           << setw(HDR_COL_WIDTH) << "Int_Ops" << ' '
+           << setw(HDR_COL_WIDTH) << "Int_Op_bits";
+      if (bf_types) {
+	cout << ' ' 
+	     << setw(HDR_COL_WIDTH) << "Flt_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "Dbl_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "I8_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "I16_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "I32_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "I64_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "Ptr_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "Other_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "Flt_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "Dbl_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "I8_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "I16_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "I32_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "I64_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "Ptr_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "Other_ST";
+      }
+    }
     cout << '\n';
     showed_header = true;
   }
@@ -487,16 +689,36 @@ void bf_report_bb_tallies (void)
     // our previously saved values.
     ByteFlopCounters* counter_deltas = global_totals.difference(&prev_global_totals);
     cout << "BYFL_BB:        "
-         << setw(20) << counter_deltas->loads << ' '
-         << setw(20) << counter_deltas->stores << ' '
-         << setw(20) << counter_deltas->load_ins << ' '
-         << setw(20) << counter_deltas->store_ins << ' '
-         << setw(20) << counter_deltas->flops << ' '
-         << setw(20) << counter_deltas->fp_bits;
-    if (bf_all_ops)
+         << setw(HDR_COL_WIDTH) << counter_deltas->loads << ' '
+         << setw(HDR_COL_WIDTH) << counter_deltas->stores << ' '
+         << setw(HDR_COL_WIDTH) << counter_deltas->load_ins << ' '
+         << setw(HDR_COL_WIDTH) << counter_deltas->store_ins << ' '
+         << setw(HDR_COL_WIDTH) << counter_deltas->flops << ' '
+         << setw(HDR_COL_WIDTH) << counter_deltas->fp_bits;
+    if (bf_all_ops) {
       cout << ' '
-           << setw(20) << counter_deltas->ops << ' '
-           << setw(20) << counter_deltas->op_bits;
+           << setw(HDR_COL_WIDTH) << counter_deltas->ops << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas->op_bits;
+      if (bf_types) {
+	cout << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->load_float_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->load_double_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->load_int8_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->load_int16_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->load_int32_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->load_int64_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->load_ptr_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->load_other_type_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->store_float_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->store_double_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->store_int8_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->store_int16_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->store_int32_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->store_int64_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->store_ptr_ins << ' '
+	     << setw(HDR_COL_WIDTH) << counter_deltas->store_other_type_ins;
+      }
+    }
     cout << '\n';
     num_merged = 0;
     prev_global_totals = global_totals;
@@ -518,20 +740,43 @@ void bf_assoc_counters_with_func (const char* funcname, bb_end_t end_of_basic_bl
   if (sm_iter == per_func_totals().end())
     // This is the first time we've seen this function name.
     per_func_totals()[funcname] =
-      new ByteFlopCounters(bf_load_count, bf_store_count,
-                           bf_load_ins_count, bf_store_ins_count,
-                           bf_flop_count, bf_fp_bits_count,
-                           bf_op_count, bf_op_bits_count,
+      new ByteFlopCounters(bf_load_count,             bf_store_count,
+
+                           bf_load_ins_count, 
+			   bf_load_float_ins_count,   bf_load_double_ins_count,
+			   bf_load_int8_ins_count,    bf_load_int16_ins_count,
+			   bf_load_int32_ins_count,   bf_load_int64_ins_count,
+			   bf_load_ptr_ins_count,     bf_load_other_type_ins_count,
+
+			   bf_store_ins_count,
+			   bf_store_float_ins_count,  bf_store_double_ins_count,
+			   bf_store_int8_ins_count,   bf_store_int16_ins_count,
+			   bf_store_int32_ins_count,  bf_store_int64_ins_count,
+			   bf_store_ptr_ins_count,    bf_store_other_type_ins_count,
+
+                           bf_flop_count,             bf_fp_bits_count,
+                           bf_op_count,               bf_op_bits_count,
                            uint64_t(end_of_basic_block == BB_END_COND),
                            uint64_t(end_of_basic_block != BB_NOT_END));
   else {
     // Accumulate the current counter values into those associated
     // with an existing function name.
     ByteFlopCounters* func_counters = sm_iter->second;
-    func_counters->accumulate(bf_load_count, bf_store_count,
-                              bf_load_ins_count, bf_store_ins_count,
-                              bf_flop_count, bf_fp_bits_count,
-                              bf_op_count, bf_op_bits_count,
+    func_counters->accumulate(bf_load_count,             bf_store_count,
+                              bf_load_ins_count, 
+			      bf_load_float_ins_count,   bf_load_double_ins_count,
+			      bf_load_int8_ins_count,    bf_load_int16_ins_count,
+			      bf_load_int32_ins_count,   bf_load_int64_ins_count,
+			      bf_load_ptr_ins_count,     bf_load_other_type_ins_count,
+
+			      bf_store_ins_count,
+			      bf_store_float_ins_count,  bf_store_double_ins_count,
+			      bf_store_int8_ins_count,   bf_store_int16_ins_count,
+			      bf_store_int32_ins_count,  bf_store_int64_ins_count,
+			      bf_store_ptr_ins_count,    bf_store_other_type_ins_count,
+
+                              bf_flop_count,             bf_fp_bits_count,
+                              bf_op_count,               bf_op_bits_count,
                               uint64_t(end_of_basic_block == BB_END_COND),
                               uint64_t(end_of_basic_block != BB_NOT_END));
   }
@@ -563,22 +808,42 @@ private:
   void report_by_function (void) {
     // Output a header line.
     cout << "BYFL_FUNC_HEADER: "
-         << setw(20) << "Bytes_LD" << ' '
-         << setw(20) << "Bytes_ST" << ' '
-         << setw(20) << "Ops_LD" << ' '
-         << setw(20) << "Ops_ST" << ' '
-         << setw(20) << "Flops" << ' '
-         << setw(20) << "FP_bits";
-    if (bf_all_ops)
+         << setw(HDR_COL_WIDTH) << "Bytes_LD" << ' '
+         << setw(HDR_COL_WIDTH) << "Bytes_ST" << ' '
+         << setw(HDR_COL_WIDTH) << "Ops_LD" << ' '
+         << setw(HDR_COL_WIDTH) << "Ops_ST" << ' '
+         << setw(HDR_COL_WIDTH) << "Flops" << ' '
+         << setw(HDR_COL_WIDTH) << "FP_bits";
+    if (bf_all_ops) {
       cout << ' '
-           << setw(20) << "Ops_ALU" << ' '
-           << setw(20) << "Op_ALU_bits";
+           << setw(HDR_COL_WIDTH) << "Int_Ops" << ' '
+           << setw(HDR_COL_WIDTH) << "Int_Op_bits";
+      if (bf_types) {
+	cout << ' ' 
+	     << setw(HDR_COL_WIDTH) << "Flt_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "Dbl_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "I8_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "I16_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "I32_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "I64_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "Ptr_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "Other_LD" << ' '
+	     << setw(HDR_COL_WIDTH) << "Flt_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "Dbl_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "I8_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "I16_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "I32_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "I64_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "Ptr_ST" << ' '
+	     << setw(HDR_COL_WIDTH) << "Other_ST";
+      }
+    }
     if (bf_unique_bytes)
       cout << ' '
-           << setw(20) << "Uniq_bytes";
+           << setw(HDR_COL_WIDTH) << "Uniq_bytes";
     cout << ' '
-         << setw(20) << "Cond_brs" << ' '
-         << setw(20) << "Invocations" << ' '
+         << setw(HDR_COL_WIDTH) << "Cond_brs" << ' '
+         << setw(HDR_COL_WIDTH) << "Invocations" << ' '
          << "Function";
     if (bf_call_stack)
       for (size_t i=0; i<call_stack->max_depth-1; i++)
@@ -595,22 +860,43 @@ private:
       const char* funcname_c = bf_string_to_symbol(funcname.c_str());
       ByteFlopCounters* func_counters = per_func_totals()[funcname_c];
       cout << "BYFL_FUNC:        "
-           << setw(20) << func_counters->loads << ' '
-           << setw(20) << func_counters->stores << ' '
-           << setw(20) << func_counters->load_ins << ' '
-           << setw(20) << func_counters->store_ins << ' '
-           << setw(20) << func_counters->flops << ' '
-           << setw(20) << func_counters->fp_bits;
-      if (bf_all_ops)
+           << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
+           << setw(HDR_COL_WIDTH) << func_counters->stores << ' '
+           << setw(HDR_COL_WIDTH) << func_counters->load_ins << ' '
+           << setw(HDR_COL_WIDTH) << func_counters->store_ins << ' '
+           << setw(HDR_COL_WIDTH) << func_counters->flops << ' '
+           << setw(HDR_COL_WIDTH) << func_counters->fp_bits;
+      if (bf_all_ops) {
         cout << ' '
-             << setw(20) << func_counters->ops << ' '
-             << setw(20) << func_counters->op_bits;
+             << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->op_bits;
+
+	if (bf_types) { 
+	cout << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->load_float_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->load_double_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->load_int8_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->load_int16_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->load_int32_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->load_int64_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->load_ptr_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->load_other_type_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->store_float_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->store_double_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->store_int8_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->store_int16_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->store_int32_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->store_int64_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->store_ptr_ins << ' '
+	     << setw(HDR_COL_WIDTH) << func_counters->store_other_type_ins;
+	}
+      }
       if (bf_unique_bytes)
         cout << ' '
-             << setw(20) << bf_tally_unique_addresses(funcname_c);
+             << setw(HDR_COL_WIDTH) << bf_tally_unique_addresses(funcname_c);
       cout << ' '
-           << setw(20) << func_counters->cond_brs << ' '
-           << setw(20) << func_call_tallies()[funcname_c] << ' '
+           << setw(HDR_COL_WIDTH) << func_counters->cond_brs << ' '
+           << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
            << funcname_c << '\n';
     }
     delete all_func_names;
@@ -642,7 +928,7 @@ private:
       }
       if (tally > 0)
         cout << "BYFL_CALLEE: "
-             << setw(20) << tally << ' '
+             << setw(HDR_COL_WIDTH) << tally << ' '
              << (instrumented ? "Yes " : "No  ") << ' '
              << funcname << '\n';
     }
@@ -665,6 +951,7 @@ private:
 
     // Report the dynamic basic-block count.
     string tag("BYFL_SUMMARY");
+    cout.imbue(std::locale(""));
     if (partition)
       tag += '(' + string(partition) + ')';
     cout << tag << ": " << separator << '\n';
@@ -681,10 +968,30 @@ private:
       cout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
     cout << tag << ": " << setw(25) << counter_totals.flops << " flops\n";
     if (bf_all_ops) {
-      cout << tag << ": " << setw(25) << counter_totals.ops << " ALU ops\n";
+      cout << tag << ": " << setw(25) << counter_totals.ops << " integer ops\n";
       cout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
            << counter_totals.load_ins << " loads + "
            << counter_totals.store_ins << " stores)\n";
+      if (bf_types) {
+	cout << tag << ": " << separator << '\n';	
+	cout << tag << ": " << setw(25) << counter_totals.load_float_ins      << " single-precision floating point loads\n";
+	cout << tag << ": " << setw(25) << counter_totals.load_double_ins     << " double-precision floating point loads\n";
+	cout << tag << ": " << setw(25) << counter_totals.load_int8_ins       <<  "  8-bit integer loads\n";
+	cout << tag << ": " << setw(25) << counter_totals.load_int16_ins      << " 16-bit integer loads\n";
+	cout << tag << ": " << setw(25) << counter_totals.load_int32_ins      << " 32-bit integer loads\n";
+	cout << tag << ": " << setw(25) << counter_totals.load_int64_ins      << " 64-bit integer loads\n";
+	cout << tag << ": " << setw(25) << counter_totals.load_ptr_ins        << " pointer/address loads\n";
+	cout << tag << ": " << setw(25) << counter_totals.load_other_type_ins << " loads of other types\n";
+	cout << tag << ": " << separator << '\n';	
+	cout << tag << ": " << setw(25) << counter_totals.store_float_ins      << " single-precision floating point stores\n";
+	cout << tag << ": " << setw(25) << counter_totals.store_double_ins     << " double-precision floating point stores\n";
+	cout << tag << ": " << setw(25) << counter_totals.store_int8_ins       <<  "  8-bit integer stores\n";
+	cout << tag << ": " << setw(25) << counter_totals.store_int16_ins      << " 16-bit integer stores\n";
+	cout << tag << ": " << setw(25) << counter_totals.store_int32_ins      << " 32-bit integer stores\n";
+	cout << tag << ": " << setw(25) << counter_totals.store_int64_ins      << " 64-bit integer stores\n";
+	cout << tag << ": " << setw(25) << counter_totals.store_ptr_ins        << " pointer/address stores\n";
+	cout << tag << ": " << setw(25) << counter_totals.store_other_type_ins << " stores of other types\n";
+      }
     }
     if (reuse_unique > 0) {
       uint64_t median_value;
@@ -707,7 +1014,7 @@ private:
       cout << tag << ": " << setw(25) << global_unique_bytes*8 << " unique bits\n";
     cout << tag << ": " << setw(25) << counter_totals.fp_bits << " flop bits\n";
     if (bf_all_ops)
-      cout << tag << ": " << setw(25) << counter_totals.op_bits << " ALU op bits\n";
+      cout << tag << ": " << setw(25) << counter_totals.op_bits << " integer op bits\n";
     cout << tag << ": " << separator << '\n';
 
     // Report vector-operation measurements.
@@ -732,16 +1039,18 @@ private:
     cout << tag << ": " << fixed << setw(25) << setprecision(4)
          << (double)counter_totals.loads / (double)counter_totals.stores
          << " bytes loaded per byte stored\n";
+
     if (bf_all_ops) {
       if (counter_totals.load_ins > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)counter_totals.ops / (double)counter_totals.load_ins
-             << " ALU ops per load instruction\n";
+             << " integer ops per load instruction\n";
       if (global_mem_ops > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_bytes*8 / (double)global_mem_ops
              << " bits loaded/stored per memory op\n";
     }
+
     if (counter_totals.cond_brs > 0) {
       if (counter_totals.flops > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)
@@ -764,23 +1073,24 @@ private:
       if (counter_totals.ops > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)num_vec_ops / (double)counter_totals.ops
-             << " vector operations per ALU op\n";
+             << " vector operations per integer op\n";
     }
     cout << tag << ": " << separator << '\n';
-    if (counter_totals.flops > 0)
+    if (counter_totals.flops > 0) {
       cout << tag << ": " << fixed << setw(25) << setprecision(4)
            << (double)global_bytes / (double)counter_totals.flops
            << " bytes per flop\n"
            << tag << ": " << fixed << setw(25) << setprecision(4)
            << (double)global_bytes*8.0 / (double)counter_totals.fp_bits
            << " bits per flop bit\n";
+    }
     if (counter_totals.ops > 0)
       cout << tag << ": " << fixed << setw(25) << setprecision(4)
            << (double)global_bytes / (double)counter_totals.ops
-           << " bytes per ALU op\n"
+           << " bytes per integer op\n"
            << tag << ": " << fixed << setw(25) << setprecision(4)
            << (double)global_bytes*8.0 / (double)counter_totals.op_bits
-           << " bits per ALU op bit\n";
+           << " bits per integer op bit\n";
     if (bf_unique_bytes && (counter_totals.flops > 0 || counter_totals.ops > 0)) {
       cout << tag << ": " << separator << '\n';
       if (counter_totals.flops > 0)
@@ -793,10 +1103,10 @@ private:
       if (counter_totals.ops > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_unique_bytes / (double)counter_totals.ops
-             << " unique bytes per ALU op\n"
+             << " unique bytes per integer op\n"
              << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
-             << " unique bits per ALU op bit\n";
+             << " unique bits per inteer op bit\n";
     }
     if (bf_unique_bytes && !partition)
       cout << tag << ": " << fixed << setw(25) << setprecision(4)
@@ -827,10 +1137,23 @@ public:
     // need to accumulate the current values of all of our counters
     // into the global totals.
     if (global_totals.b_blocks == 0)
-      global_totals.accumulate(bf_load_count, bf_store_count,
-                               bf_load_ins_count, bf_store_ins_count,
-                               bf_flop_count, bf_fp_bits_count,
-                               bf_op_count, bf_op_bits_count, 0, 0);
+      global_totals.accumulate(bf_load_count,             bf_store_count,
+
+                               bf_load_ins_count, 
+			       bf_load_float_ins_count,   bf_load_double_ins_count,
+			       bf_load_int8_ins_count,    bf_load_int16_ins_count,
+			       bf_load_int32_ins_count,   bf_load_int64_ins_count,
+			       bf_load_ptr_ins_count,     bf_load_other_type_ins_count,
+
+			       bf_store_ins_count,
+			       bf_store_float_ins_count,   bf_store_double_ins_count,
+			       bf_store_int8_ins_count,    bf_store_int16_ins_count,
+			       bf_store_int32_ins_count,   bf_store_int64_ins_count,
+			       bf_store_ptr_ins_count,     bf_store_other_type_ins_count,
+
+                               bf_flop_count,              bf_fp_bits_count,
+                               bf_op_count,                bf_op_bits_count, 
+			       0, 0);
 
     // If the global counter totals are empty, this means that we were
     // tallying per-function data and resetting the global counts

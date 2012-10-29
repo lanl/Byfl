@@ -101,6 +101,10 @@ The Byfl wrapper scripts accept a number of options to provide more information 
 <dt><code>-bf-all-ops</code></dt>
 <dd>Tally <em>all</em> ALU operations, not just floating-point operations.</dd>
 
+<dl>
+<dt><code>-bf-types</code></dt>
+<dd>Tally <em>type-specific</em> loads and stores of register friendly types.  The current set of included types are: single- and double-precision floating point values, 8-,16-, 32- and 64- integer values, and pointers. Remaining types will be categorized as <em>other types</em>.  Note that this flag will enable the <code>-bf-all-ops</code> option if not supplied on the command line.</dd>
+
 <dt><code>-bf-every-bb</code></dt>
 <dd>Output counters for every <a href="http://en.wikipedia.org/wiki/Basic_block">basic block</a> executed.
 
@@ -272,7 +276,9 @@ License
 Los Alamos National Security, LLC (LANS) owns the copyright to Byfl, which it identifies internally as LA-CC-12-039.  The license is BSD-ish with a "modifications must be indicated" clause.  See [LICENSE.md](https://github.com/losalamos/Byfl/blob/master/LICENSE.md) for the full text.
 
 
-Author
-------
-
-Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)
+Authors
+-------
+<dl>
+<dd>Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)</dd>
+<dd>Pat McCormick, [_pat@lanl.gov_](mailto:pat@lanl.gov)</dd>
+</dl>
