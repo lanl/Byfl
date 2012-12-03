@@ -1106,7 +1106,7 @@ private:
              << " unique bytes per integer op\n"
              << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
-             << " unique bits per inteer op bit\n";
+             << " unique bits per integer op bit\n";
     }
     if (bf_unique_bytes && !partition)
       cout << tag << ": " << fixed << setw(25) << setprecision(4)

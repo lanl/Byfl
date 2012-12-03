@@ -366,8 +366,13 @@ if (defined $build_type{"link"}) {
     }
     push @llvm_ld_options, ("-L$byfl_libdir", "-L$llvm_libdir",
                             "-Wl,--allow-multiple-definition", "-lm");
-    push @llvm_ld_options, ("$byfl_libdir/libbyfl.bc", "-lstdc++") if $bf_disable eq "none";
-    push @llvm_ld_options, "-lstdc++" if $compiler eq "g++" || $bf_disable eq "none";
+    if ($bf_disable eq "none") {
+	push @llvm_ld_options, ("$byfl_libdir/libbyfl.bc", "-lstdc++");
+	push @llvm_ld_options, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;
+    }
+    elsif ($compiler eq "g++") {
+	push @llvm_ld_options, "-lstdc++";
+    }
     push @llvm_ld_options, "-lgfortran" if $compiler eq "gfortran";
 
     # Construct a list of linker inputs.

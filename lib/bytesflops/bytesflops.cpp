@@ -1220,14 +1220,6 @@ namespace {
         take_mega_lock = declare_thunk(&module, "_ZN10bytesflops20bf_acquire_mega_lockEv");
         release_mega_lock = declare_thunk(&module, "_ZN10bytesflops20bf_release_mega_lockEv");
       }
-
-      // Depend on our helper library and on LLVMSupport (for
-      // StringMap).  If we're trying to preserve thread safety, also
-      // depend on the pthread library.
-      module.addLibrary("byfl");
-      module.addLibrary("LLVMSupport");
-      if (ThreadSafety)
-        module.addLibrary("pthread");
       return true;
     }
 
