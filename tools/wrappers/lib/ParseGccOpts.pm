@@ -99,6 +99,18 @@ sub parse_gcc_options (@)
                             $for_compiler->($_[0], undef);
                             %build_type = ();
                         },
+                        "print-search-dirs" => sub {
+                            $for_compiler->($_[0], undef);
+                            %build_type = ();
+                        },
+                        "print-multi-os-directory" => sub {
+                            $for_compiler->($_[0], undef);
+                            %build_type = ();
+                        },
+                        "print-prog-name=s" => sub {
+                            $for_compiler->($_[0], $_[1]);
+                            %build_type = ();
+                        },
                         "o=s" => sub {
                             $for_compiler->($_[0], $_[1]);
                             $for_linker->($_[0], $_[1]);
