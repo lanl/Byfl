@@ -3,21 +3,17 @@
  * and the number of floating-point operations performed.
  *
  * By Scott Pakin <pakin@lanl.gov>
-      Pat McCormick <pat@lanl.gov>
+ *    Pat McCormick <pat@lanl.gov>
  */
 
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/BasicBlock.h"
-#include "llvm/Constants.h"
-#include "llvm/DataLayout.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Function.h"
-#include "llvm/GlobalValue.h"
-#include "llvm/Instructions.h"
-#include "llvm/Module.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <vector>
 #include <set>
