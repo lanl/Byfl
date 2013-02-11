@@ -135,6 +135,10 @@ sub parse_gcc_options (@)
                             $for_compiler->($_[0], undef);
                             $for_linker->($_[0], undef);
                         },
+                        "fopenmp" => sub {
+                            $for_compiler->($_[0], undef);
+                            $for_linker->($_[0], undef);
+                        },
                         "O:i" => $for_compiler,
                         "x=s" => $for_compiler,
 

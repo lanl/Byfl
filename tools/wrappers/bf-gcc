@@ -345,8 +345,8 @@ if (defined $build_type{"link"}) {
         elsif ($opt eq "o") {
             push @llvm_ld_options, ("-o", $arg);
         }
-        elsif ($opt eq "pg") {
-            push @llvm_ld_options, "-pg";
+        elsif ($opt =~ /^(pg|fopenmp)$/) {
+            push @llvm_ld_options, "-$opt";
         }
         else {
             push @llvm_ld_options, "-Xlinker=-$opt";
