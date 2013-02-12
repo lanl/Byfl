@@ -12,7 +12,7 @@ use File::Basename;
 use File::Spec;
 use File::stat;
 use File::Temp qw(tempdir);
-use Getopt::Long;
+use Getopt::Long qw(GetOptionsFromArray);
 use ParseGccOpts;
 use Switch;
 use warnings;
@@ -28,7 +28,7 @@ my $progname = basename $0;
 my $compiler = substr($progname, 3);
 
 # Let the user increase this script's verbosity.
-my $verbosity = defined $ENV{"BF_VERBOSE"} ? 0 + $ENV{"BF_VERBOSE"} : 0;
+my $verbosity = 0;
 
 # Let the user request static analysis in addition to instrumentation.
 my $static_analysis = 0;
@@ -37,8 +37,8 @@ my $static_analysis = 0;
 my @bf_options = split(" ", $ENV{"BF_OPTS"} || "");
 
 # Let the user disable either the bytesflops plugin, DragonEgg IR
-# emission, or everything beyond command-line filtering.
-my $bf_disable = defined $ENV{"BF_DISABLE"} ? $ENV{"BF_DISABLE"} : "none";
+# emission, or everything besides command-line filtering.
+my $bf_disable = "none";
 
 # Define a function that optionally prints, then executes a system
 # command, aborting on failure.  If the first argument is "NO FAIL",
@@ -175,37 +175,40 @@ sub convert_archive_file ($)
 ###########################################################################
 
 # Parse the command line.
+my @constructed_ARGV = (@bf_options, @ARGV);
 Getopt::Long::Configure("pass_through");
-GetOptions("bf-verbose!"    => \$verbosity,
-           "bf-static!"     => \$static_analysis,
-           "bf-dragonegg=s" => \$dragonegg,
-           "bf-libdir=s"    => \$byfl_libdir,
-           "bf-disable=s"   => \$bf_disable)
+GetOptionsFromArray(\@constructed_ARGV,
+                    "bf-verbose+"    => \$verbosity,
+                    "bf-static"      => \$static_analysis,
+                    "bf-dragonegg=s" => \$dragonegg,
+                    "bf-libdir=s"    => \$byfl_libdir,
+                    "bf-disable=s"   => \$bf_disable)
     || die "${progname}: Failed to parse the command line\n";
 switch ($bf_disable) {
     case "none" {
         # Disable nothing; run normally.
     }
-    case "dragonegg" {
-        # Disable DragonEgg entirely and just use the underlying compiler.
-        exit execute_command($compiler, grep {!m/^--?bf-/} @ARGV);
+    case "byfl" {
+        # Disable the bytesflops plugin.  (This case is handled later).
     }
     case "bitcode" {
         # Use the DragonEgg plugin for code optimization, but generate
         # native output files.
-        exit execute_command($compiler, "-fplugin=$dragonegg", grep {!m/^--?bf-/} @ARGV);
+        exit execute_command($compiler, "-fplugin=$dragonegg", grep {!m/^--?bf-/} @constructed_ARGV);
     }
-    case "byfl" {
-        # Disable the bytesflops plugin (handled later).
+    case "dragonegg" {
+        # Disable DragonEgg entirely and just use the underlying compiler.
+        exit execute_command($compiler, grep {!m/^--?bf-/} @constructed_ARGV);
     }
     else {
         die "${progname}: I don't know how to disable \"$bf_disable\""
-            . ' (must be one of "none", "dragonegg", "bitcode", or "byfl")' . "\n";
+            . ' (must be one of "none", "byfl", "bitcode", or "dragonegg")' . "\n";
     }
 }
-push @bf_options,  grep {/^--?bf-/} @ARGV;
+@bf_options = grep {/^--?bf-/} @constructed_ARGV;
 @bf_options = map {s/^--/-/; $_} @bf_options;
-my @parse_info = parse_gcc_options(grep {!/^--?bf-/} @ARGV);
+@bf_options = grep {!/^-bf-(verbose|static|dragonegg|libdir|disable)/} @bf_options;
+my @parse_info = parse_gcc_options(grep {!/^--?bf-/} @constructed_ARGV);
 my %build_type = %{$parse_info[0]};
 my @target_filenames = @{$parse_info[1]};
 my @compiler_opts = @{$parse_info[2]};
@@ -215,7 +218,7 @@ my @leftover_values = @{$parse_info[4]};
 # Check if we're neither compiling nor linking.
 if (!defined $build_type{"compile"} && !defined $build_type{"link"}) {
     # Preprocessing only -- pass all of our arguments to the compiler.
-    exit execute_command(($compiler, @ARGV));
+    exit execute_command(($compiler, @constructed_ARGV));
 }
 
 # Define a map from source files to object files.
@@ -367,11 +370,11 @@ if (defined $build_type{"link"}) {
     push @llvm_ld_options, ("-L$byfl_libdir", "-L$llvm_libdir",
                             "-Wl,--allow-multiple-definition", "-lm");
     if ($bf_disable eq "none") {
-	push @llvm_ld_options, ("$byfl_libdir/libbyfl.bc", "-lstdc++");
-	push @llvm_ld_options, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;
+        push @llvm_ld_options, ("$byfl_libdir/libbyfl.bc", "-lstdc++");
+        push @llvm_ld_options, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;
     }
     elsif ($compiler eq "g++") {
-	push @llvm_ld_options, "-lstdc++";
+        push @llvm_ld_options, "-lstdc++";
     }
     push @llvm_ld_options, "-lgfortran" if $compiler eq "gfortran";
 

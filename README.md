@@ -235,24 +235,26 @@ The Byfl options listed above are accepted directly by the Byfl compiler pass.  
 
 <dt><code>-bf-static</code></dt>
 <dd>Instead of instrumenting the code, merely output counts of number of instructions of various types.</dd>
+
+<dt><code>-bf-disable=</code><i>feature</i></dt>
+<dd>Disables various pieces of the instrumentation process.  This can be useful for performance comparisons and troubleshooting.  The following are acceptable values for <code>-bf-disable</code>:
+
+  <dl>
+  <dt><code>none</code> (default)</dt>
+  <dd>Don't disable anything; run with regular Byfl instrumentation.</dd>
+
+  <dt><code>byfl</code></dt>
+  <dd>Disable the Byfl compiler pass, but retain all of the internal manipulation of LLVM file types (i.e., bitcode).</dd>
+
+  <dt><code>bitcode</code></dt>
+  <dd>Process the code with LLVM and DragonEgg but disable LLVM bitcode
+  and use exclusively native object files.</dd>
+
+  <dt><code>dragonegg</code></dt>
+  <dd>Use a GNU compiler directly, disabling all wrapper-script functionality.</dd>
+  </dl>
 </dl>
 
-Finally, as a useful convenience for performance comparisons and troubleshooting, the Byfl wrapper scripts look for a `BF_DISABLE` environment variable.  When set, this disables various pieces of the instrumentation process.  Hence, you can configure your application once to use `bf-gcc`, `bf-g++`, and/or `bf-gfortran`, and can revert to stock `gcc`, `g++`, and/or `gfortran` simply by altering the environment variable.  The following are acceptable values for `BF_DISABLE`:
-
-<dl>
-<dt><code>none</code> (default)</dt>
-<dd>Don't disable anything; run with regular Byfl instrumentation.</dd>
-
-<dt><code>byfl</code></dt>
-<dd>Disable the Byfl compiler pass, but retain all of the internal manipulation of LLVM file types (i.e., bitcode).</dd>
-
-<dt><code>bitcode</code></dt>
-<dd>Process the code with LLVM and DragonEgg but disable LLVM bitcode
-and use exclusively native object files.</dd>
-
-<dt><code>dragonegg</code></dt>
-<dd>Use a GNU compiler directly, disabling all wrapper-script functionality.</dd>
-</dl>
 
 ### Advanced usage
 
