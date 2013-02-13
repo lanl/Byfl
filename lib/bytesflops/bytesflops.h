@@ -17,7 +17,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include <vector>
 #include <set>
-#include <cxxabi.h>
 #include "byfl-common.h"
 
 using namespace std;

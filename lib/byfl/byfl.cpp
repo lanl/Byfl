@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <locale>
+#include <cxxabi.h>
 
 #include "byfl-common.h"
 #include "cachemap.h"
@@ -590,7 +591,6 @@ void bf_assoc_counters_with_func (const char* funcname, bb_end_t end_of_basic_bl
   }
 }
 
-
 // At the end of the program, report what we measured.
 static class RunAtEndOfProgram {
 private:
@@ -610,6 +610,17 @@ private:
       return one_calls > two_calls;
     else
       return compare_char_stars(one, two);
+  }
+
+  // Attempt to demangle function names so the masses can follow
+  // along.  The caller must free() the result.
+  static char* demangle_func_name(const char *mangled_name) {
+    int status;
+    char* demangled_name = __cxxabiv1::__cxa_demangle(mangled_name, NULL, 0, &status);
+    if (status == 0 && demangled_name != 0)
+      return demangled_name;
+    else
+      return strdup(mangled_name);
   }
 
   // Report per-function counter totals.
@@ -693,11 +704,17 @@ private:
         tally = func_call_tallies()[bf_string_to_symbol(funcname)];
         funcname = unique_name;
       }
-      if (tally > 0)
+      char* funcname_orig = demangle_func_name(funcname);
+      if (tally > 0) {
         cout << "BYFL_CALLEE: "
              << setw(HDR_COL_WIDTH) << tally << ' '
              << (instrumented ? "Yes " : "No  ") << ' '
-             << funcname << '\n';
+             << funcname_orig;
+	if (strcmp(funcname_orig, funcname) != 0)
+	  cout << " [" << funcname << ']';
+	cout << '\n';
+      }
+      free(funcname_orig);
     }
   }
 
@@ -760,9 +777,9 @@ private:
       const char *memref2name[] = {"", "pointers to "};
       const char *memagg2name[] = {"", "vectors of "};
       const char *memwidth2name[] = {"8-bit ", "16-bit ", "32-bit ",
-                                     "64-bit ", "other-sized"};
+                                     "64-bit ", "128-bit ", "oddly sized "};
       const char *memtype2name[] = {"integers", "floating-point values",
-                                    "values (not integer or FP)"};
+                                    "\"other\" values (not integers or FP values)"};
 
       // Output all nonzero entries.
       for (int memop = 0; memop < BF_OP_NUM; memop++)

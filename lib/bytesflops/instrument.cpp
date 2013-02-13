@@ -117,21 +117,11 @@ namespace bytesflops_pass {
       if (!callee_name.startswith("_ZN10bytesflops")
 	  && !callee_name.startswith("llvm.dbg")
 	  && callee_name != "bf_categorize_counters") {
-	// Tally the caller (with a distinguishing "+" in
-	// front of its name) in order to keep track of
-	// calls to uninstrumented functions.
+	// Tally the caller (with a distinguishing "+" in front of its
+	// name) in order to keep track of calls to uninstrumented
+	// functions.
 	if (TallyByFunction) {
-	  string augmented_callee_name;
-
-	  // Attempt to demangle function names so the masses can follow along...
-	  int status;
-	  char *demangled_name = __cxxabiv1::__cxa_demangle(callee_name.str().c_str(), NULL, 0, &status);
-	  if (status == 0 && demangled_name != 0) {
-	    augmented_callee_name = string("+") + string(demangled_name);
-	    free(demangled_name);
-	  } else {
-	    augmented_callee_name = string("+") + callee_name.str();
-	  }
+	  string augmented_callee_name(string("+") + callee_name.str());
 	  Constant* argument = map_func_name_to_arg(module, StringRef(augmented_callee_name));
 	  callinst_create(tally_function, argument, iter);
 	}
