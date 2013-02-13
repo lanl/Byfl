@@ -33,14 +33,14 @@ my $usagestr = "Usage: $progname <executable name> <bytesflops output>\n";
 
 # Define a map from each possible column tag to its description.
 my %tag2desc = (
-    Bytes_LD    => "Bytes loaded",
-    Bytes_ST    => "Bytes stored",
-    Ops_LD      => "Load operations",
-    Ops_ST      => "Store operations",
+    LD_bytes    => "Bytes loaded",
+    ST_bytes    => "Bytes stored",
+    LD_ops      => "Load operations",
+    ST_ops      => "Store operations",
     Flops       => "Floating-point operations",
     FP_bits     => "Floating-point operation bits",
-    Ops_ALU     => "ALU operations (unary + binary)",
-    Op_ALU_bits => "ALU operation bits",
+    Int_ops     => "Integer operations (unary + binary)",
+    Int_op_bits => "Integer operation bits",
     Uniq_bytes  => "Unique bytes (loads + stores)",
     Cond_brs    => "Conditional or indirect branches",
     Invocations => "Function invocations");

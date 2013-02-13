@@ -175,6 +175,11 @@ while (my $oneline = <BYFL>) {
         }
         $funccol = $tag2column{"Function"};
         $parentcol = $tag2column{"Parent_func_1"};
+        if (!defined $parentcol) {
+            push @columntags, "Parent_func_1";
+            $tag2column{$columntags[$#columntags]} = $#columntags;
+            $parentcol = $tag2column{"Parent_func_1"};
+        }
         next;
     }
 
@@ -309,14 +314,14 @@ merge_from_children($funcname2info{"-"}) if defined $tag2column{"Parent_func_1"}
 
 # Define a map from each possible column tag to its description.
 my %tag2desc = (
-    Bytes_LD    => "Bytes loaded",
-    Bytes_ST    => "Bytes stored",
-    Ops_LD      => "Load operations",
-    Ops_ST      => "Store operations",
+    LD_bytes    => "Bytes loaded",
+    ST_bytes    => "Bytes stored",
+    LD_ops      => "Load operations",
+    ST_ops      => "Store operations",
     Flops       => "Floating-point operations",
     FP_bits     => "Floating-point operation bits",
-    Ops_ALU     => "ALU operations (unary + binary)",
-    Op_ALU_bits => "ALU operation bits",
+    Int_ops     => "Integer operations (unary + binary)",
+    Int_op_bits => "Integer operation bits",
     Uniq_bytes  => "Unique bytes (loads + stores)",
     Cond_brs    => "Conditional or indirect branches",
     Invocations => "Function invocations");
@@ -330,12 +335,12 @@ foreach my $tag (@allcolumntags) {
     $tag2desc{$tag} = $tag if !defined $tag2desc{$tag};
 }
 do {
-    my $have_loads = defined $known_tag{"Bytes_LD"};
-    my $have_stores = defined $known_tag{"Bytes_ST"};
+    my $have_loads = defined $known_tag{"LD_bytes"};
+    my $have_stores = defined $known_tag{"ST_bytes"};
     my $have_flops = defined $known_tag{"Flops"};
     my $have_fp_bits = defined $known_tag{"FP_bits"};
-    my $have_ops = defined $known_tag{"Ops_ALU"};
-    my $have_op_bits = defined $known_tag{"Op_ALU_bits"};
+    my $have_ops = defined $known_tag{"Int_ops"};
+    my $have_op_bits = defined $known_tag{"Int_op_bits"};
     my $have_uniq_bytes = defined $known_tag{"Uniq_bytes"};
     my $have_cbrs = defined $known_tag{"Cond_brs"};
     my $multstr = $multiplier == 1 ? "" : "$multiplier*";
@@ -350,37 +355,37 @@ do {
         my $tag = "Loads_stores";
         push @allcolumntags, $tag;
         $tag2desc{$tag} = "${multstr}Loads per store (bytes)";
-        $tag2func{$tag} = sub { $safe_div->($_[0]->{Bytes_LD}, $_[0]->{Bytes_ST}) };
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{LD_bytes}, $_[0]->{ST_bytes}) };
     }
     if ($have_bytes && $have_flops) {
         my $tag = "Bytes_flops";
         push @allcolumntags, $tag;
         $tag2desc{$tag} = "${multstr}Bytes per flop";
-        $tag2func{$tag} = sub { $safe_div->($_[0]->{Bytes_LD} + $_[0]->{Bytes_ST}, $_[0]->{Flops}) };
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{LD_bytes} + $_[0]->{ST_bytes}, $_[0]->{Flops}) };
     }
     if ($have_bytes && $have_fp_bits) {
         my $tag = "Bits_fp_bits";
         push @allcolumntags, $tag;
         $tag2desc{$tag} = "${multstr}Bits per flop bit";
-        $tag2func{$tag} = sub { 8 * $safe_div->($_[0]->{Bytes_LD} + $_[0]->{Bytes_ST}, $_[0]->{FP_bits}) };
+        $tag2func{$tag} = sub { 8 * $safe_div->($_[0]->{LD_bytes} + $_[0]->{ST_bytes}, $_[0]->{FP_bits}) };
     }
     if ($have_bytes && $have_ops) {
         my $tag = "Bytes_ops";
         push @allcolumntags, $tag;
         $tag2desc{$tag} = "${multstr}Bytes per op";
-        $tag2func{$tag} = sub { $safe_div->($_[0]->{Bytes_LD} + $_[0]->{Bytes_ST}, $_[0]->{Ops_ALU}) };
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{LD_bytes} + $_[0]->{ST_bytes}, $_[0]->{Int_ops}) };
     }
     if ($have_bytes && $have_op_bits) {
         my $tag = "Bits_op_bits";
         push @allcolumntags, $tag;
         $tag2desc{$tag} = "${multstr}Bits per op bit";
-        $tag2func{$tag} = sub { 8 * $safe_div->($_[0]->{Bytes_LD} + $_[0]->{Bytes_ST}, $_[0]->{Op_ALU_bits}) };
+        $tag2func{$tag} = sub { 8 * $safe_div->($_[0]->{LD_bytes} + $_[0]->{ST_bytes}, $_[0]->{Int_op_bits}) };
     }
     if ($have_bytes && $have_uniq_bytes) {
         my $tag = "Bytes_ubytes";
         push @allcolumntags, $tag;
         $tag2desc{$tag} = "${multstr}Bytes per unique byte (loads + stores)";
-        $tag2func{$tag} = sub { $safe_div->($_[0]->{Bytes_LD} + $_[0]->{Bytes_ST}, $_[0]->{Uniq_bytes}) };
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{LD_bytes} + $_[0]->{ST_bytes}, $_[0]->{Uniq_bytes}) };
     }
     if ($have_uniq_bytes && $have_flops) {
         my $tag = "Ubytes_flops";
@@ -398,13 +403,13 @@ do {
         my $tag = "Ubytes_ops";
         push @allcolumntags, $tag;
         $tag2desc{$tag} = "${multstr}Unique bytes per op";
-        $tag2func{$tag} = sub { $safe_div->($_[0]->{Uniq_bytes}, $_[0]->{Ops_ALU}) };
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{Uniq_bytes}, $_[0]->{Int_ops}) };
     }
     if ($have_uniq_bytes && $have_op_bits) {
         my $tag = "Ubits_op_bits";
         push @allcolumntags, $tag;
         $tag2desc{$tag} = "${multstr}Unique bits per op bit";
-        $tag2func{$tag} = sub { 8 * $safe_div->($_[0]->{Uniq_bytes}, $_[0]->{Op_ALU_bits}) };
+        $tag2func{$tag} = sub { 8 * $safe_div->($_[0]->{Uniq_bytes}, $_[0]->{Int_op_bits}) };
     }
     if ($have_flops && $have_cbrs) {
         my $tag = "Flops_cbrs";
@@ -416,7 +421,7 @@ do {
         my $tag = "Ops_cbrs";
         push @allcolumntags, $tag;
         $tag2desc{$tag} = "${multstr}Operations per conditional branch";
-        $tag2func{$tag} = sub { $safe_div->($_[0]->{Ops_ALU}, $_[0]->{Cond_brs}) };
+        $tag2func{$tag} = sub { $safe_div->($_[0]->{Int_ops}, $_[0]->{Cond_brs}) };
     }
 };
 
@@ -442,10 +447,10 @@ foreach my $obj (values %funcname2info) {
 print "version: 1\n";
 print "creator: $0\n";
 my @augmented_column_tags = @allcolumntags;
-if (defined $tag2desc{"Bytes_LD"} && defined $tag2desc{"Bytes_ST"}) {
+if (defined $tag2desc{"LD_bytes"} && defined $tag2desc{"ST_bytes"}) {
     # Add a derived metric Bytes, which is the sum of the bytes loaded
     # and stored.
-    my $tag = "Bytes = Bytes_LD + Bytes_ST";
+    my $tag = "Bytes = LD_bytes + ST_bytes";
     push @augmented_column_tags, $tag;
     my $multstr = $multiplier == 1 ? "" : "$multiplier*";
     $tag2desc{$tag} = "${multstr}Bytes (loaded + stored)";

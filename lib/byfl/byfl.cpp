@@ -509,10 +509,10 @@ void bf_report_bb_tallies (void)
   // If this is our first invocation, output a basic-block header line.
   if (__builtin_expect(!showed_header, 0)) {
     cout << "BYFL_BB_HEADER: "
-         << setw(HDR_COL_WIDTH) << "Bytes_LD" << ' '
-         << setw(HDR_COL_WIDTH) << "Bytes_ST" << ' '
-         << setw(HDR_COL_WIDTH) << "Ops_LD" << ' '
-         << setw(HDR_COL_WIDTH) << "Ops_ST" << ' '
+         << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
+         << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
+         << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
+         << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
          << setw(HDR_COL_WIDTH) << "Flops" << ' '
          << setw(HDR_COL_WIDTH) << "FP_bits";
     if (bf_all_ops)
@@ -616,10 +616,10 @@ private:
   void report_by_function (void) {
     // Output a header line.
     cout << "BYFL_FUNC_HEADER: "
-         << setw(HDR_COL_WIDTH) << "Bytes_LD" << ' '
-         << setw(HDR_COL_WIDTH) << "Bytes_ST" << ' '
-         << setw(HDR_COL_WIDTH) << "Ops_LD" << ' '
-         << setw(HDR_COL_WIDTH) << "Ops_ST" << ' '
+         << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
+         << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
+         << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
+         << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
          << setw(HDR_COL_WIDTH) << "Flops" << ' '
          << setw(HDR_COL_WIDTH) << "FP_bits";
     if (bf_all_ops)
