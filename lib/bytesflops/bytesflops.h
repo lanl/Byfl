@@ -18,6 +18,7 @@
 #include <vector>
 #include <set>
 #include <cxxabi.h>
+#include "byfl-common.h"
 
 using namespace std;
 using namespace llvm;
@@ -98,12 +99,15 @@ namespace bytesflops_pass {
     static const int CLEAR_OPS;
     static const int CLEAR_OP_BITS;
 
+    static const int CLEAR_MEM_TYPES;
+
     GlobalVariable* load_var;  // Global reference to bf_load_count, a 64-bit load counter
     GlobalVariable* store_var; // Global reference to bf_store_count, a 64-bit store counter
 
     // TODO: We might want to collapse types into a single array-based set of counters to
     // make the code a bit cleaner...
     GlobalVariable* load_inst_var;              // Global reference to bf_load_ins_count, a 64-bit load-instruction counter
+    GlobalVariable* mem_insts_var;             // Global reference to bf_mem_insts, a set of 64-bit memory instruction counters
     GlobalVariable* load_float_inst_var;        // Global reference to bf_float_load_ins_count, a 64-bit load-instruction counter for single-precision floats
     GlobalVariable* load_double_inst_var;       // Global reference to bf_double_load_ins_count, a 64-bit load-instruction counter for double-precision floats
     GlobalVariable* load_int8_inst_var;         // Global reference to bf_int8_load_ins_count, a 64-bit load-instruction counter for 8-bit integers
@@ -148,6 +152,7 @@ namespace bytesflops_pass {
     Function* release_mega_lock; // Pointer to bf_release_mega_lock()
     Function* tally_vector;      // Pointer to bf_tally_vector_operation()
     Function* reuse_dist_prog;   // Pointer to bf_reuse_dist_addrs_prog()
+    Function* memset_intrinsic;  // Pointer to LLVM's memset() intrinsic
     StringMap<Constant*> func_name_to_arg;   // Map from a function name to an IR function argument
     set<string>* instrument_only;   // Set of functions to instrument; NULL=all
     set<string>* dont_instrument;   // Set of functions not to instrument; NULL=none
@@ -162,6 +167,13 @@ namespace bytesflops_pass {
     void increment_global_variable(BasicBlock::iterator& iter,
 				   Constant* global_var,
 				   Value* increment);
+
+    // Insert after a given instruction some code to increment an
+    // element of a global array.
+    void increment_global_array(BasicBlock::iterator& iter,
+				Constant* global_var,
+				Value* idx,
+				Value* increment);
 
     // Mark a variable as "used" (not eligible for dead-code elimination).
     void mark_as_used(Module& module, GlobalVariable* protected_var);
@@ -252,6 +264,13 @@ namespace bytesflops_pass {
     // stores, flops, etc.
     void instrument_entire_function(Module* module, Function& function,
 				    StringRef function_name);
+
+    // Instrument the current basic block iterator (representing a
+    // load) for type-specific memory operations.
+    void instrument_mem_type(Module* module,
+			     bool is_store,
+			     BasicBlock::iterator &iter,
+			     Type *data_type);
 
     // Instrument the current basic block iterator (representing a
     // load) for type-specific characteristics.

@@ -19,6 +19,7 @@ LIBRARYNAME=bytesflops
 LOADABLE_MODULE=1
 SOURCES = bytesflops.cpp instrument.cpp helpers.cpp init.cpp
 EXTRA_DIST = bytesflops.h
+CPPFLAGS += -I$(PROJ_SRC_ROOT)/lib/include
 
 #
 # Include Makefile.common so we know what to do.

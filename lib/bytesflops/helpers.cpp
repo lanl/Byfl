@@ -37,6 +37,42 @@ namespace bytesflops_pass {
     iter--;
   }
 
+  // Insert after a given instruction some code to increment an
+  // element of a global array.
+  void BytesFlops::increment_global_array(BasicBlock::iterator& iter,
+					  Constant* global_var,
+					  Value* idx,
+					  Value* increment) {
+    // Point to the next instruction, because it's easy to insert before that.
+    BasicBlock::iterator next_iter = iter;
+    next_iter++;
+
+    // %1 = load i64** @myarray, align 8
+    LoadInst* load_array = new LoadInst(global_var, "bfmic", false, next_iter);
+    load_array->setAlignment(8);
+
+    // %2 = getelementptr inbounds i64* %1, i64 %idx
+    GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(load_array, idx, "idx_ptr", next_iter);
+
+    // %3 = load i64* %2, align 8
+    LoadInst* idx_val = new LoadInst(idx_ptr, "idx_val", false, next_iter);
+    idx_val->setAlignment(8);
+
+    // %4 = add i64 %3, %increment
+    BinaryOperator* inc_elt =
+      BinaryOperator::Create(Instruction::Add, idx_val, increment, "new_val", next_iter);
+
+    // store i64 %4, i64* %2, align 8
+    StoreInst* store_inst = new StoreInst(inc_elt, idx_ptr, false, next_iter);
+    store_inst->setAlignment(8);
+
+    // Point to the last instruction we inserted.  The loop over
+    // instructions will then increment this to point one past the
+    // last instruction we inserted.
+    iter = next_iter;
+    iter--;
+  }
+
   // Mark a variable as "used" (not eligible for dead-code elimination).
   void BytesFlops::mark_as_used(Module& module, GlobalVariable* protected_var) {
     LLVMContext& globctx = module.getContext();
@@ -174,7 +210,9 @@ namespace bytesflops_pass {
 
   // Declare an external thread-local variable.
   GlobalVariable* BytesFlops::declare_TLS_global(Module& module, Type* var_type, StringRef var_name) {
-    return new GlobalVariable(module, var_type, false, GlobalVariable::ExternalLinkage, 0, var_name, 0, GlobalVariable::GeneralDynamicTLSModel);
+    return new GlobalVariable(module, var_type, false,
+			      GlobalVariable::ExternalLinkage, 0, var_name, 0,
+			      GlobalVariable::GeneralDynamicTLSModel);
   }
 
   // Insert code at the end of a basic block.
@@ -240,73 +278,14 @@ namespace bytesflops_pass {
 
       if (must_clear & CLEAR_LOADS) {
 	new StoreInst(zero, load_var, false, insert_before);
-	if (TallyAllOps) {
+	if (TallyAllOps)
 	  new StoreInst(zero, load_inst_var, false, insert_before);
-
-	  if (TallyTypes) {
-	    if (must_clear & CLEAR_FLOAT_LOADS)
-	      new StoreInst(zero, load_float_inst_var, false, insert_before);
-
-	    if (must_clear & CLEAR_DOUBLE_LOADS)
-	      new StoreInst(zero, load_double_inst_var, false, insert_before);
-
-	    // We currently treat all int-based loads as being in
-	    // the same category -- this means we will likely get
-	    // extra code here when only one type was counted.
-	    // This was a trade off between more code here or some
-	    // overhead for function calls.  No clue on how best to
-	    // strike a blance here...
-	    if (must_clear & CLEAR_INT_LOADS) {
-	      new StoreInst(zero, load_int8_inst_var, false,  insert_before);
-	      new StoreInst(zero, load_int16_inst_var, false, insert_before);
-	      new StoreInst(zero, load_int32_inst_var, false, insert_before);
-	      new StoreInst(zero, load_int64_inst_var, false, insert_before);
-	    }
-
-	    if (must_clear & CLEAR_PTR_LOADS)
-	      new StoreInst(zero, load_ptr_inst_var, false,  insert_before);
-
-	    if (must_clear & CLEAR_OTHER_TYPE_LOADS)
-	      new StoreInst(zero, load_other_type_inst_var, false,  insert_before);
-	  }
-	}
       }
-
       if (must_clear & CLEAR_STORES) {
 	new StoreInst(zero, store_var, false, insert_before);
-	if (TallyAllOps) {
+	if (TallyAllOps)
 	  new StoreInst(zero, store_inst_var, false, insert_before);
-
-	  if (TallyTypes) {
-
-	    if (must_clear & CLEAR_FLOAT_STORES)
-	      new StoreInst(zero, store_float_inst_var, false, insert_before);
-
-	    if (must_clear & CLEAR_DOUBLE_STORES)
-	      new StoreInst(zero, store_double_inst_var, false, insert_before);
-
-	    // We currently treat all int-based loads as being in
-	    // the same category -- this means we will likely get
-	    // extra code here when only one type was counted.
-	    // This was a trade off between more code here or some
-	    // overhead for function calls.  No clue on how best to
-	    // strike a blance here...
-	    if (must_clear & CLEAR_INT_STORES) {
-	      new StoreInst(zero, store_int8_inst_var, false,  insert_before);
-	      new StoreInst(zero, store_int16_inst_var, false, insert_before);
-	      new StoreInst(zero, store_int32_inst_var, false, insert_before);
-	      new StoreInst(zero, store_int64_inst_var, false, insert_before);
-	    }
-
-	    if (must_clear & CLEAR_PTR_STORES)
-	      new StoreInst(zero, store_ptr_inst_var, false,  insert_before);
-
-	    if (must_clear & CLEAR_OTHER_TYPE_STORES)
-	      new StoreInst(zero, store_other_type_inst_var, false,  insert_before);
-	  }
-	}
       }
-
       if (must_clear & CLEAR_FLOPS)
 	new StoreInst(zero, flop_var, false, insert_before);
       if (must_clear & CLEAR_FP_BITS)
@@ -315,6 +294,31 @@ namespace bytesflops_pass {
 	new StoreInst(zero, op_var, false, insert_before);
       if (must_clear & CLEAR_OP_BITS)
 	new StoreInst(zero, op_bits_var, false, insert_before);
+      if (must_clear & CLEAR_MEM_TYPES) {
+	// Zero out the entire array.
+	LoadInst* mem_insts_addr = new LoadInst(mem_insts_var, "mi", false, insert_before);
+	mem_insts_addr->setAlignment(8);
+	LLVMContext& globctx = module->getContext();
+	CastInst* mem_insts_cast =
+	  new BitCastInst(mem_insts_addr,
+			  PointerType::get(IntegerType::get(globctx, 8), 0),
+			  "miv", insert_before);
+	static ConstantInt* zero_8bit =
+	  ConstantInt::get(globctx, APInt(8, 0));
+	static ConstantInt* mem_insts_size =
+	  ConstantInt::get(globctx, APInt(64, NUM_MEM_INSTS*sizeof(uint64_t)));
+	static ConstantInt* mem_insts_align =
+	  ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
+	static ConstantInt* zero_1bit =
+	  ConstantInt::get(globctx, APInt(1, 0));
+	std::vector<Value*> func_args;
+	func_args.push_back(mem_insts_cast);
+	func_args.push_back(zero_8bit);
+	func_args.push_back(mem_insts_size);
+	func_args.push_back(mem_insts_align);
+	func_args.push_back(zero_1bit);
+	callinst_create(memset_intrinsic, func_args, insert_before);
+      }
       must_clear = 0;
       if (ThreadSafety)
 	CallInst::Create(release_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
@@ -367,4 +371,64 @@ namespace bytesflops_pass {
       CallInst::Create(release_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
   }
 
+  // Optimize the instrumented code by deleting back-to-back
+  // mega-lock releases and acquisitions.
+  void BytesFlops::reduce_mega_lock_activity(Function& function) {
+    // Store a few constant strings.
+    StringRef take_mega_lock_name = take_mega_lock->getName();
+    StringRef release_mega_lock_name = release_mega_lock->getName();
+
+    // Iterate over each basic block in turn.
+    for (Function::iterator func_iter = function.begin();
+	 func_iter != function.end();
+	 func_iter++) {
+      // Perform per-basic-block variable initialization.
+      BasicBlock& bb = *func_iter;
+      BasicBlock::iterator terminator_inst = bb.end();
+      terminator_inst--;
+
+      // Iterate over the basic block's instructions one-by-one,
+      // accumulating a list of function calls to delete.
+      vector<Instruction*> deletable_insts;   // List of function calls to delete
+      Instruction* prev_inst = NULL;  // Immediately preceding function call or NULL if the previous instruction wasn't a function call
+      for (BasicBlock::iterator iter = bb.begin();
+	   iter != terminator_inst;
+	   iter++) {
+	// Find a pair of back-to-back functions.
+	Instruction& inst = *iter;                // Current instruction
+	if (inst.getOpcode() != Instruction::Call) {
+	  // We care only about function calls.
+	  prev_inst = NULL;
+	  continue;
+	}
+	Function* func = dyn_cast<CallInst>(&inst)->getCalledFunction();
+	if (!prev_inst) {
+	  // We care only about back-to-back functions.
+	  prev_inst = &inst;
+	  continue;
+	}
+
+	// Delete release-acquire pairs.  (None of the other three
+	// combinations of release and acquire are likely to occur
+	// in practice.)
+	Function* prev_func = dyn_cast<CallInst>(prev_inst)->getCalledFunction();
+	if (prev_func
+	    && func
+	    && prev_func->getName() == release_mega_lock_name
+	    && func->getName() == take_mega_lock_name) {
+	  deletable_insts.push_back(prev_inst);
+	  deletable_insts.push_back(&inst);
+	  prev_inst = NULL;
+	}
+	else
+	  prev_inst = &inst;
+      }
+
+      // Delete all function calls we marked as deletable.
+      while (!deletable_insts.empty()) {
+	deletable_insts.back()->eraseFromParent();
+	deletable_insts.pop_back();
+      }
+    }
+  }
 } // namespace bytesflops_pass

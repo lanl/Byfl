@@ -19,6 +19,7 @@ LIBRARYNAME = byfl
 BYTECODE_LIBRARY = 1
 SOURCES = byfl.cpp reuse-dist.cpp symtable.cpp threading.cpp ubytes.cpp vectors.cpp
 EXTRA_DIST = cachemap.h
+CPPFLAGS += -I$(PROJ_SRC_ROOT)/lib/include
 
 #
 # With LLVM 3.1, .bca files are deprecated yet the Makefile doesn't know

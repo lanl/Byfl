@@ -10,24 +10,13 @@
 
 namespace bytesflops_pass {
 
-  const int BytesFlops::CLEAR_LOADS             =  1;
-  const int BytesFlops::CLEAR_STORES            =  2;
-  const int BytesFlops::CLEAR_FLOPS             =  4;
-  const int BytesFlops::CLEAR_FP_BITS           =  8;
-  const int BytesFlops::CLEAR_OPS               = 16;
-  const int BytesFlops::CLEAR_OP_BITS           = 32;
-
-  const int BytesFlops::CLEAR_FLOAT_LOADS       = 64;
-  const int BytesFlops::CLEAR_DOUBLE_LOADS      = 128;
-  const int BytesFlops::CLEAR_INT_LOADS         = 256;
-  const int BytesFlops::CLEAR_PTR_LOADS         = 512;
-  const int BytesFlops::CLEAR_OTHER_TYPE_LOADS  = 1024;
-
-  const int BytesFlops::CLEAR_FLOAT_STORES      = 2048;
-  const int BytesFlops::CLEAR_DOUBLE_STORES     = 4096;
-  const int BytesFlops::CLEAR_INT_STORES        = 8192;
-  const int BytesFlops::CLEAR_PTR_STORES        = 16384;
-  const int BytesFlops::CLEAR_OTHER_TYPE_STORES = 32768;
+  const int BytesFlops::CLEAR_LOADS     =  1;
+  const int BytesFlops::CLEAR_STORES    =  2;
+  const int BytesFlops::CLEAR_FLOPS     =  4;
+  const int BytesFlops::CLEAR_FP_BITS   =  8;
+  const int BytesFlops::CLEAR_OPS       = 16;
+  const int BytesFlops::CLEAR_OP_BITS   = 32;
+  const int BytesFlops::CLEAR_MEM_TYPES = 64;
 
   // Instrument Load and Store instructions.
   void BytesFlops::instrument_load_store(Module* module,
@@ -49,34 +38,26 @@ namespace bytesflops_pass {
       increment_global_variable(iter, load_var, num_bytes);
       if (TallyAllOps)
 	increment_global_variable(iter, load_inst_var, one);
-      must_clear |= CLEAR_LOADS;
-      static_loads++;
-
       if (TallyTypes) {
 	Type *data_type = mem_value->getType();
-	if (data_type->isSingleValueType()) {
-	  // We only instrument types that are register
-	  // (single value) friendly...
-	  instrument_load_types(iter, data_type, must_clear);
-	}
+	instrument_mem_type(module, false, iter, data_type);
+	must_clear |= CLEAR_MEM_TYPES;
       }
+      must_clear |= CLEAR_LOADS;
+      static_loads++;
     }
     else
       if (opcode == Instruction::Store) {
 	increment_global_variable(iter, store_var, num_bytes);
 	if (TallyAllOps)
 	  increment_global_variable(iter, store_inst_var, one);
-	must_clear |= CLEAR_STORES;
-	static_stores++;
-
 	if (TallyTypes) {
 	  Type *data_type = mem_value->getType();
-	  if (data_type->isSingleValueType()) {
-	    // We only instrument stores that are register
-	    // (single value) friendly...
-	    instrument_store_types(iter, data_type, must_clear);
-	  }
+	  instrument_mem_type(module, true, iter, data_type);
+	  must_clear |= CLEAR_MEM_TYPES;
 	}
+	must_clear |= CLEAR_STORES;
+	static_stores++;
       }
 
     // Determine the memory address that was loaded or stored.
@@ -352,66 +333,78 @@ namespace bytesflops_pass {
   }
 
   // Instrument the current basic block iterator (representing a
-  // load) for type-specific characteristics.
-  void BytesFlops::instrument_load_types(BasicBlock::iterator &iter,
-					 Type *data_type,
-					 int &must_clear) {
-    if (data_type->isFloatTy()) {
-      increment_global_variable(iter, load_float_inst_var, one);
-      must_clear |= CLEAR_FLOAT_LOADS;
-    } else if (data_type->isDoubleTy()) {
-      increment_global_variable(iter, load_double_inst_var, one);
-      must_clear |= CLEAR_DOUBLE_LOADS;
-    } else if (data_type->isIntegerTy(8)) {
-      increment_global_variable(iter, load_int8_inst_var, one);
-      must_clear |= CLEAR_INT_LOADS;
-    } else if (data_type->isIntegerTy(16)) {
-      increment_global_variable(iter, load_int16_inst_var, one);
-      must_clear |= CLEAR_INT_LOADS;
-    } else if (data_type->isIntegerTy(32)) {
-      increment_global_variable(iter, load_int32_inst_var, one);
-      must_clear |= CLEAR_INT_LOADS;
-    } else if (data_type->isIntegerTy(64)) {
-      increment_global_variable(iter, load_int64_inst_var, one);
-      must_clear |= CLEAR_INT_LOADS;
-    } else if (data_type->isPointerTy()) {
-      increment_global_variable(iter, load_ptr_inst_var, one);
-      must_clear |= CLEAR_PTR_LOADS;
-    } else {
-      increment_global_variable(iter, load_other_type_inst_var, one);
-      must_clear |= CLEAR_OTHER_TYPE_LOADS;
+  // load) for type-specific memory operations.
+  void BytesFlops::instrument_mem_type(Module* module,
+				       bool is_store,
+				       BasicBlock::iterator &iter,
+				       Type *data_type) {
+    const Type* current_type = data_type;   // "Pointer of...", "vector of...", etc.
+
+    // Load or store
+    uint64_t memop = is_store ? BF_OP_STORE : BF_OP_LOAD;
+
+    // Pointer or value
+    uint64_t memref;
+    if (current_type->isPointerTy()) {
+      memref = BF_REF_POINTER;
+      current_type = current_type->getPointerElementType();
     }
+    else
+      memref = BF_REF_VALUE;
+
+    // Vector or scalar
+    uint64_t memagg;
+    if (current_type->isVectorTy()) {
+      memagg = BF_AGG_VECTOR;
+      current_type = current_type->getVectorElementType();
+    }
+    else
+      memagg = BF_AGG_SCALAR;
+
+    // Integer, floating-point, or other (e.g., pointer, array, or struct)
+    uint64_t memtype;
+    if (current_type->isIntegerTy())
+      memtype = BF_TYPE_INT;
+    else if (current_type->isFloatingPointTy())
+      memtype = BF_TYPE_FP;
+    else 
+      memtype = BF_TYPE_OTHER;
+
+    // Width of the operation in bits
+    uint64_t memwidth;
+    switch (current_type->getPrimitiveSizeInBits()) {
+      case 8:
+	memwidth = BF_WIDTH_8;
+	break;
+
+      case 16:
+	memwidth = BF_WIDTH_16;
+	break;
+	
+      case 32:
+	memwidth = BF_WIDTH_32;
+	break;
+	
+      case 64:
+	memwidth = BF_WIDTH_64;
+	break;
+	
+      case 128:
+	memwidth = BF_WIDTH_128;
+	break;
+	
+      default:
+	memwidth = BF_WIDTH_OTHER;
+	break;
+    }
+
+    // Compute an index into the bf_mem_insts_count array.
+    uint64_t idx = mem_type_to_index(memop, memref, memagg, memtype, memwidth);
+
+    // Increment the counter indexed by idx.
+    LLVMContext& globctx = module->getContext();
+    ConstantInt* idxVal = ConstantInt::get(globctx, APInt(64, idx));
+    increment_global_array(iter, mem_insts_var, idxVal, one);
   }
 
-  // Instrument the current basic block iterator (representing a
-  // store) for type-specific characteristics.
-  void BytesFlops::instrument_store_types(BasicBlock::iterator &iter,
-					  Type *data_type,
-					  int &must_clear) {
-    if (data_type->isFloatTy()) {
-      increment_global_variable(iter, store_float_inst_var, one);
-      must_clear |= CLEAR_FLOAT_STORES;
-    } else if (data_type->isDoubleTy()) {
-      increment_global_variable(iter, store_double_inst_var, one);
-      must_clear |= CLEAR_DOUBLE_STORES;
-    } else if (data_type->isIntegerTy(8)) {
-      increment_global_variable(iter, store_int8_inst_var, one);
-      must_clear |= CLEAR_INT_STORES;
-    } else if (data_type->isIntegerTy(16)) {
-      increment_global_variable(iter, store_int16_inst_var, one);
-      must_clear |= CLEAR_INT_STORES;
-    } else if (data_type->isIntegerTy(32)) {
-      increment_global_variable(iter, store_int32_inst_var, one);
-      must_clear |= CLEAR_INT_STORES;
-    } else if (data_type->isIntegerTy(64)) {
-      increment_global_variable(iter, store_int64_inst_var, one);
-      must_clear |= CLEAR_INT_STORES;
-    } else if (data_type->isPointerTy()) {
-      increment_global_variable(iter, store_ptr_inst_var, one);
-      must_clear |= CLEAR_PTR_STORES;
-    } else {
-      increment_global_variable(iter, store_other_type_inst_var, one);
-      must_clear |= CLEAR_OTHER_TYPE_STORES;
-    }
-  }
-}
+} // namespace bytesflops_pass

@@ -15,35 +15,17 @@ namespace bytesflops_pass {
     // Inject external declarations to various variables defined in byfl.c.
     LLVMContext& globctx = module.getContext();
     IntegerType* i64type = Type::getInt64Ty(globctx);
+    PointerType* i64ptrtype = Type::getInt64PtrTy(globctx);
+    mem_insts_var  = declare_TLS_global(module, i64ptrtype, "bf_mem_insts_count");
+    load_var       = declare_TLS_global(module, i64type, "bf_load_count");
+    store_var      = declare_TLS_global(module, i64type, "bf_store_count");
+    load_inst_var  = declare_TLS_global(module, i64type, "bf_load_ins_count");
+    store_inst_var = declare_TLS_global(module, i64type, "bf_store_ins_count");
+    flop_var       = declare_TLS_global(module, i64type, "bf_flop_count");
+    fp_bits_var    = declare_TLS_global(module, i64type, "bf_fp_bits_count");
 
-    load_var                  = declare_TLS_global(module, i64type, "bf_load_count");
-    store_var                 = declare_TLS_global(module, i64type, "bf_store_count");
-
-    load_inst_var             = declare_TLS_global(module, i64type, "bf_load_ins_count");
-    load_float_inst_var       = declare_TLS_global(module, i64type, "bf_load_float_ins_count");
-    load_double_inst_var      = declare_TLS_global(module, i64type, "bf_load_double_ins_count");
-    load_int8_inst_var        = declare_TLS_global(module, i64type, "bf_load_int8_ins_count");
-    load_int16_inst_var       = declare_TLS_global(module, i64type, "bf_load_int16_ins_count");
-    load_int32_inst_var       = declare_TLS_global(module, i64type, "bf_load_int32_ins_count");
-    load_int64_inst_var       = declare_TLS_global(module, i64type, "bf_load_int64_ins_count");
-    load_ptr_inst_var         = declare_TLS_global(module, i64type, "bf_load_ptr_ins_count");
-    load_other_type_inst_var  = declare_TLS_global(module, i64type, "bf_load_other_type_ins_count");
-
-    store_inst_var            = declare_TLS_global(module, i64type, "bf_store_ins_count");
-    store_float_inst_var      = declare_TLS_global(module, i64type, "bf_store_float_ins_count");
-    store_double_inst_var     = declare_TLS_global(module, i64type, "bf_store_double_ins_count");
-    store_int8_inst_var       = declare_TLS_global(module, i64type, "bf_store_int8_ins_count");
-    store_int16_inst_var      = declare_TLS_global(module, i64type, "bf_store_int16_ins_count");
-    store_int32_inst_var      = declare_TLS_global(module, i64type, "bf_store_int32_ins_count");
-    store_int64_inst_var      = declare_TLS_global(module, i64type, "bf_store_int64_ins_count");
-    store_ptr_inst_var        = declare_TLS_global(module, i64type, "bf_store_ptr_ins_count");
-    store_other_type_inst_var = declare_TLS_global(module, i64type, "bf_store_other_type_ins_count");
-
-    flop_var                  = declare_TLS_global(module, i64type, "bf_flop_count");
-    fp_bits_var               = declare_TLS_global(module, i64type, "bf_fp_bits_count");
-
-    op_var                    = declare_TLS_global(module, i64type, "bf_op_count");
-    op_bits_var               = declare_TLS_global(module, i64type, "bf_op_bits_count");
+    op_var         = declare_TLS_global(module, i64type, "bf_op_count");
+    op_bits_var    = declare_TLS_global(module, i64type, "bf_op_bits_count");
 
     // Assign a few constant values.
     not_end_of_bb = ConstantInt::get(globctx, APInt(32, 0));
@@ -230,6 +212,25 @@ namespace bytesflops_pass {
       }
     }
 
+    // Inject an external declaration for llvm.memset.p0i8.i64().
+    if (TallyTypes) {
+      memset_intrinsic = module.getFunction("llvm.memset.p0i8.i64");
+      if (memset_intrinsic == NULL) {
+	vector<Type*> all_function_args;
+	all_function_args.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
+	all_function_args.push_back(IntegerType::get(globctx, 8));
+	all_function_args.push_back(IntegerType::get(globctx, 64));
+	all_function_args.push_back(IntegerType::get(globctx, 32));
+	all_function_args.push_back(IntegerType::get(globctx, 1));
+	FunctionType* void_func_result =
+	  FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+	memset_intrinsic =
+	  Function::Create(void_func_result, GlobalValue::ExternalLinkage,
+			   "llvm.memset.p0i8.i64", &module);
+	memset_intrinsic->setCallingConv(CallingConv::C);
+      }
+    }
+
     // Simplify ReuseDist.getBits() into rd_bits.
     rd_bits = ReuseDist.getBits();
     if ((rd_bits&(1<<RD_BOTH)) != 0)
@@ -258,73 +259,7 @@ namespace bytesflops_pass {
     return true;
   }
 
-
-  // *******************************************************************
-  // TEMPORARY: The rest of this file should be moved into helper files.
-  // *******************************************************************
-
   char BytesFlops::ID = 0;
-
-  // Optimize the instrumented code by deleting back-to-back
-  // mega-lock releases and acquisitions.
-  void BytesFlops::reduce_mega_lock_activity(Function& function) {
-    // Store a few constant strings.
-    StringRef take_mega_lock_name = take_mega_lock->getName();
-    StringRef release_mega_lock_name = release_mega_lock->getName();
-
-    // Iterate over each basic block in turn.
-    for (Function::iterator func_iter = function.begin();
-	 func_iter != function.end();
-	 func_iter++) {
-      // Perform per-basic-block variable initialization.
-      BasicBlock& bb = *func_iter;
-      BasicBlock::iterator terminator_inst = bb.end();
-      terminator_inst--;
-
-      // Iterate over the basic block's instructions one-by-one,
-      // accumulating a list of function calls to delete.
-      vector<Instruction*> deletable_insts;   // List of function calls to delete
-      Instruction* prev_inst = NULL;  // Immediately preceding function call or NULL if the previous instruction wasn't a function call
-      for (BasicBlock::iterator iter = bb.begin();
-	   iter != terminator_inst;
-	   iter++) {
-	// Find a pair of back-to-back functions.
-	Instruction& inst = *iter;                // Current instruction
-	if (inst.getOpcode() != Instruction::Call) {
-	  // We care only about function calls.
-	  prev_inst = NULL;
-	  continue;
-	}
-	Function* func = dyn_cast<CallInst>(&inst)->getCalledFunction();
-	if (!prev_inst) {
-	  // We care only about back-to-back functions.
-	  prev_inst = &inst;
-	  continue;
-	}
-
-	// Delete release-acquire pairs.  (None of the other three
-	// combinations of release and acquire are likely to occur
-	// in practice.)
-	Function* prev_func = dyn_cast<CallInst>(prev_inst)->getCalledFunction();
-	if (prev_func
-	    && func
-	    && prev_func->getName() == release_mega_lock_name
-	    && func->getName() == take_mega_lock_name) {
-	  deletable_insts.push_back(prev_inst);
-	  deletable_insts.push_back(&inst);
-	  prev_inst = NULL;
-	}
-	else
-	  prev_inst = &inst;
-      }
-
-      // Delete all function calls we marked as deletable.
-      while (!deletable_insts.empty()) {
-	deletable_insts.back()->eraseFromParent();
-	deletable_insts.pop_back();
-      }
-    }
-  }
 
   // Insert code for incrementing our byte, flop, etc. counters.
   bool BytesFlops::runOnFunction(Function& function) {

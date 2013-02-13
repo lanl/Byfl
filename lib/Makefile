@@ -16,6 +16,6 @@ LEVEL=..
 #
 # List all of the subdirectories that we will compile.
 #
-PARALLEL_DIRS=bytesflops byfl
+PARALLEL_DIRS=bytesflops byfl include
 
 include $(LEVEL)/Makefile.common
