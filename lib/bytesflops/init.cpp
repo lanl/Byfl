@@ -42,8 +42,15 @@ namespace bytesflops_pass {
       instrument_only = new(set<string>);
       for (vector<string>::iterator fniter = funclist.begin();
 	   fniter != funclist.end();
-	   fniter++)
-	instrument_only->insert(*fniter);
+	   fniter++) {
+	string funcname(*fniter);
+	if (funcname[0] == '@')
+	  // Read function names from a file.
+	  functions_from_file(funcname.substr(1), instrument_only);
+	else
+	  // Function name was specified literally.
+	  instrument_only->insert(funcname);
+      }
     }
 
     // Construct a set of functions not to instrument.
@@ -54,8 +61,15 @@ namespace bytesflops_pass {
       dont_instrument = new(set<string>);
       for (vector<string>::iterator fniter = funclist.begin();
 	   fniter != funclist.end();
-	   fniter++)
-	dont_instrument->insert(*fniter);
+	   fniter++) {
+	string funcname(*fniter);
+	if (funcname[0] == '@')
+	  // Read function names from a file.
+	  functions_from_file(funcname.substr(1), dont_instrument);
+	else
+	  // Function name was specified literally.
+	  dont_instrument->insert(funcname);
+      }
     }
 
     // Complain if we were given lists to instrument and not to instrument.
@@ -266,6 +280,7 @@ namespace bytesflops_pass {
     // Do nothing if we're supposed to ignore this function.
     StringRef function_name = function.getName();
     string function_name_orig = demangle_func_name(function_name.str());
+    remove_all_instances(function_name_orig, ' ');  // Normalize the name by removing spaces.
     if (instrument_only != NULL
 	&& instrument_only->find(function_name) == instrument_only->end()
 	&& instrument_only->find(function_name_orig) == instrument_only->end())

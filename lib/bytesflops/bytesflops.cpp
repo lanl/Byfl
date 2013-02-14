@@ -54,14 +54,14 @@ namespace bytesflops_pass {
   // Define a command-line option to accept a list of functions to
   // instrument, ignoring all others.
   cl::list<string>
-  IncludedFunctions("bf-include", cl::NotHidden, cl::ZeroOrMore,
+  IncludedFunctions("bf-include", cl::NotHidden, cl::ZeroOrMore, cl::CommaSeparated,
                cl::desc("Instrument only the functions in the given list"),
                cl::value_desc("function,..."));
 
   // Define a command-line option to accept a list of functions not to
   // instrument, including all others.
   cl::list<string>
-  ExcludedFunctions("bf-exclude", cl::NotHidden, cl::ZeroOrMore,
+  ExcludedFunctions("bf-exclude", cl::NotHidden, cl::ZeroOrMore, cl::CommaSeparated,
                cl::desc("Do not instrument the functions in the given list"),
                cl::value_desc("function,..."));
 

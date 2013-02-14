@@ -15,6 +15,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include <fstream>
 #include <vector>
 #include <set>
 #include "byfl-common.h"
@@ -160,6 +161,13 @@ namespace bytesflops_pass {
     ConstantInt* cond_end_bb;       // 2, basic block ended with a conditional branch
     ConstantInt* zero;        // A 64-bit constant "0"
     ConstantInt* one;         // A 64-bit constant "1"
+
+    // Destructively remove all instances of a given character from a string.
+    void remove_all_instances(string& some_string, char some_char);
+
+    // Read a list of function names, one per line, from a file into a
+    // set.  C++ function names can be either mangled or unmangled.
+    void functions_from_file(string filename, set<string>* funcset);
 
     // Insert after a given instruction some code to increment a
     // global variable.

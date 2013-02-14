@@ -120,10 +120,10 @@ The Byfl wrapper scripts accept a number of options to provide more information 
 <dd>When used with <code>-bf-by-func</code>, distinguish functions by call path.  That is, if function <code>f</code> calls functions <code>g</code> and <code>h</code>, <code>-bf-by-func</code> by itself will output counts for each of the three functions while including <code>-bf-call-stack</code> will output counts for the two call stacks <code>f</code>&rarr;<code>g</code> and <code>f</code>&rarr;<code>h</code>.</dd>
 
 <dt><code>-bf-include=</code><i>function1</i>[,<i>function2</i>,&hellip;]</dt>
-<dd>Instrument only the named functions.</dd>
+<dd>Instrument only the named functions.  <i>function</i> can also be of the form <code>@</code><i>filename</i>.  In this case, a list of functions is read from file <i>filename</i>, one function per line.  Demangled C++ function names are allowed to appear in that file but not directly on the command line.</dd>
 
 <dt><code>-bf-exclude=</code><i>function1</i>[,<i>function2</i>,&hellip;]</dt>
-<dd>Instrument all but the named functions.</dd>
+<dd>Instrument all but the named functions.  <i>function</i> can also be of the form <code>@</code><i>filename</i>.  In this case, a list of functions is read from file <i>filename</i>, one function per line.  Demangled C++ function names are allowed to appear in that file but not directly on the command line.</dd>
 
 <dt><code>-bf-thread-safe</code></dt>
 <dd>Indicate that the application is multithreaded (e.g., with <a href="http://en.wikipedia.org/wiki/POSIX_Threads">Pthreads</a> or <a href="http://www.openmp.org/">OpenMP</a>) so Byfl should protect all counter updates.</dd>

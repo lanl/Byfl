@@ -10,6 +10,28 @@
 
 namespace bytesflops_pass {
 
+  // Destructively remove all instances of a given character from a string.
+  void BytesFlops::remove_all_instances(string& some_string, char some_char) {
+    some_string.erase(remove(some_string.begin(), some_string.end(), some_char),
+		      some_string.end());
+  }
+
+  // Read a list of function names, one per line, from a file into a
+  // set.  C++ function names can be either mangled or unmangled.
+  void BytesFlops::functions_from_file(string filename, set<string>* funcset) {
+    ifstream infile(filename.c_str(), ifstream::in);
+    if (!infile.good())
+      report_fatal_error(StringRef("Failed to open file ") + filename);
+    string oneline;
+    while (infile.good() && getline(infile, oneline)) {
+      // Normalize unmangled names by removing spaces then insert the
+      // result into the set.
+      remove_all_instances(oneline, ' ');
+      funcset->insert(oneline);
+    }
+    infile.close();
+  }
+
   // Insert after a given instruction some code to increment a global
   // variable.
   void BytesFlops::increment_global_variable(BasicBlock::iterator& iter,
