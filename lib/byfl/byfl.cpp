@@ -15,7 +15,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <locale>
-#include <cxxabi.h>
 
 #include "byfl-common.h"
 #include "cachemap.h"
@@ -612,17 +611,6 @@ private:
       return compare_char_stars(one, two);
   }
 
-  // Attempt to demangle function names so the masses can follow
-  // along.  The caller must free() the result.
-  static char* demangle_func_name(const char *mangled_name) {
-    int status;
-    char* demangled_name = __cxxabiv1::__cxa_demangle(mangled_name, NULL, 0, &status);
-    if (status == 0 && demangled_name != 0)
-      return demangled_name;
-    else
-      return strdup(mangled_name);
-  }
-
   // Report per-function counter totals.
   void report_by_function (void) {
     // Output a header line.
@@ -704,17 +692,16 @@ private:
         tally = func_call_tallies()[bf_string_to_symbol(funcname)];
         funcname = unique_name;
       }
-      char* funcname_orig = demangle_func_name(funcname);
+      string funcname_orig = demangle_func_name(funcname);
       if (tally > 0) {
         cout << "BYFL_CALLEE: "
              << setw(HDR_COL_WIDTH) << tally << ' '
              << (instrumented ? "Yes " : "No  ") << ' '
              << funcname_orig;
-	if (strcmp(funcname_orig, funcname) != 0)
+	if (funcname_orig != funcname)
 	  cout << " [" << funcname << ']';
 	cout << '\n';
       }
-      free(funcname_orig);
     }
   }
 
@@ -917,6 +904,7 @@ public:
 
   ~RunAtEndOfProgram() {
     // Do nothing if our output is suppressed.
+    bf_initialize_if_necessary();
     if (suppress_output())
       return;
 

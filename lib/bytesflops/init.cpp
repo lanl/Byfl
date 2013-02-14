@@ -265,11 +265,14 @@ namespace bytesflops_pass {
   bool BytesFlops::runOnFunction(Function& function) {
     // Do nothing if we're supposed to ignore this function.
     StringRef function_name = function.getName();
+    string function_name_orig = demangle_func_name(function_name.str());
     if (instrument_only != NULL
-	&& instrument_only->find(function_name) == instrument_only->end())
+	&& instrument_only->find(function_name) == instrument_only->end()
+	&& instrument_only->find(function_name_orig) == instrument_only->end())
       return false;
     if (dont_instrument != NULL
-	&& dont_instrument->find(function_name) != dont_instrument->end())
+	&& (dont_instrument->find(function_name) != dont_instrument->end()
+	    || dont_instrument->find(function_name_orig) != dont_instrument->end()))
       return false;
 
     // Instrument "interesting" instructions in every basic block.

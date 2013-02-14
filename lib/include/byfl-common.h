@@ -8,6 +8,11 @@
 #ifndef _BYFL_COMMON_H_
 #define _BYFL_COMMON_H_
 
+#include <string>
+#include <cxxabi.h>
+
+using namespace std;
+
 enum {
   BF_OP_LOAD,
   BF_OP_STORE,
@@ -60,6 +65,22 @@ mem_type_to_index(uint64_t memop,
   idx = idx*BF_TYPE_NUM + memtype;
   idx = idx*BF_WIDTH_NUM + memwidth;
   return idx;
+}
+
+// Attempt to demangle function names so the masses can follow
+// along.  The caller must free() the result.
+#pragma GCC diagnostic ignored "-Wunused-function"
+static string
+demangle_func_name(string mangled_name) {
+  int status;
+  char* demangled_name = __cxxabiv1::__cxa_demangle(mangled_name.c_str(), NULL, 0, &status);
+  if (status == 0 && demangled_name != 0) {
+    string result(demangled_name);
+    free(demangled_name);
+    return result;
+  }
+  else
+    return string(mangled_name);
 }
 
 #endif
