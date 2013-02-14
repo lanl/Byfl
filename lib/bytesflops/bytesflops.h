@@ -75,6 +75,14 @@ namespace bytesflops_pass {
   // Define a command-line option for pruning reuse distance.
   extern cl::opt<unsigned long long> MaxReuseDist;
 
+  // Destructively remove all instances of a given character from a string.
+  extern void remove_all_instances(string& some_string, char some_char);
+
+  // Parse a list of function names into a set.  The trick is that
+  // demangled C++ function names are split (at commas) across list
+  // elements and need to be recombined.
+  extern set<string>* parse_function_names(vector<string>& funclist);
+
 
   // Define a pass over each basic block in the module.
   struct BytesFlops : public FunctionPass {
@@ -161,13 +169,6 @@ namespace bytesflops_pass {
     ConstantInt* cond_end_bb;       // 2, basic block ended with a conditional branch
     ConstantInt* zero;        // A 64-bit constant "0"
     ConstantInt* one;         // A 64-bit constant "1"
-
-    // Destructively remove all instances of a given character from a string.
-    void remove_all_instances(string& some_string, char some_char);
-
-    // Read a list of function names, one per line, from a file into a
-    // set.  C++ function names can be either mangled or unmangled.
-    void functions_from_file(string filename, set<string>* funcset);
 
     // Insert after a given instruction some code to increment a
     // global variable.

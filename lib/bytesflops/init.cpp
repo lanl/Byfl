@@ -34,45 +34,10 @@ namespace bytesflops_pass {
     zero = ConstantInt::get(globctx, APInt(64, 0));
     one = ConstantInt::get(globctx, APInt(64, 1));
 
-    // Construct a set of functions to instrument.
-    vector<string> funclist = IncludedFunctions;
-    if (funclist.size() == 0)
-      instrument_only = NULL;
-    else {
-      instrument_only = new(set<string>);
-      for (vector<string>::iterator fniter = funclist.begin();
-	   fniter != funclist.end();
-	   fniter++) {
-	string funcname(*fniter);
-	if (funcname[0] == '@')
-	  // Read function names from a file.
-	  functions_from_file(funcname.substr(1), instrument_only);
-	else
-	  // Function name was specified literally.
-	  instrument_only->insert(funcname);
-      }
-    }
-
-    // Construct a set of functions not to instrument.
-    funclist = ExcludedFunctions;
-    if (funclist.size() == 0)
-      dont_instrument = NULL;
-    else {
-      dont_instrument = new(set<string>);
-      for (vector<string>::iterator fniter = funclist.begin();
-	   fniter != funclist.end();
-	   fniter++) {
-	string funcname(*fniter);
-	if (funcname[0] == '@')
-	  // Read function names from a file.
-	  functions_from_file(funcname.substr(1), dont_instrument);
-	else
-	  // Function name was specified literally.
-	  dont_instrument->insert(funcname);
-      }
-    }
-
-    // Complain if we were given lists to instrument and not to instrument.
+    // Construct a set of functions to instrument and a set of
+    // functions not to instrument.
+    instrument_only = parse_function_names(IncludedFunctions);
+    dont_instrument = parse_function_names(ExcludedFunctions);
     if (instrument_only && dont_instrument)
       report_fatal_error("-bf-include and -bf-exclude are mutually exclusive");
 

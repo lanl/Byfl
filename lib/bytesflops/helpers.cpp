@@ -10,15 +10,18 @@
 
 namespace bytesflops_pass {
 
-  // Destructively remove all instances of a given character from a string.
-  void BytesFlops::remove_all_instances(string& some_string, char some_char) {
-    some_string.erase(remove(some_string.begin(), some_string.end(), some_char),
-		      some_string.end());
+  // Tally the number of instances of a given character in a string.
+  static size_t tally_all_instances(string& some_string, char some_char) {
+    size_t tally = 0;
+    for (string::const_iterator iter = some_string.cbegin(); iter != some_string.cend(); iter++)
+      if (*iter == some_char)
+	tally++;
+    return tally;
   }
 
   // Read a list of function names, one per line, from a file into a
   // set.  C++ function names can be either mangled or unmangled.
-  void BytesFlops::functions_from_file(string filename, set<string>* funcset) {
+  static void functions_from_file(string filename, set<string>* funcset) {
     ifstream infile(filename.c_str(), ifstream::in);
     if (!infile.good())
       report_fatal_error(StringRef("Failed to open file ") + filename);
@@ -30,6 +33,54 @@ namespace bytesflops_pass {
       funcset->insert(oneline);
     }
     infile.close();
+  }
+
+  // Destructively remove all instances of a given character from a string.
+  void remove_all_instances(string& some_string, char some_char) {
+    some_string.erase(remove(some_string.begin(), some_string.end(), some_char),
+		      some_string.end());
+  }
+
+  // Parse a list of function names into a set.  The trick is that (1)
+  // demangled C++ function names are split (at commas) across list
+  // elements and need to be recombined, and (2) the form "@filename"
+  // causes function names to be read from a file.
+  set<string>* parse_function_names(vector<string>& funclist) {
+    if (funclist.size() == 0)
+      return NULL;
+    string funcname;
+    size_t lparens = 0;
+    size_t rparens = 0;
+    set<string>* resulting_set = new(set<string>);
+    for (vector<string>::iterator fniter = funclist.begin();
+	 fniter != funclist.end();
+	 fniter++) {
+      // Combine pieces of mangled names.
+      string partial_name(*fniter);
+      if (lparens > 0 || rparens > 0)
+	funcname += ',';
+      funcname += partial_name;
+      lparens += tally_all_instances(partial_name, '(');
+      rparens += tally_all_instances(partial_name, ')');
+      if (lparens != rparens)
+	continue;
+	  
+      // We have a complete function name.  Add it to the set.
+      if (funcname[0] == '@')
+	// Read function names from a file into the set.
+	functions_from_file(funcname.substr(1), resulting_set);
+      else {
+	// Function name was specified literally.  Normalize
+	// unmangled names by removing spaces then insert the result
+	// into the set.
+	remove_all_instances(funcname, ' ');
+	resulting_set->insert(funcname);
+      }
+      funcname = "";
+      lparens = 0;
+      rparens = 0;
+    }
+    return resulting_set;
   }
 
   // Insert after a given instruction some code to increment a global
