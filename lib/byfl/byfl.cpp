@@ -355,6 +355,8 @@ void initialize_byfl (void) {
   call_stack = new CallStack();
   counter_memory_pool = new CounterMemoryPool();
   bf_mem_insts_count = new uint64_t[NUM_MEM_INSTS];
+  for (size_t i = 0; i < NUM_MEM_INSTS; i++)
+    bf_mem_insts_count[i] = 0;
   bf_push_basic_block();
 }
 
