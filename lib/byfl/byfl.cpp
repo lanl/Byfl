@@ -407,14 +407,15 @@ void initialize_byfl (void) {
   call_stack = new CallStack();
   counter_memory_pool = new CounterMemoryPool();
 
-  bf_mem_insts_count = new uint64_t[NUM_MEM_INSTS];
+  for (size_t i = 0; i < NUM_MEM_INSTS; i++)
+    bf_mem_insts_count[i] = 0;  
 
   // Make sure we initialize all instruction mix tallys...
   if (bf_inst_mix_histo == 0) 
     bf_inst_mix_histo = new uint64_t[bf_total_inst_count];
   for(unsigned int i = 0; i < bf_total_inst_count; ++i)
     bf_inst_mix_histo[i] = 0;
-  
+
   bf_push_basic_block();
 }
 
