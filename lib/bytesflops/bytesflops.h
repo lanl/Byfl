@@ -9,6 +9,7 @@
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DataLayout.h"
@@ -47,6 +48,11 @@ namespace bytesflops_pass {
   // Define a command-line option for tallying load/store operations
   // based on various data types (note this also implies --bf-all-ops).
   extern  cl::opt<bool> TallyTypes;
+
+  // Define a command-line option for tallying a histogram of the
+  // occurrence of individual instructions within the code; aka the
+  // instruction mix. 
+  extern  cl::opt<bool> TallyInstMix;  
 
   // Define a command-line option for merging basic-block measurements
   // to reduce the output volume.
@@ -108,6 +114,7 @@ namespace bytesflops_pass {
     static const int CLEAR_OP_BITS;
 
     static const int CLEAR_MEM_TYPES;
+    static const int CLEAR_INST_MIX_HISTO;
 
     GlobalVariable* load_var;  // Global reference to bf_load_count, a 64-bit load counter
     GlobalVariable* store_var; // Global reference to bf_store_count, a 64-bit store counter
@@ -115,7 +122,7 @@ namespace bytesflops_pass {
     // TODO: We might want to collapse types into a single array-based set of counters to
     // make the code a bit cleaner...
     GlobalVariable* load_inst_var;              // Global reference to bf_load_ins_count, a 64-bit load-instruction counter
-    GlobalVariable* mem_insts_var;             // Global reference to bf_mem_insts, a set of 64-bit memory instruction counters
+    GlobalVariable* mem_insts_var;              // Global reference to bf_mem_insts, a set of 64-bit memory instruction counters
     GlobalVariable* load_float_inst_var;        // Global reference to bf_float_load_ins_count, a 64-bit load-instruction counter for single-precision floats
     GlobalVariable* load_double_inst_var;       // Global reference to bf_double_load_ins_count, a 64-bit load-instruction counter for double-precision floats
     GlobalVariable* load_int8_inst_var;         // Global reference to bf_int8_load_ins_count, a 64-bit load-instruction counter for 8-bit integers
@@ -133,7 +140,9 @@ namespace bytesflops_pass {
     GlobalVariable* store_int32_inst_var;       // Global reference to bf_int32_store_ins_count, a 64-bit store-instruction counter for 32-bit integers
     GlobalVariable* store_int64_inst_var;       // Global reference to bf_int64_store_ins_count, a 64-bit store-instruction counter for 64-bit integers
     GlobalVariable* store_ptr_inst_var;         // Global reference to bf_ptr_store_ins_count, a 64-bit store-instruction counter for pointers
-    GlobalVariable* store_other_type_inst_var; // Global reference to bf_other_type_store_ins_count, a 64-bit store-instruction counter for other types
+    GlobalVariable* store_other_type_inst_var;  // Global reference to bf_other_type_store_ins_count, a 64-bit store-instruction counter for other types
+
+    GlobalVariable* inst_mix_var;               // Global reference to bf_inst_mix_histo, an array representing histogram of specific instruction counts.
 
     GlobalVariable* flop_var;  // Global reference to bf_flop_count, a 64-bit flop counter
     GlobalVariable* fp_bits_var;  // Global reference to bf_fp_bits_count, a 64-bit FP-bit counter

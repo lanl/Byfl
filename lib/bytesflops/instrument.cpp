@@ -10,13 +10,14 @@
 
 namespace bytesflops_pass {
 
-  const int BytesFlops::CLEAR_LOADS     =  1;
-  const int BytesFlops::CLEAR_STORES    =  2;
-  const int BytesFlops::CLEAR_FLOPS     =  4;
-  const int BytesFlops::CLEAR_FP_BITS   =  8;
-  const int BytesFlops::CLEAR_OPS       = 16;
-  const int BytesFlops::CLEAR_OP_BITS   = 32;
-  const int BytesFlops::CLEAR_MEM_TYPES = 64;
+  const int BytesFlops::CLEAR_LOADS          =  1;
+  const int BytesFlops::CLEAR_STORES         =  2;
+  const int BytesFlops::CLEAR_FLOPS          =  4;
+  const int BytesFlops::CLEAR_FP_BITS        =  8;
+  const int BytesFlops::CLEAR_OPS            = 16;
+  const int BytesFlops::CLEAR_OP_BITS        = 32;
+  const int BytesFlops::CLEAR_MEM_TYPES      = 64;
+  const int BytesFlops::CLEAR_INST_MIX_HISTO = 128;  
 
   // Instrument Load and Store instructions.
   void BytesFlops::instrument_load_store(Module* module,
@@ -58,6 +59,9 @@ namespace bytesflops_pass {
 	}
 	must_clear |= CLEAR_STORES;
 	static_stores++;
+
+        // See if we can determine the virtual register that
+        // is a target of the store...
       }
 
     // Determine the memory address that was loaded or stored.
@@ -283,6 +287,15 @@ namespace bytesflops_pass {
 	   iter++) {
 	Instruction& inst = *iter;                // Current instruction
 	unsigned int opcode = inst.getOpcode();   // Current instruction's opcode
+
+        // Increment the opcode's associated instruction mix counter.
+        if (TallyInstMix) {
+          LLVMContext& globctx = module->getContext();
+          // convert instruction opcode to array index value.
+          ConstantInt* instIdx = ConstantInt::get(globctx, APInt(64, opcode));
+          increment_global_array(iter, inst_mix_var, instIdx, one);
+        }
+        
 
 	if (opcode == Instruction::Load || opcode == Instruction::Store)
 	  instrument_load_store(module, function_name, iter, bbctx,

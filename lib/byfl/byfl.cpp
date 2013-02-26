@@ -7,6 +7,7 @@
  */
 
 #include <iostream>
+#include <cassert>
 #include <iomanip>
 #include <string>
 #include <vector>
@@ -33,23 +34,32 @@ typedef enum {
 } bb_end_t;
 
 
+// The following constants are defined by the instrumented code (we have to
+// move this up front to allocate memory correctly within the ByteFlopCounters
+// class.  Other constants are below... 
+extern const uint64_t bf_total_inst_count; // Total number of instructions in IR.
+
+
 // Encapsulate of all of our counters into a single structure.
 class ByteFlopCounters {
 public:
-  uint64_t mem_insts[NUM_MEM_INSTS];   // Number of memory instructions by type
-  uint64_t loads;                // Number of bytes loaded
-  uint64_t stores;               // Number of bytes stored
-  uint64_t load_ins;             // Number of load instructions executed
-  uint64_t store_ins;            // Number of store instructions executed
-  uint64_t flops;                // Number of floating-point operations performed
-  uint64_t fp_bits;              // Number of bits consumed or produced by all FP operations
-  uint64_t ops;                  // Number of operations of any type performed
-  uint64_t op_bits;              // Number of bits consumed or produced by any operation
-  uint64_t cond_brs;             // Number of conditional branches performed
-  uint64_t b_blocks;             // Number of basic blocks executed
+  uint64_t mem_insts[NUM_MEM_INSTS];  // Number of memory instructions by type
+  uint64_t loads;                     // Number of bytes loaded
+  uint64_t stores;                    // Number of bytes stored
+  uint64_t load_ins;                  // Number of load instructions executed
+  uint64_t store_ins;                 // Number of store instructions executed
+  uint64_t flops;                     // Number of floating-point operations performed
+  uint64_t fp_bits;                   // Number of bits consumed or produced by all FP operations
+  uint64_t ops;                       // Number of operations of any type performed
+  uint64_t op_bits;                   // Number of bits consumed or produced by any operation
+  uint64_t cond_brs;                  // Number of conditional branches performed
+  uint64_t b_blocks;                  // Number of basic blocks executed
+
+  uint64_t *inst_mix_histo;
 
   // Initialize all of the counters.
   ByteFlopCounters (uint64_t* initial_mem_insts=NULL,
+                    uint64_t* initial_inst_mix_histo=NULL,
                     uint64_t initial_loads=0,
                     uint64_t initial_stores=0,
                     uint64_t initial_load_ins=0,
@@ -60,12 +70,22 @@ public:
                     uint64_t initial_op_bits=0,
                     uint64_t initial_cbrs=0,
                     uint64_t initial_b_blocks=0) {
+    
     if (initial_mem_insts == NULL)
       for (size_t i = 0; i < NUM_MEM_INSTS; i++)
         mem_insts[i] = 0;
     else
       for (size_t i = 0; i < NUM_MEM_INSTS; i++)
         mem_insts[i] = initial_mem_insts[i];
+
+    inst_mix_histo = new uint64_t[bf_total_inst_count];
+    if (initial_inst_mix_histo == NULL) 
+      for(size_t i = 0; i < bf_total_inst_count; ++i)
+        inst_mix_histo[i] = 0;
+    else
+      for(size_t i = 0; i < bf_total_inst_count; ++i)
+        inst_mix_histo[i] = initial_inst_mix_histo[i];
+    
     loads    = initial_loads;
     stores   = initial_stores;
     load_ins = initial_load_ins;
@@ -78,8 +98,13 @@ public:
     b_blocks = initial_b_blocks;
   }
 
+  ~ByteFlopCounters() {
+    delete []inst_mix_histo;
+  }
+
   // Accumulate new values into our counters.
   void accumulate (uint64_t* more_mem_insts,
+                   uint64_t* more_inst_mix_histo,                   
                    uint64_t more_loads,
                    uint64_t more_stores,
                    uint64_t more_load_ins,
@@ -90,8 +115,13 @@ public:
                    uint64_t more_op_bits,
                    uint64_t more_cbrs,
                    uint64_t more_b_blocks) {
+    
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       mem_insts[i] += more_mem_insts[i];
+
+    for (size_t i = 0; i < bf_total_inst_count; i++)
+      inst_mix_histo[i] += more_inst_mix_histo[i];
+    
     loads += more_loads;
     stores += more_stores;
     load_ins  += more_load_ins;
@@ -106,8 +136,14 @@ public:
 
   // Accumulate another counter's values into our counters.
   void accumulate (ByteFlopCounters* other) {
+    
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       mem_insts[i] += other->mem_insts[i];
+
+    inst_mix_histo = new uint64_t[bf_total_inst_count];
+    for (size_t i = 0; i < bf_total_inst_count; i++)
+      inst_mix_histo[i] += other->inst_mix_histo[i];
+    
     loads     += other->loads;
     stores    += other->stores;
     load_ins  += other->load_ins;
@@ -125,23 +161,37 @@ public:
     uint64_t delta_mem_insts[NUM_MEM_INSTS];
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       delta_mem_insts[i] = mem_insts[i] - other->mem_insts[i];
-    return new ByteFlopCounters(delta_mem_insts,
-                                loads - other->loads,
-                                stores - other->stores,
-                                load_ins - other->load_ins,
-                                store_ins - other->store_ins,
-                                flops - other->flops,
-                                fp_bits - other->fp_bits,
-                                ops - other->ops,
-                                op_bits - other->op_bits,
-                                cond_brs - other->cond_brs,
-                                b_blocks - other->b_blocks);
+
+    uint64_t *delta_inst_mix_histo = new uint64_t[bf_total_inst_count];
+    for (size_t i = 0; i < bf_total_inst_count; ++i)
+      delta_inst_mix_histo[i] = inst_mix_histo[i] - other->inst_mix_histo[i];
+
+    ByteFlopCounters *byflc = new ByteFlopCounters(delta_mem_insts,
+                                                   delta_inst_mix_histo,
+                                                   loads - other->loads,
+                                                   stores - other->stores,
+                                                   load_ins - other->load_ins,
+                                                   store_ins - other->store_ins,
+                                                   flops - other->flops,
+                                                   fp_bits - other->fp_bits,
+                                                   ops - other->ops,
+                                                   op_bits - other->op_bits,
+                                                   cond_brs - other->cond_brs,
+                                                   b_blocks - other->b_blocks);
+    delete []delta_inst_mix_histo;
+    return byflc;
   }
 
   // Reset all of our counters to zero.
   void reset (void) {
+    
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       mem_insts[i] = 0;
+
+    assert(inst_mix_histo != 0);
+    for (size_t i = 0; i < bf_total_inst_count; i++)
+      inst_mix_histo[i] = 0;
+    
     loads     = 0;
     stores    = 0;
     load_ins  = 0;
@@ -156,15 +206,16 @@ public:
 };
 
 // The following values get reset at the end of every basic block.
-__thread uint64_t  bf_load_count       = 0;   // Tally of the number of bytes loaded
-__thread uint64_t  bf_store_count      = 0;   // Tally of the number of bytes stored
-__thread uint64_t* bf_mem_insts_count  = NULL;   // Tally of memory instructions by type
-__thread uint64_t  bf_load_ins_count   = 0;   // Tally of the number of load instructions performed
-__thread uint64_t  bf_store_ins_count  = 0;   // Tally of the number of store instructions performed
-__thread uint64_t  bf_flop_count       = 0;   // Tally of the number of FP operations performed
-__thread uint64_t  bf_fp_bits_count    = 0;   // Tally of the number of bits used by all FP operations
-__thread uint64_t  bf_op_count         = 0;   // Tally of the number of operations performed
-__thread uint64_t  bf_op_bits_count    = 0;   // Tally of the number of bits used by all operations
+__thread uint64_t  bf_load_count       = 0;    // Tally of the number of bytes loaded
+__thread uint64_t  bf_store_count      = 0;    // Tally of the number of bytes stored
+__thread uint64_t* bf_mem_insts_count  = NULL; // Tally of memory instructions by type
+__thread uint64_t* bf_inst_mix_histo   = NULL; // Tally of instruction mix (as histogram) 
+__thread uint64_t  bf_load_ins_count   = 0;    // Tally of the number of load instructions performed
+__thread uint64_t  bf_store_ins_count  = 0;    // Tally of the number of store instructions performed
+__thread uint64_t  bf_flop_count       = 0;    // Tally of the number of FP operations performed
+__thread uint64_t  bf_fp_bits_count    = 0;    // Tally of the number of bits used by all FP operations
+__thread uint64_t  bf_op_count         = 0;    // Tally of the number of operations performed
+__thread uint64_t  bf_op_bits_count    = 0;    // Tally of the number of bits used by all operations
 
 // The following values represent more persistent counter and other state.
 static uint64_t num_merged = 0;    // Number of basic blocks merged so far
@@ -208,13 +259,14 @@ extern "C" {
 }
 
 // The following constants are defined by the instrumented code.
-extern uint64_t bf_bb_merge;    // Number of basic blocks to merge to compress the output
-extern uint8_t bf_all_ops;      // 1=bf_op_count and bf_op_bits_count are valid
-extern uint8_t bf_types;        // 1=enables bf_all_ops and count loads/stores per type
-extern uint8_t bf_per_func;     // 1=Tally and output per-function data
-extern uint8_t bf_call_stack;   // 1=Maintain a function call stack
-extern uint8_t bf_unique_bytes; // 1=Tally and output unique bytes
-extern uint8_t bf_vectors;      // 1=Bin then output vector characteristics
+extern uint64_t bf_bb_merge;         // Number of basic blocks to merge to compress the output
+extern uint8_t  bf_all_ops;          // 1=bf_op_count and bf_op_bits_count are valid
+extern uint8_t  bf_types;            // 1=enables bf_all_ops and count loads/stores per type
+extern uint8_t  bf_per_func;         // 1=Tally and output per-function data
+extern uint8_t  bf_call_stack;       // 1=Maintain a function call stack
+extern uint8_t  bf_unique_bytes;     // 1=Tally and output unique bytes
+extern uint8_t  bf_vectors;          // 1=Bin then output vector characteristics
+extern uint8_t  bf_inst_mix;         // 1=enables counting of instruction mix histogram. 
 
 namespace bytesflops {
 
@@ -354,7 +406,15 @@ extern uint64_t bf_tally_unique_addresses (const char* funcname);
 void initialize_byfl (void) {
   call_stack = new CallStack();
   counter_memory_pool = new CounterMemoryPool();
+
   bf_mem_insts_count = new uint64_t[NUM_MEM_INSTS];
+
+  // Make sure we initialize all instruction mix tallys...
+  if (bf_inst_mix_histo == 0) 
+    bf_inst_mix_histo = new uint64_t[bf_total_inst_count];
+  for(unsigned int i = 0; i < bf_total_inst_count; ++i)
+    bf_inst_mix_histo[i] = 0;
+  
   bf_push_basic_block();
 }
 
@@ -464,6 +524,7 @@ void bf_accumulate_bb_tallies (bb_end_t end_of_basic_block)
   // Add the current values to the per-BB totals.
   ByteFlopCounters* current_bb = bb_totals().back();
   current_bb->accumulate(bf_mem_insts_count,
+                         bf_inst_mix_histo,
                          bf_load_count,
                          bf_store_count,
                          bf_load_ins_count,
@@ -562,6 +623,7 @@ void bf_assoc_counters_with_func (const char* funcname, bb_end_t end_of_basic_bl
     // This is the first time we've seen this function name.
     per_func_totals()[funcname] =
       new ByteFlopCounters(bf_mem_insts_count,
+                           bf_inst_mix_histo,
                            bf_load_count,
                            bf_store_count,
                            bf_load_ins_count,
@@ -577,6 +639,7 @@ void bf_assoc_counters_with_func (const char* funcname, bb_end_t end_of_basic_bl
     // with an existing function name.
     ByteFlopCounters* func_counters = sm_iter->second;
     func_counters->accumulate(bf_mem_insts_count,
+                              bf_inst_mix_histo,
                               bf_load_count,
                               bf_store_count,
                               bf_load_ins_count,
@@ -890,11 +953,19 @@ private:
              << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
              << " unique bits per integer op bit\n";
     }
+    
     if (bf_unique_bytes && !partition)
       cout << tag << ": " << fixed << setw(25) << setprecision(4)
            << (double)global_bytes / (double)global_unique_bytes
            << " bytes per unique byte\n";
     cout << tag << ": " << separator << '\n';
+
+    if (bf_inst_mix) {
+      cout << tag << ": Instruction Mix Histogram\n";
+      for(unsigned int i = 0; i < bf_total_inst_count; ++i)
+        cout << tag << ":\t" << setw(25) << i << ": " << setw(25) << counter_totals.inst_mix_histo[i] << '\n';
+      cout << tag << '\n';
+    }
   }
 
 public:
@@ -921,6 +992,7 @@ public:
     // into the global totals.
     if (global_totals.b_blocks == 0)
       global_totals.accumulate(bf_mem_insts_count,
+                               bf_inst_mix_histo,
                                bf_load_count,
                                bf_store_count,
                                bf_load_ins_count,
