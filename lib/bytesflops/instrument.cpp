@@ -289,7 +289,7 @@ namespace bytesflops_pass {
 	unsigned int opcode = inst.getOpcode();   // Current instruction's opcode
 
         // Increment the opcode's associated instruction mix counter.
-        if (TallyInstMix) {
+        if (TallyInstMix && opcode != Instruction::PHI) {
           LLVMContext& modctx = module->getContext();
           uint64_t opc_index = uint64_t(opcode);
           ConstantInt* opCodeIdx = ConstantInt::get(modctx,  APInt(64, opc_index));

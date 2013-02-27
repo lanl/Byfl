@@ -104,6 +104,9 @@ The Byfl wrapper scripts accept a number of options to provide more information 
 <dt><code>-bf-types</code></dt>
 <dd>Tally <em>type-specific</em> loads and stores of register friendly types.  The current set of included types are: single- and double-precision floating point values, 8-,16-, 32- and 64- integer values, and pointers. Remaining types will be categorized as <em>other types</em>.  Note that this flag will enable the <code>-bf-all-ops</code> option if not supplied on the command line.</dd>
 
+<dt><code>-bf-inst-mix</code></dt>
+<dd> Track the overall instruction mix of the program.  This counts the number of times each instruction in the intermediate representation is issued and produces a histogram output at the end of program execution. Details on the intermediate language can be found [here] (http://llvm.org/docs/LangRef.html).</dd>
+
 <dt><code>-bf-every-bb</code></dt>
 <dd>Output counters for every <a href="http://en.wikipedia.org/wiki/Basic_block">basic block</a> executed.
 

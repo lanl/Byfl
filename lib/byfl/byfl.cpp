@@ -896,10 +896,17 @@ private:
     }
 
     // Report a bunch of derived measurements.
-    cout << tag << ": " << fixed << setw(25) << setprecision(4)
-         << (double)counter_totals.loads / (double)counter_totals.stores
-         << " bytes loaded per byte stored\n";
-
+    if (counter_totals.stores > 0) {
+      cout << tag << ": " << fixed << setw(25) << setprecision(4)
+           << (double)counter_totals.loads / (double)counter_totals.stores
+           << " bytes loaded per byte stored\n";
+    } else {
+      // Not likely to hit this but it is possible now with our
+      // post-optimization instrumentation... 
+      cout << tag << ": " << fixed << setw(25) << setprecision(4)
+           << 0 << " bytes loaded per byte stored\n";
+    }
+    
     if (bf_all_ops) {
       if (counter_totals.load_ins > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)

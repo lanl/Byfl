@@ -33,6 +33,9 @@ my $verbosity = 0;
 # Let the user request static analysis in addition to instrumentation.
 my $static_analysis = 0;
 
+# Should we run pre- or post-optimization?
+my $run_post_opt = 0;
+
 # Take bytesflops options from the BF_OPTS environment variable.
 my @bf_options = split(" ", $ENV{"BF_OPTS"} || "");
 
@@ -182,7 +185,8 @@ GetOptionsFromArray(\@constructed_ARGV,
                     "bf-static"      => \$static_analysis,
                     "bf-dragonegg=s" => \$dragonegg,
                     "bf-libdir=s"    => \$byfl_libdir,
-                    "bf-disable=s"   => \$bf_disable)
+                    "bf-disable=s"   => \$bf_disable,
+                    "bf-post-opt"    => \$run_post_opt)
     || die "${progname}: Failed to parse the command line\n";
 switch ($bf_disable) {
     case "none" {
@@ -312,10 +316,26 @@ if (defined $build_type{"compile"}) {
             execute_command ("opt", "-load", "$byfl_libdir/bytesflops.so",
                              "-bytesflops", @bf_options,
                              "-analyze", "$sfile") if $static_analysis;
-            execute_command ("opt", "-load", "$byfl_libdir/bytesflops.so",
-                             "-bytesflops", @bf_options,
-                             "-std-compile-opts",
-                             "$sfile", "-o", $bcfile);
+
+	    if ($run_post_opt) {
+		# Post-optimization mode -- generate optimized code first then run
+		# byfl plugin... 
+		my $opt_bcfile = $bcfile.".opt.bc";
+		execute_command ("opt", 
+				 "-std-compile-opts",
+				 "$sfile", "-o", $opt_bcfile);
+
+		execute_command ("opt", "-load", "$byfl_libdir/bytesflops.so",
+				 "-bytesflops", @bf_options,
+				 "-std-compile-opts",
+				 "$opt_bcfile", "-o", $bcfile);
+	    } else {
+		# Pre-optimization mode. 
+		execute_command ("opt", "-load", "$byfl_libdir/bytesflops.so",
+				 "-bytesflops", @bf_options,
+				 "-std-compile-opts",
+				 "$sfile", "-o", $bcfile);
+	    }
         }
 
         # Embed the LLVM bitcode within a .o file.
