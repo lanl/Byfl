@@ -34,11 +34,17 @@ typedef enum {
 } bb_end_t;
 
 
-// The following constants are defined by the instrumented code (we have to
-// move this up front to allocate memory correctly within the ByteFlopCounters
-// class.  Other constants are below... 
-extern const uint64_t bf_total_inst_count; // Total number of instructions in IR.
+// The following constants are defined by the instrumented code.
+extern const uint64_t bf_total_inst_count; // Total number of instructions in IR (for instruction mix).
 
+extern uint64_t bf_bb_merge;         // Number of basic blocks to merge to compress the output
+extern uint8_t  bf_all_ops;          // 1=bf_op_count and bf_op_bits_count are valid
+extern uint8_t  bf_types;            // 1=enables bf_all_ops and count loads/stores per type
+extern uint8_t  bf_per_func;         // 1=Tally and output per-function data
+extern uint8_t  bf_call_stack;       // 1=Maintain a function call stack
+extern uint8_t  bf_unique_bytes;     // 1=Tally and output unique bytes
+extern uint8_t  bf_vectors;          // 1=Bin then output vector characteristics
+extern uint8_t  bf_tally_inst_mix;   // 1=enables counting of instruction mix histogram. 
 
 // Encapsulate of all of our counters into a single structure.
 class ByteFlopCounters {
@@ -55,8 +61,8 @@ public:
   uint64_t cond_brs;                  // Number of conditional branches performed
   uint64_t b_blocks;                  // Number of basic blocks executed
 
-  uint64_t *inst_mix_histo;
-
+  uint64_t *inst_mix_histo;           // Histogram of total instruction mix. 
+  
   // Initialize all of the counters.
   ByteFlopCounters (uint64_t* initial_mem_insts=NULL,
                     uint64_t* initial_inst_mix_histo=NULL,
@@ -78,13 +84,17 @@ public:
       for (size_t i = 0; i < NUM_MEM_INSTS; i++)
         mem_insts[i] = initial_mem_insts[i];
 
-    inst_mix_histo = new uint64_t[bf_total_inst_count];
-    if (initial_inst_mix_histo == NULL) 
-      for(size_t i = 0; i < bf_total_inst_count; ++i)
-        inst_mix_histo[i] = 0;
-    else
-      for(size_t i = 0; i < bf_total_inst_count; ++i)
-        inst_mix_histo[i] = initial_inst_mix_histo[i];
+    if (bf_tally_inst_mix) {
+      inst_mix_histo = new uint64_t[bf_total_inst_count];
+      if (initial_inst_mix_histo == NULL) {
+        for(size_t i = 0; i < bf_total_inst_count; ++i)
+          inst_mix_histo[i] = 0;
+      } else {
+        for(size_t i = 0; i < bf_total_inst_count; ++i)
+          inst_mix_histo[i] = initial_inst_mix_histo[i];
+      }
+    }
+    
     
     loads    = initial_loads;
     stores   = initial_stores;
@@ -119,8 +129,10 @@ public:
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       mem_insts[i] += more_mem_insts[i];
 
-    for (size_t i = 0; i < bf_total_inst_count; i++)
-      inst_mix_histo[i] += more_inst_mix_histo[i];
+    if (bf_tally_inst_mix) {    
+      for (size_t i = 0; i < bf_total_inst_count; i++)
+        inst_mix_histo[i] += more_inst_mix_histo[i];
+    }
     
     loads += more_loads;
     stores += more_stores;
@@ -140,9 +152,11 @@ public:
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       mem_insts[i] += other->mem_insts[i];
 
-    inst_mix_histo = new uint64_t[bf_total_inst_count];
-    for (size_t i = 0; i < bf_total_inst_count; i++)
-      inst_mix_histo[i] += other->inst_mix_histo[i];
+    if (bf_tally_inst_mix) {
+      inst_mix_histo = new uint64_t[bf_total_inst_count];
+      for (size_t i = 0; i < bf_total_inst_count; i++)
+        inst_mix_histo[i] += other->inst_mix_histo[i];
+    }
     
     loads     += other->loads;
     stores    += other->stores;
@@ -162,9 +176,12 @@ public:
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       delta_mem_insts[i] = mem_insts[i] - other->mem_insts[i];
 
-    uint64_t *delta_inst_mix_histo = new uint64_t[bf_total_inst_count];
-    for (size_t i = 0; i < bf_total_inst_count; ++i)
-      delta_inst_mix_histo[i] = inst_mix_histo[i] - other->inst_mix_histo[i];
+    uint64_t *delta_inst_mix_histo = 0;
+    if (bf_tally_inst_mix) {
+      delta_inst_mix_histo = new uint64_t[bf_total_inst_count];
+      for (size_t i = 0; i < bf_total_inst_count; ++i)
+        delta_inst_mix_histo[i] = inst_mix_histo[i] - other->inst_mix_histo[i];
+    }
 
     ByteFlopCounters *byflc = new ByteFlopCounters(delta_mem_insts,
                                                    delta_inst_mix_histo,
@@ -178,7 +195,9 @@ public:
                                                    op_bits - other->op_bits,
                                                    cond_brs - other->cond_brs,
                                                    b_blocks - other->b_blocks);
-    delete []delta_inst_mix_histo;
+    if (bf_tally_inst_mix) 
+      delete []delta_inst_mix_histo;
+    
     return byflc;
   }
 
@@ -188,9 +207,10 @@ public:
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       mem_insts[i] = 0;
 
-    assert(inst_mix_histo != 0);
-    for (size_t i = 0; i < bf_total_inst_count; i++)
-      inst_mix_histo[i] = 0;
+    if (bf_tally_inst_mix) {
+      for (size_t i = 0; i < bf_total_inst_count; i++)
+        inst_mix_histo[i] = 0;
+    }
     
     loads     = 0;
     stores    = 0;
@@ -259,14 +279,6 @@ extern "C" {
 }
 
 // The following constants are defined by the instrumented code.
-extern uint64_t bf_bb_merge;         // Number of basic blocks to merge to compress the output
-extern uint8_t  bf_all_ops;          // 1=bf_op_count and bf_op_bits_count are valid
-extern uint8_t  bf_types;            // 1=enables bf_all_ops and count loads/stores per type
-extern uint8_t  bf_per_func;         // 1=Tally and output per-function data
-extern uint8_t  bf_call_stack;       // 1=Maintain a function call stack
-extern uint8_t  bf_unique_bytes;     // 1=Tally and output unique bytes
-extern uint8_t  bf_vectors;          // 1=Bin then output vector characteristics
-extern uint8_t  bf_inst_mix;         // 1=enables counting of instruction mix histogram. 
 
 namespace bytesflops {
 
@@ -407,14 +419,16 @@ void initialize_byfl (void) {
   call_stack = new CallStack();
   counter_memory_pool = new CounterMemoryPool();
 
+  bf_mem_insts_count = new uint64_t[NUM_MEM_INSTS];
   for (size_t i = 0; i < NUM_MEM_INSTS; i++)
     bf_mem_insts_count[i] = 0;  
 
   // Make sure we initialize all instruction mix tallys...
-  if (bf_inst_mix_histo == 0) 
+  if (bf_tally_inst_mix) {
     bf_inst_mix_histo = new uint64_t[bf_total_inst_count];
-  for(unsigned int i = 0; i < bf_total_inst_count; ++i)
-    bf_inst_mix_histo[i] = 0;
+    for(unsigned int i = 0; i < bf_total_inst_count; ++i)
+      bf_inst_mix_histo[i] = 0;
+  }
 
   bf_push_basic_block();
 }
@@ -961,11 +975,14 @@ private:
            << " bytes per unique byte\n";
     cout << tag << ": " << separator << '\n';
 
-    if (bf_inst_mix) {
+    if (bf_tally_inst_mix) {
       cout << tag << ": Instruction Mix Histogram\n";
-      for(unsigned int i = 0; i < bf_total_inst_count; ++i)
-        cout << tag << ":\t" << setw(25) << i << ": " << setw(25) << counter_totals.inst_mix_histo[i] << '\n';
-      cout << tag << '\n';
+      for(unsigned int i = 0; i < bf_total_inst_count; ++i) {
+        if (counter_totals.inst_mix_histo[i] != 0) {
+          cout << tag << ":\t" << setw(25) << i << ": " << setw(25) << counter_totals.inst_mix_histo[i] << '\n';
+          cout << tag << '\n';
+        }
+      }
     }
   }
 

@@ -16,15 +16,16 @@ namespace bytesflops_pass {
     LLVMContext& globctx = module.getContext();
     IntegerType* i64type = Type::getInt64Ty(globctx);
     PointerType* i64ptrtype = Type::getInt64PtrTy(globctx);
-    mem_insts_var  = declare_TLS_global(module, i64ptrtype, "bf_mem_insts_count");
+    
+    mem_insts_var      = declare_TLS_global(module, i64ptrtype, "bf_mem_insts_count");
+    inst_mix_histo_var = declare_TLS_global(module, i64ptrtype, "bf_inst_mix_histo");
+    
     load_var       = declare_TLS_global(module, i64type, "bf_load_count");
     store_var      = declare_TLS_global(module, i64type, "bf_store_count");
     load_inst_var  = declare_TLS_global(module, i64type, "bf_load_ins_count");
     store_inst_var = declare_TLS_global(module, i64type, "bf_store_ins_count");
     flop_var       = declare_TLS_global(module, i64type, "bf_flop_count");
     fp_bits_var    = declare_TLS_global(module, i64type, "bf_fp_bits_count");
-
-    inst_mix_var   = declare_TLS_global(module, i64ptrtype, "bf_inst_mix_histo");
     
     op_var         = declare_TLS_global(module, i64type, "bf_op_count");
     op_bits_var    = declare_TLS_global(module, i64type, "bf_op_bits_count");
@@ -60,8 +61,8 @@ namespace bytesflops_pass {
     // Assign a value to bf_types.
     create_global_constant(module, "bf_types", bool(TallyTypes));
 
-    // Assign a value to bf_inst_mix (instruction mix).
-    create_global_constant(module, "bf_inst_mix", bool(TallyInstMix));    
+    // Assign a value to bf_tally_inst_mix (instruction mix).
+    create_global_constant(module, "bf_tally_inst_mix", bool(TallyInstMix));    
 
     // Assign a value to bf_per_func.
     create_global_constant(module, "bf_per_func", bool(TallyByFunction));
@@ -80,11 +81,12 @@ namespace bytesflops_pass {
     // Assign a value to bf_max_reuse_dist.
     create_global_constant(module, "bf_max_reuse_distance", uint64_t(MaxReuseDist));
 
-    // Assign a value to bf_total_inst_count (this represents the total number of
-    // instructions within LLVM IR -- note this could be a bit tricky to deal with
-    // if they overhaul the mechanisms within LLVM for assigning values to each
-    // instruction -- in particular if "other ops" no longer comes last in the
-    // enumerated type).
+    // Assign a value to bf_total_inst_count (this represents the
+    // total number of instructions within LLVM IR -- note this could
+    // be a bit tricky to deal with if they overhaul the mechanisms
+    // within LLVM for assigning values to each instruction opcode --
+    // in particular if "other ops" no longer comes last in the
+    // enumerated type this is going to bite us...).
     create_global_constant(module, "bf_total_inst_count", uint64_t(Instruction::OtherOpsEnd));
 
     // Inject external declarations for

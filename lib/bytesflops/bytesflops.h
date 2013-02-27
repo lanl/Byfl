@@ -142,7 +142,8 @@ namespace bytesflops_pass {
     GlobalVariable* store_ptr_inst_var;         // Global reference to bf_ptr_store_ins_count, a 64-bit store-instruction counter for pointers
     GlobalVariable* store_other_type_inst_var;  // Global reference to bf_other_type_store_ins_count, a 64-bit store-instruction counter for other types
 
-    GlobalVariable* inst_mix_var;               // Global reference to bf_inst_mix_histo, an array representing histogram of specific instruction counts.
+    GlobalVariable* total_inst_count_var;       // Global reference to bf_total_inst_count, the total number of instructions in IR. 
+    GlobalVariable* inst_mix_histo_var;         // Global reference to bf_inst_mix_histo, an array representing histogram of specific instruction counts.
 
     GlobalVariable* flop_var;  // Global reference to bf_flop_count, a 64-bit flop counter
     GlobalVariable* fp_bits_var;  // Global reference to bf_fp_bits_count, a 64-bit FP-bit counter
@@ -190,7 +191,8 @@ namespace bytesflops_pass {
     void increment_global_array(BasicBlock::iterator& iter,
 				Constant* global_var,
 				Value* idx,
-				Value* increment);
+				Value* increment,
+                                bool ins_after = true);
 
     // Mark a variable as "used" (not eligible for dead-code elimination).
     void mark_as_used(Module& module, GlobalVariable* protected_var);

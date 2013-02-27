@@ -44,11 +44,10 @@ namespace bytesflops_pass {
   TallyTypes("bf-types", cl::init(false), cl::NotHidden,
              cl::desc("Tally type information with loads and stores (note this flag enables --bf-all-ops)."));
 
-  // Define a command-line option for tallying overall instruction mix
-  // histogram creation.
+  // Define a command-line option for tallying overall instruction mix histogram creation.
   cl::opt<bool>
   TallyInstMix("bf-inst-mix", cl::init(false), cl::NotHidden,
-               cl::desc("Tally overall count of *all* individual instructions."));
+               cl::desc("Tally total count for each individual instruction (instruction mix)."));
 
   // Define a command-line option for merging basic-block measurements
   // to reduce the output volume.

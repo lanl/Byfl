@@ -5,7 +5,7 @@
  * By Scott Pakin <pakin@lanl.gov>
  * and Pat McCormick <pat@lanl.gov>
  */
-
+#include <iostream>
 #include "bytesflops.h"
 
 namespace bytesflops_pass {
@@ -290,12 +290,16 @@ namespace bytesflops_pass {
 
         // Increment the opcode's associated instruction mix counter.
         if (TallyInstMix) {
-          LLVMContext& globctx = module->getContext();
-          // convert instruction opcode to array index value.
-          ConstantInt* instIdx = ConstantInt::get(globctx, APInt(64, opcode));
-          increment_global_array(iter, inst_mix_var, instIdx, one);
+          LLVMContext& modctx = module->getContext();
+          uint64_t opc_index = uint64_t(opcode);
+          ConstantInt* opCodeIdx = ConstantInt::get(modctx,  APInt(64, opc_index));
+          // Use care here about how we insert code -- we don't want to continue
+          // by instrumenting the byfl inserted code, so we work a little with the
+          // instruction iterator to make sure we (politely) point back to the
+          // location we started with... 
+          increment_global_array(iter, inst_mix_histo_var, opCodeIdx, one, false);
+          iter++;
         }
-        
 
 	if (opcode == Instruction::Load || opcode == Instruction::Store)
 	  instrument_load_store(module, function_name, iter, bbctx,

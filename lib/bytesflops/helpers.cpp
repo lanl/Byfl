@@ -115,10 +115,12 @@ namespace bytesflops_pass {
   void BytesFlops::increment_global_array(BasicBlock::iterator& iter,
 					  Constant* global_var,
 					  Value* idx,
-					  Value* increment) {
+					  Value* increment,
+                                          bool ins_after) {
     // Point to the next instruction, because it's easy to insert before that.
     BasicBlock::iterator next_iter = iter;
-    next_iter++;
+    if (ins_after)
+      next_iter++;
 
     // %1 = load i64** @myarray, align 8
     LoadInst* load_array = new LoadInst(global_var, "bfmic", false, next_iter);
@@ -346,6 +348,7 @@ namespace bytesflops_pass {
     // and the following call to either bf_reset_bb_tallies() or
     // bf_pop_function() into a single critical section.
     if (InstrumentEveryBB || TallyByFunction) {
+      
       if (ThreadSafety)
 	CallInst::Create(take_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
 
@@ -392,6 +395,35 @@ namespace bytesflops_pass {
 	func_args.push_back(zero_1bit);
 	callinst_create(memset_intrinsic, func_args, insert_before);
       }
+      
+      if (must_clear & CLEAR_INST_MIX_HISTO) {
+       	// Zero out the entire array.
+	LoadInst* mem_insts_addr = new LoadInst(inst_mix_histo_var, "mi", false, insert_before);
+	mem_insts_addr->setAlignment(8);
+	LLVMContext& globctx = module->getContext();
+	CastInst* mem_insts_cast =
+	  new BitCastInst(mem_insts_addr,
+			  PointerType::get(IntegerType::get(globctx, 8), 0),
+			  "miv", insert_before);
+	static ConstantInt* zero_8bit =
+	  ConstantInt::get(globctx, APInt(8, 0));
+
+        static uint64_t TotalInstCount = uint64_t(Instruction::OtherOpsEnd);
+	static ConstantInt* mem_insts_size =
+	  ConstantInt::get(globctx, APInt(64, TotalInstCount*sizeof(uint64_t)));
+	static ConstantInt* mem_insts_align =
+	  ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
+	static ConstantInt* zero_1bit =
+	  ConstantInt::get(globctx, APInt(1, 0));
+	std::vector<Value*> func_args;
+	func_args.push_back(mem_insts_cast);
+	func_args.push_back(zero_8bit);
+	func_args.push_back(mem_insts_size);
+	func_args.push_back(mem_insts_align);
+	func_args.push_back(zero_1bit);
+	callinst_create(memset_intrinsic, func_args, insert_before);
+      }
+      
       must_clear = 0;
       if (ThreadSafety)
 	CallInst::Create(release_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
