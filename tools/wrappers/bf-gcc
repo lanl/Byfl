@@ -181,12 +181,12 @@ sub convert_archive_file ($)
 my @constructed_ARGV = (@bf_options, @ARGV);
 Getopt::Long::Configure("pass_through");
 GetOptionsFromArray(\@constructed_ARGV,
-                    "bf-verbose+"    => \$verbosity,
-                    "bf-static"      => \$static_analysis,
-                    "bf-dragonegg=s" => \$dragonegg,
-                    "bf-libdir=s"    => \$byfl_libdir,
-                    "bf-disable=s"   => \$bf_disable,
-                    "bf-post-opt"    => \$run_post_opt)
+                    "bf-verbose+"     => \$verbosity,
+                    "bf-static"       => \$static_analysis,
+                    "bf-dragonegg=s"  => \$dragonegg,
+                    "bf-libdir=s"     => \$byfl_libdir,
+                    "bf-disable=s"    => \$bf_disable,
+                    "bf-run-post-opt" => \$run_post_opt)
     || die "${progname}: Failed to parse the command line\n";
 switch ($bf_disable) {
     case "none" {

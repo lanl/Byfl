@@ -1,0 +1,83 @@
+#! /usr/bin/env perl
+
+###################################################
+# Helper library for computing bytes:flops ratios #
+# (script to generate opcode -> string mapping)	  #
+#						  #
+# By Scott Pakin <pakin@lanl.gov>		  #
+###################################################
+
+use File::Basename;
+use File::Temp qw(tempfile);
+use warnings;
+use strict;
+
+# Parse the command line.
+my $progname = basename $0;
+die "Usage: $progname <cpp>\n" if $#ARGV != 0;
+my $cpp = $ARGV[0];
+
+# Find Instruction.def.
+open(INST_DEF, "/bin/echo '#include <llvm/IR/Instruction.def>' | $cpp - |") || die "${progname}: $!\n";
+my $inst_def;
+while (my $oneline = <INST_DEF>) {
+    $inst_def = $1, last if $oneline =~ m,^\# \d+ \"([^\"]+/Instruction\.def)\",;
+}
+close INST_DEF || die "${progname}: $!\n";
+die "${progname}: Failed to find Instruction.def\n" if !defined $inst_def;
+
+# Create a dummy C file that we'll preprocess.
+my ($cfile, $cfilename) = tempfile("op2nm-XXXXXX",
+				   SUFFIX => ".c",
+				   TMPDIR => 1,
+				   UNLINK => 1);
+open(INST_DEF, "<", $inst_def) || die "open(\"$inst_def\"): $!\n";
+while (my $oneline = <INST_DEF>) {
+    if ($oneline =~ /^\#define (HANDLE_\w+_INST)\((\w+),\s*(\w+),\s*(\w+)\)\s*$/) {
+	my ($macro, $num, $opcode, $class) = ($1, $2, $3, $4);
+	print $cfile "#define $macro($num, $opcode, $class) ${progname}: $num $opcode\n";
+    }
+}
+close INST_DEF;
+print $cfile "#include \"$inst_def\"\n";
+close $cfile;
+
+# Preprocess the C file to acquire a mapping from numbers to names.
+my @opcode_names;
+open(PREPROC, "$cpp $cfilename|") || die "${progname}: $!\n";
+while (my $oneline = <PREPROC>) {
+    $opcode_names[$1] = $2 if $oneline =~ /^${progname}: (\d+) (\w+)$/;
+}
+close PREPROC || die "${progname}: $!\n";
+
+# Output C++ code with a static array of name mappings.
+print <<"BOILERPLATE";
+/*
+ * Helper library for computing bytes:flops ratios
+ * (mapping from opcodes to names)
+ *
+ * WARNING: This is a generated file.  DO NOT EDIT.
+ * Edit $0 instead.
+ *
+ * By Scott Pakin <pakin\@lanl.gov>
+ */
+
+namespace bytesflops {
+
+  // Define a mapping from an LLVM opcode number to the
+  // name of that opcode.
+  const char* opcode2name[] = {
+BOILERPLATE
+    ;
+foreach my $num (0 .. $#opcode_names) {
+    my $name = $opcode_names[$num];
+    my $comment = sprintf "%3d", $num;
+    if (!defined $name) {
+	$name = "Byfl_bug_$num";
+	$comment .= " (should never be used)";
+    }
+    my $string = sprintf "    \"%s\"%s", $name, $num < $#opcode_names ? "," : "";
+    printf "%-25.25s  // %s\n", $string, $comment;
+}
+print "  };\n\n";
+print "}  // namespace bytesflops\n";

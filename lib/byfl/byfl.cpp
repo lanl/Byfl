@@ -983,11 +983,13 @@ private:
     cout << tag << ": " << separator << '\n';
 
     if (bf_tally_inst_mix) {
+      extern const char* opcode2name[];
+      
       cout << tag << ": Instruction Mix Histogram\n";
       for(unsigned int i = 0; i < bf_total_inst_count; ++i) {
         if (counter_totals.inst_mix_histo[i] != 0) {
-          cout << tag << ":\t" << setw(25) << i << ": " << setw(25) << counter_totals.inst_mix_histo[i] << '\n';
-          cout << tag << '\n';
+          cout << tag << ":" << setw(16) << opcode2name[i] << " [opcode="
+               << setw(2) << i << "]: " << setw(10) << counter_totals.inst_mix_histo[i] << '\n';
         }
       }
     }

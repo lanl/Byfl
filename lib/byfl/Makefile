@@ -18,8 +18,15 @@ LEVEL=../..
 LIBRARYNAME = byfl
 BYTECODE_LIBRARY = 1
 SOURCES = byfl.cpp reuse-dist.cpp symtable.cpp threading.cpp ubytes.cpp vectors.cpp
-EXTRA_DIST = cachemap.h
+BUILT_SOURCES = opcode2name.cpp
+EXTRA_DIST = cachemap.h opcode2name
 CPPFLAGS += -I$(PROJ_SRC_ROOT)/lib/include
+
+#
+# Specify how to create opcode2name.cpp
+#
+opcode2name.cpp:
+	$(PROJ_SRC_DIR)/opcode2name '$(CPP) -I$(LLVM_SRC_ROOT)/include' > opcode2name.cpp
 
 #
 # With LLVM 3.1, .bca files are deprecated yet the Makefile doesn't know

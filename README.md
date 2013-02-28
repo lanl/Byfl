@@ -239,6 +239,9 @@ The Byfl options listed above are accepted directly by the Byfl compiler pass.  
 <dt><code>-bf-static</code></dt>
 <dd>Instead of instrumenting the code, merely output counts of number of instructions of various types.</dd>
 
+<dt><code>-bf-run-post-op</code></dt>
+<dd>Run the Byfl pass *after* all (architecture-independent) optimization passes. This can be helpful when you wish to more closely match what is likely to run on a particular architecture as well as in interpreting the impact that certain optimizations have on your code.</dd>
+
 <dt><code>-bf-disable=</code><i>feature</i></dt>
 <dd>Disables various pieces of the instrumentation process.  This can be useful for performance comparisons and troubleshooting.  The following are acceptable values for <code>-bf-disable</code>:
 

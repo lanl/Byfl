@@ -264,6 +264,11 @@ namespace bytesflops_pass {
 			       BasicBlock::iterator& terminator_inst,
 			       int& must_clear);
 
+    // Instrument full program instruction mix.
+    void instrument_inst_mix(Module* module,
+                             BasicBlock::iterator& iter,
+                             BasicBlock::iterator& terminator_inst);
+
     // Instrument Call instructions.
     void instrument_call(Module* module,
 			 StringRef function_name,

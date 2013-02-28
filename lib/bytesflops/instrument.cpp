@@ -137,6 +137,8 @@ namespace bytesflops_pass {
 	BasicBlock::iterator next_iter = iter;
 	next_iter++;
 	callinst_create(pop_bb, next_iter);
+        iter = next_iter;
+        iter--;
       }
     }
   }
@@ -263,6 +265,48 @@ namespace bytesflops_pass {
       }
   }
 
+  void BytesFlops::instrument_inst_mix(Module* module,
+                                       BasicBlock::iterator& iter,
+                                       BasicBlock::iterator& terminator_inst) {
+
+    // The steps we take to walk the instructions in the code are bit
+    // fragile and care should be taken in making sure we don't
+    // process injected code (nor introduce duplicate tallies).  This
+    // is particularly true here with the details of BBs with phi
+    // nodes.  When in doubt draw pictures!
+    
+    unsigned int opcode = iter->getOpcode();
+    LLVMContext& modctx = module->getContext();
+
+    // Phi nodes are grouped together -- we don't really care about
+    // them elsewhere in the analysis code so we gather them together
+    // here record the details and then pass the next instruction on
+    // for the rest of the code to process... 
+    unsigned int cur_opcode = opcode;    
+    uint64_t phi_count      = 0;
+    while(cur_opcode == Instruction::PHI && iter != terminator_inst) {
+      phi_count++;
+      iter++;
+      cur_opcode = iter->getOpcode();
+    }
+
+    if (phi_count > 0) {
+      // Record total number of phi nodes/instructions
+      // encountered... We jump ahead to process the next 'non-phi'
+      // instruction below.
+      ConstantInt* opCodeIdx = ConstantInt::get(modctx,  APInt(64, int64_t(opcode)));
+      ConstantInt* pcount = ConstantInt::get(modctx, APInt(64, phi_count));
+      increment_global_array(iter, inst_mix_histo_var, opCodeIdx, pcount, false);
+      iter++; // jump past inserted code... 
+    }
+
+    // Tally the non-phi instruction.  Make sure we leave the
+    // instruction iter available for the rest of the pass to process
+    ConstantInt* opCodeIdx = ConstantInt::get(modctx,  APInt(64, int64_t(cur_opcode)));
+    increment_global_array(iter, inst_mix_histo_var, opCodeIdx, one, false);
+    iter++; // jump past inserted code... 
+  }
+
   // Do most of the instrumentation work: Walk each instruction in
   // each basic block and add instrumentation code around loads,
   // stores, flops, etc.
@@ -282,38 +326,33 @@ namespace bytesflops_pass {
       int must_clear = 0;   // Keep track of which counters we need to clear.
 
       // Iterate over the basic block's instructions one-by-one.
-      for (BasicBlock::iterator iter = bb.begin();
+      for (BasicBlock::iterator iter = bb.begin(), next_iter = bb.begin();
 	   iter != terminator_inst;
-	   iter++) {
-	Instruction& inst = *iter;                // Current instruction
-	unsigned int opcode = inst.getOpcode();   // Current instruction's opcode
-
-        // Increment the opcode's associated instruction mix counter.
-        if (TallyInstMix && opcode != Instruction::PHI) {
-          LLVMContext& modctx = module->getContext();
-          uint64_t opc_index = uint64_t(opcode);
-          ConstantInt* opCodeIdx = ConstantInt::get(modctx,  APInt(64, opc_index));
-          // Use care here about how we insert code -- we don't want to continue
-          // by instrumenting the byfl inserted code, so we work a little with the
-          // instruction iterator to make sure we (politely) point back to the
-          // location we started with... 
-          increment_global_array(iter, inst_mix_histo_var, opCodeIdx, one, false);
-          iter++;
+	   iter = next_iter,
+           next_iter++) {
+        
+        if (TallyInstMix) {
+          instrument_inst_mix(module, next_iter, terminator_inst);
         }
 
-	if (opcode == Instruction::Load || opcode == Instruction::Store)
-	  instrument_load_store(module, function_name, iter, bbctx,
+        // Snag the current instruction and it's opcode for
+        // further interrogation... 
+        Instruction& inst   = *next_iter;
+        unsigned int opcode = inst.getOpcode();
+
+	if (opcode == Instruction::Load || opcode == Instruction::Store) 
+	  instrument_load_store(module, function_name, next_iter, bbctx,
 				target_data, terminator_inst, must_clear);
 	else
 	  // The instruction isn't a load or a store.  See if it's a
 	  // function call.
 	  if (opcode == Instruction::Call)
-	    instrument_call(module, function_name, iter, must_clear);
+	    instrument_call(module, function_name, next_iter, must_clear);
 	  else
 	    // The instruction isn't a load, a store, or a function
 	    // call.  See if it's an operation that we need to
 	    // watch.
-	    instrument_other(module, function_name, iter, bbctx,
+	    instrument_other(module, function_name, next_iter, bbctx,
 			     terminator_inst, must_clear);
       }
 
