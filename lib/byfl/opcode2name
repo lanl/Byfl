@@ -14,8 +14,8 @@ use strict;
 
 # Parse the command line.
 my $progname = basename $0;
-die "Usage: $progname <cpp>\n" if $#ARGV != 0;
-my $cpp = $ARGV[0];
+die "Usage: $progname <cpp> <output.cpp> <output.h>\n" if $#ARGV != 2;
+my ($cpp, $out_cpp, $out_h) = @ARGV;
 
 # Find Instruction.def.
 open(INST_DEF, "/bin/echo '#include <llvm/IR/Instruction.def>' | $cpp - |") || die "${progname}: $!\n";
@@ -51,7 +51,8 @@ while (my $oneline = <PREPROC>) {
 close PREPROC || die "${progname}: $!\n";
 
 # Output C++ code with a static array of name mappings.
-print <<"BOILERPLATE";
+open(CXXFILE, ">", $out_cpp) || die "${progname}: open(\"$out_cpp\"): $!\n";
+print CXXFILE <<"BOILERPLATE";
 /*
  * Helper library for computing bytes:flops ratios
  * (mapping from opcodes to names)
@@ -77,7 +78,31 @@ foreach my $num (0 .. $#opcode_names) {
 	$comment .= " (should never be used)";
     }
     my $string = sprintf "    \"%s\"%s", $name, $num < $#opcode_names ? "," : "";
-    printf "%-25.25s  // %s\n", $string, $comment;
+    printf CXXFILE "%-25.25s  // %s\n", $string, $comment;
 }
-print "  };\n\n";
-print "}  // namespace bytesflops\n";
+print CXXFILE "  };\n\n";
+print CXXFILE "}  // namespace bytesflops\n";
+close CXXFILE;
+
+# Output a C++ header file that defines the number of entries in the
+# static array.
+open(HFILE, ">", $out_h) || die "${progname}: open(\"$out_h\"): $!\n";
+print HFILE <<"BOILERPLATE2";
+/*
+ * Helper library for computing bytes:flops ratios
+ * (header file for the mapping from opcodes to names)
+ *
+ * WARNING: This is a generated file.  DO NOT EDIT.
+ * Edit $0 instead.
+ *
+ * By Scott Pakin <pakin\@lanl.gov>
+ */
+
+#ifndef __OPCODE2NAME_H__
+#define __OPCODE2NAME_H__
+
+BOILERPLATE2
+;
+printf HFILE "#define NUM_OPCODES %d\n\n", 1+$#opcode_names;
+print HFILE "#endif\n";
+close HFILE;

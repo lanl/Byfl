@@ -19,6 +19,7 @@
 
 #include "byfl-common.h"
 #include "cachemap.h"
+#include "opcode2name.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
@@ -50,6 +51,7 @@ extern uint8_t  bf_tally_inst_mix;   // 1=enables counting of instruction mix hi
 class ByteFlopCounters {
 public:
   uint64_t mem_insts[NUM_MEM_INSTS];  // Number of memory instructions by type
+  uint64_t inst_mix_histo[NUM_OPCODES];   // Histogram of instruction mix
   uint64_t loads;                     // Number of bytes loaded
   uint64_t stores;                    // Number of bytes stored
   uint64_t load_ins;                  // Number of load instructions executed
@@ -61,7 +63,6 @@ public:
   uint64_t cond_brs;                  // Number of conditional branches performed
   uint64_t b_blocks;                  // Number of basic blocks executed
 
-  uint64_t *inst_mix_histo;           // Histogram of total instruction mix
 
   // Initialize all of the counters.
   ByteFlopCounters (uint64_t* initial_mem_insts=NULL,
@@ -76,24 +77,27 @@ public:
                     uint64_t initial_op_bits=0,
                     uint64_t initial_cbrs=0,
                     uint64_t initial_b_blocks=0) {
-    if (initial_mem_insts == NULL)
-      for (size_t i = 0; i < NUM_MEM_INSTS; i++)
-        mem_insts[i] = 0;
-    else
-      for (size_t i = 0; i < NUM_MEM_INSTS; i++)
-        mem_insts[i] = initial_mem_insts[i];
-
-    if (bf_tally_inst_mix) {
-      inst_mix_histo = new uint64_t[bf_total_inst_count];
-      if (initial_inst_mix_histo == NULL) {
-        for(size_t i = 0; i < bf_total_inst_count; ++i)
-          inst_mix_histo[i] = 0;
-      } else {
-        for(size_t i = 0; i < bf_total_inst_count; ++i)
-          inst_mix_histo[i] = initial_inst_mix_histo[i];
-      }
+    // Initialize mem_insts only if -bf-types was specified.
+    if (bf_types) {
+      if (initial_mem_insts == NULL)
+        for (size_t i = 0; i < NUM_MEM_INSTS; i++)
+          mem_insts[i] = 0;
+      else
+        for (size_t i = 0; i < NUM_MEM_INSTS; i++)
+          mem_insts[i] = initial_mem_insts[i];
     }
 
+    // Initialize inst_mix_histo only if -bf-inst-mix was specified.
+    if (bf_tally_inst_mix) {
+      if (initial_inst_mix_histo == NULL)
+        for (size_t i = 0; i < bf_total_inst_count; i++)
+          inst_mix_histo[i] = 0;
+      else
+        for(size_t i = 0; i < bf_total_inst_count; i++)
+          inst_mix_histo[i] = initial_inst_mix_histo[i];
+    }
+
+    // Unconditionally initialize everything else.
     loads    = initial_loads;
     stores   = initial_stores;
     load_ins = initial_load_ins;
@@ -104,10 +108,6 @@ public:
     op_bits  = initial_op_bits;
     cond_brs = initial_cbrs;
     b_blocks = initial_b_blocks;
-  }
-
-  ~ByteFlopCounters() {
-    delete []inst_mix_histo;
   }
 
   // Accumulate new values into our counters.
@@ -123,15 +123,17 @@ public:
                    uint64_t more_op_bits,
                    uint64_t more_cbrs,
                    uint64_t more_b_blocks) {
+    // Accumulate mem_insts only if -bf-types was specified.
+    if (bf_types)
+      for (size_t i = 0; i < NUM_MEM_INSTS; i++)
+        mem_insts[i] += more_mem_insts[i];
 
-    for (size_t i = 0; i < NUM_MEM_INSTS; i++)
-      mem_insts[i] += more_mem_insts[i];
-
-    if (bf_tally_inst_mix) {
+    // Accumulate inst_mix_histo only if -bf-inst-mix was specified.
+    if (bf_tally_inst_mix)
       for (size_t i = 0; i < bf_total_inst_count; i++)
         inst_mix_histo[i] += more_inst_mix_histo[i];
-    }
 
+    // Unconditionally accumulate everything else.
     loads += more_loads;
     stores += more_stores;
     load_ins  += more_load_ins;
@@ -146,16 +148,17 @@ public:
 
   // Accumulate another counter's values into our counters.
   void accumulate (ByteFlopCounters* other) {
+    // Accumulate mem_insts only if -bf-types was specified.
+    if (bf_types)
+      for (size_t i = 0; i < NUM_MEM_INSTS; i++)
+        mem_insts[i] += other->mem_insts[i];
 
-    for (size_t i = 0; i < NUM_MEM_INSTS; i++)
-      mem_insts[i] += other->mem_insts[i];
-
-    if (bf_tally_inst_mix) {
-      inst_mix_histo = new uint64_t[bf_total_inst_count];
+    // Accumulate inst_mix_histo only if -bf-inst-mix was specified.
+    if (bf_tally_inst_mix)
       for (size_t i = 0; i < bf_total_inst_count; i++)
         inst_mix_histo[i] += other->inst_mix_histo[i];
-    }
 
+    // Unconditionally accumulate everything else.
     loads     += other->loads;
     stores    += other->stores;
     load_ins  += other->load_ins;
@@ -170,17 +173,19 @@ public:
 
   // Return the difference of our counters and another set of counters.
   ByteFlopCounters* difference (ByteFlopCounters* other) {
+    // Take the difference of mem_insts only if -bf-types was specified.
     uint64_t delta_mem_insts[NUM_MEM_INSTS];
-    for (size_t i = 0; i < NUM_MEM_INSTS; i++)
-      delta_mem_insts[i] = mem_insts[i] - other->mem_insts[i];
+    if (bf_types)
+      for (size_t i = 0; i < NUM_MEM_INSTS; i++)
+        delta_mem_insts[i] = mem_insts[i] - other->mem_insts[i];
 
-    uint64_t *delta_inst_mix_histo = 0;
-    if (bf_tally_inst_mix) {
-      delta_inst_mix_histo = new uint64_t[bf_total_inst_count];
+    // Take the difference of inst_mix_histo only if -bf-inst-mix was specified.
+    uint64_t delta_inst_mix_histo[NUM_OPCODES];
+    if (bf_tally_inst_mix)
       for (size_t i = 0; i < bf_total_inst_count; ++i)
         delta_inst_mix_histo[i] = inst_mix_histo[i] - other->inst_mix_histo[i];
-    }
 
+    // Unconditionally take the difference of everything else.
     ByteFlopCounters *byflc = new ByteFlopCounters(delta_mem_insts,
                                                    delta_inst_mix_histo,
                                                    loads - other->loads,
@@ -193,23 +198,22 @@ public:
                                                    op_bits - other->op_bits,
                                                    cond_brs - other->cond_brs,
                                                    b_blocks - other->b_blocks);
-    if (bf_tally_inst_mix)
-      delete []delta_inst_mix_histo;
-
     return byflc;
   }
 
   // Reset all of our counters to zero.
   void reset (void) {
+    // Reset mem_insts only if -bf-types was specified.
+    if (bf_types)
+      for (size_t i = 0; i < NUM_MEM_INSTS; i++)
+        mem_insts[i] = 0;
 
-    for (size_t i = 0; i < NUM_MEM_INSTS; i++)
-      mem_insts[i] = 0;
-
-    if (bf_tally_inst_mix) {
+    // Reset inst_mix_histo only if -bf-inst-mix was specified.
+    if (bf_tally_inst_mix)
       for (size_t i = 0; i < bf_total_inst_count; i++)
         inst_mix_histo[i] = 0;
-    }
 
+    // Unconditionally reset everything else.
     loads     = 0;
     stores    = 0;
     load_ins  = 0;
