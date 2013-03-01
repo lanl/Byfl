@@ -145,7 +145,7 @@ Almost all of the options listed above incur a cost in execution time and memory
 
 The following represents some sample output from a code instrumented with Byfl and most of the preceding options:
 
-    BYFL_BB_HEADER:             Bytes_LD             Bytes_ST               Ops_LD               Ops_ST                Flops              FP_bits              Ops_ALU          Op_ALU_bits
+    BYFL_BB_HEADER:             LD_bytes             ST_bytes               LD_ops               ST_ops                Flops              FP_bits              Int_ops          Int_op_bits
     BYFL_BB:                           0                    0                    0                    0                    0                    0                    0                    0
     BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
     BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
@@ -180,12 +180,12 @@ The following represents some sample output from a code instrumented with Byfl a
     BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
     BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
     600
-    BYFL_BB:                         512                    0                    2                    0                   32                 6144                   34                 6272
-    BYFL_FUNC_HEADER:             Bytes_LD             Bytes_ST               Ops_LD               Ops_ST                Flops              FP_bits              Ops_ALU          Op_ALU_bits           Uniq_bytes             Cond_brs          Invocations Function
-    BYFL_FUNC:                         512                  512                    2                   64                   32                 6144                  674                72352                  512                   32                    1 main
+    BYFL_BB:                         512                  256                    2                    1                   32                 6144                    3                  192
+    BYFL_FUNC_HEADER:             LD_bytes             ST_bytes               LD_ops               ST_ops                Flops              FP_bits              Int_ops          Int_op_bits           Uniq_bytes             Cond_brs          Invocations Function
+    BYFL_FUNC:                         512                  768                    2                   65                   32                 6144                  643                66272                  768                   32                    1 main
     BYFL_CALLEE_HEADER:   Invocations Byfl Function
-    BYFL_CALLEE:                    2 No   llvm.lifetime.end
-    BYFL_CALLEE:                    2 No   llvm.lifetime.start
+    BYFL_CALLEE:                    3 No   llvm.lifetime.end
+    BYFL_CALLEE:                    3 No   llvm.lifetime.start
     BYFL_CALLEE:                    1 No   __printf_chk
     BYFL_VECTOR_HEADER:             Elements             Elt_bits Type                Tally Function
     BYFL_VECTOR:                          32                   64 FP                      1 main
@@ -193,41 +193,65 @@ The following represents some sample output from a code instrumented with Byfl a
     BYFL_SUMMARY:                        34 basic blocks
     BYFL_SUMMARY:                        32 conditional or indirect branches
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                      1024 bytes (512 loaded + 512 stored)
-    BYFL_SUMMARY:                       512 unique bytes
+    BYFL_SUMMARY:                     1,280 bytes (512 loaded + 768 stored)
+    BYFL_SUMMARY:                       768 unique bytes
     BYFL_SUMMARY:                        32 flops
-    BYFL_SUMMARY:                       674 ALU ops
-    BYFL_SUMMARY:                        66 memory ops (2 loads + 64 stores)
-    BYFL_SUMMARY:                       511 median reuse distance (+/- 0)
+    BYFL_SUMMARY:                       643 integer ops
+    BYFL_SUMMARY:                        67 memory ops (2 loads + 65 stores)
+    BYFL_SUMMARY:                       511 median reuse distance (+/- 128)
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                      8192 bits (4096 loaded + 4096 stored)
-    BYFL_SUMMARY:                      4096 unique bits
-    BYFL_SUMMARY:                      6144 flop bits
-    BYFL_SUMMARY:                     72352 ALU op bits
+    BYFL_SUMMARY:                         2 loads of vectors of 64-bit floating-point values
+    BYFL_SUMMARY:                        64 stores of 64-bit floating-point values
+    BYFL_SUMMARY:                         1 stores of vectors of 64-bit floating-point values
+    BYFL_SUMMARY: -----------------------------------------------------------------
+    BYFL_SUMMARY:                    10,240 bits (4,096 loaded + 6,144 stored)
+    BYFL_SUMMARY:                     6,144 unique bits
+    BYFL_SUMMARY:                     6,144 flop bits
+    BYFL_SUMMARY:                    66,272 integer op bits
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                         1 vector operations
     BYFL_SUMMARY:                   32.0000 elements per vector
     BYFL_SUMMARY:                   64.0000 bits per element
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                    1.0000 bytes loaded per byte stored
-    BYFL_SUMMARY:                  337.0000 ALU ops per load instruction
-    BYFL_SUMMARY:                  124.1212 bits loaded/stored per memory op
+    BYFL_SUMMARY:                       235 Call           instructions executed
+    BYFL_SUMMARY:                        96 Trunc          instructions executed
+    BYFL_SUMMARY:                        96 Add            instructions executed
+    BYFL_SUMMARY:                        67 BitCast        instructions executed
+    BYFL_SUMMARY:                        67 PtrToInt       instructions executed
+    BYFL_SUMMARY:                        65 Store          instructions executed
+    BYFL_SUMMARY:                        64 Mul            instructions executed
+    BYFL_SUMMARY:                        64 GetElementPtr  instructions executed
+    BYFL_SUMMARY:                        64 SIToFP         instructions executed
+    BYFL_SUMMARY:                        64 SRem           instructions executed
+    BYFL_SUMMARY:                        33 Br             instructions executed
+    BYFL_SUMMARY:                        32 PHI            instructions executed
+    BYFL_SUMMARY:                        32 ICmp           instructions executed
+    BYFL_SUMMARY:                        32 Shl            instructions executed
+    BYFL_SUMMARY:                         3 Alloca         instructions executed
+    BYFL_SUMMARY:                         2 ExtractElement instructions executed
+    BYFL_SUMMARY:                         2 Load           instructions executed
+    BYFL_SUMMARY:                         1 Ret            instructions executed
+    BYFL_SUMMARY:                         1 FMul           instructions executed
+    BYFL_SUMMARY: -----------------------------------------------------------------
+    BYFL_SUMMARY:                    0.6667 bytes loaded per byte stored
+    BYFL_SUMMARY:                  321.5000 integer ops per load instruction
+    BYFL_SUMMARY:                  152.8358 bits loaded/stored per memory op
     BYFL_SUMMARY:                    1.0000 flops per conditional/indirect branch
-    BYFL_SUMMARY:                   21.0625 ops per conditional/indirect branch
+    BYFL_SUMMARY:                   20.0938 ops per conditional/indirect branch
     BYFL_SUMMARY:                    0.0312 vector ops per conditional/indirect branch
     BYFL_SUMMARY:                    0.0312 vector operations (FP & int) per flop
-    BYFL_SUMMARY:                    0.0015 vector operations per ALU op
+    BYFL_SUMMARY:                    0.0016 vector operations per integer op
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                   32.0000 bytes per flop
-    BYFL_SUMMARY:                    1.3333 bits per flop bit
-    BYFL_SUMMARY:                    1.5193 bytes per ALU op
-    BYFL_SUMMARY:                    0.1132 bits per ALU op bit
+    BYFL_SUMMARY:                   40.0000 bytes per flop
+    BYFL_SUMMARY:                    1.6667 bits per flop bit
+    BYFL_SUMMARY:                    1.9907 bytes per integer op
+    BYFL_SUMMARY:                    0.1545 bits per integer op bit
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                   16.0000 unique bytes per flop
-    BYFL_SUMMARY:                    0.6667 unique bits per flop bit
-    BYFL_SUMMARY:                    0.7596 unique bytes per ALU op
-    BYFL_SUMMARY:                    0.0566 unique bits per ALU op bit
-    BYFL_SUMMARY:                    2.0000 bytes per unique byte
+    BYFL_SUMMARY:                   24.0000 unique bytes per flop
+    BYFL_SUMMARY:                    1.0000 unique bits per flop bit
+    BYFL_SUMMARY:                    1.1944 unique bytes per integer op
+    BYFL_SUMMARY:                    0.0927 unique bits per integer op bit
+    BYFL_SUMMARY:                    1.6667 bytes per unique byte
     BYFL_SUMMARY: -----------------------------------------------------------------
 
 The Byfl options listed above are accepted directly by the Byfl compiler pass.  In addition, the Byfl wrapper scripts (but not the compiler pass) accept the following options:
