@@ -51,8 +51,8 @@ namespace bytesflops_pass {
 
   // Define a command-line option for tallying a histogram of the
   // occurrence of individual instructions within the code; aka the
-  // instruction mix. 
-  extern  cl::opt<bool> TallyInstMix;  
+  // instruction mix.
+  extern  cl::opt<bool> TallyInstMix;
 
   // Define a command-line option for merging basic-block measurements
   // to reduce the output volume.
@@ -114,7 +114,6 @@ namespace bytesflops_pass {
     static const int CLEAR_OP_BITS;
 
     static const int CLEAR_MEM_TYPES;
-    static const int CLEAR_INST_MIX_HISTO;
 
     GlobalVariable* load_var;  // Global reference to bf_load_count, a 64-bit load counter
     GlobalVariable* store_var; // Global reference to bf_store_count, a 64-bit store counter
@@ -181,15 +180,15 @@ namespace bytesflops_pass {
     // Insert after a given instruction some code to increment a
     // global variable.
     void increment_global_variable(BasicBlock::iterator& iter,
-				   Constant* global_var,
-				   Value* increment);
+                                   Constant* global_var,
+                                   Value* increment);
 
     // Insert after a given instruction some code to increment an
     // element of a global array.
     void increment_global_array(BasicBlock::iterator& iter,
-				Constant* global_var,
-				Value* idx,
-				Value* increment,
+                                Constant* global_var,
+                                Value* idx,
+                                Value* increment,
                                 bool ins_after = true);
 
     // Mark a variable as "used" (not eligible for dead-code elimination).
@@ -198,26 +197,26 @@ namespace bytesflops_pass {
     // Create and initialize a global uint64_t constant in the
     // instrumented code.
     GlobalVariable* create_global_constant(Module& module, const char *name,
-					   uint64_t value);
+                                           uint64_t value);
 
     // Create and initialize a global bool constant in the
     // instrumented code.
     GlobalVariable* create_global_constant(Module& module, const char *name,
-					   bool value);
+                                           bool value);
 
     // Return the number of elements in a given vector.
     ConstantInt* get_vector_length(LLVMContext& bbctx, const Type* dataType,
-				   ConstantInt* scalarValue);
+                                   ConstantInt* scalarValue);
 
     // Return true if and only if the given instruction should be
     // tallied as an operation.
     bool is_any_operation(const Instruction& inst, const unsigned int opcode,
-			  const Type* instType);
+                          const Type* instType);
 
     // Return true if and only if the given instruction should be
     // tallied as a floating-point operation.
     bool is_fp_operation(const Instruction& inst, const unsigned int opcode,
-			 const Type* instType);
+                         const Type* instType);
 
     // Return the total number of bits consumed and produced by a
     // given instruction.  The result is are a bit unintuitive for
@@ -232,16 +231,16 @@ namespace bytesflops_pass {
 
     // Declare an external thread-local variable.
     GlobalVariable* declare_TLS_global(Module& module, Type* var_type,
-				       StringRef var_name);
+                                       StringRef var_name);
 
     // Insert code at the end of a basic block.
     void insert_end_bb_code (Module* module, StringRef function_name,
-			     int& must_clear, BasicBlock::iterator& insert_before);
+                             int& must_clear, BasicBlock::iterator& insert_before);
 
     // Wrap CallInst::Create() with code to acquire and release the
     // mega-lock when instrumenting in thread-safe mode.
     void callinst_create(Value* function, ArrayRef<Value*> args,
-			 Instruction* insert_before);
+                         Instruction* insert_before);
 
     // Ditto the above but for parameterless functions.
     void callinst_create(Value* function, Instruction* insert_before);
@@ -251,16 +250,16 @@ namespace bytesflops_pass {
 
     // Ditto the above but for functions with arguments.
     void callinst_create(Value* function, ArrayRef<Value*> args,
-			 BasicBlock* insert_before);
+                         BasicBlock* insert_before);
 
     // Instrument Load and Store instructions.
     void instrument_load_store(Module* module,
-			       StringRef function_name,
-			       BasicBlock::iterator& iter,
-			       LLVMContext& bbctx,
-			       DataLayout& target_data,
-			       BasicBlock::iterator& terminator_inst,
-			       int& must_clear);
+                               StringRef function_name,
+                               BasicBlock::iterator& iter,
+                               LLVMContext& bbctx,
+                               DataLayout& target_data,
+                               BasicBlock::iterator& terminator_inst,
+                               int& must_clear);
 
     // Instrument full program instruction mix.
     void instrument_inst_mix(Module* module,
@@ -269,42 +268,42 @@ namespace bytesflops_pass {
 
     // Instrument Call instructions.
     void instrument_call(Module* module,
-			 StringRef function_name,
-			 BasicBlock::iterator& iter,
-			 int& must_clear);
+                         StringRef function_name,
+                         BasicBlock::iterator& iter,
+                         int& must_clear);
 
     // Instrument miscellaneous instructions.
     void instrument_other(Module* module,
-			  StringRef function_name,
-			  BasicBlock::iterator& iter,
-			  LLVMContext& bbctx,
-			  BasicBlock::iterator& terminator_inst,
-			  int& must_clear);
+                          StringRef function_name,
+                          BasicBlock::iterator& iter,
+                          LLVMContext& bbctx,
+                          BasicBlock::iterator& terminator_inst,
+                          int& must_clear);
 
     // Do most of the instrumentation work: Walk each instruction in
     // each basic block and add instrumentation code around loads,
     // stores, flops, etc.
     void instrument_entire_function(Module* module, Function& function,
-				    StringRef function_name);
+                                    StringRef function_name);
 
     // Instrument the current basic block iterator (representing a
     // load) for type-specific memory operations.
     void instrument_mem_type(Module* module,
-			     bool is_store,
-			     BasicBlock::iterator &iter,
-			     Type *data_type);
+                             bool is_store,
+                             BasicBlock::iterator &iter,
+                             Type *data_type);
 
     // Instrument the current basic block iterator (representing a
     // load) for type-specific characteristics.
     void instrument_load_types(BasicBlock::iterator &iter,
-			       Type *data_type,
-			       int &must_clear);
+                               Type *data_type,
+                               int &must_clear);
 
     // Instrument the current basic block iterator (representing a
     // store) for type-specific characteristics.
     void instrument_store_types(BasicBlock::iterator &iter,
-				Type *data_type,
-				int &must_clear);
+                                Type *data_type,
+                                int &must_clear);
 
     // Optimize the instrumented code by deleting back-to-back
     // mega-lock releases and acquisitions.

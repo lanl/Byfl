@@ -394,32 +394,32 @@ namespace bytesflops_pass {
 	func_args.push_back(mem_insts_align);
 	func_args.push_back(zero_1bit);
 	callinst_create(memset_intrinsic, func_args, insert_before);
-      }
-      
-      if (must_clear & CLEAR_INST_MIX_HISTO) {
-       	// Zero out the entire array.
-	LoadInst* mem_insts_addr = new LoadInst(inst_mix_histo_var, "mi", false, insert_before);
-	mem_insts_addr->setAlignment(8);
+      }      
+      if (TallyInstMix) {
+       	// If we're tallying instructions we don't need a must_clear
+       	// bit to tell us that an instruction was executed.  We always
+       	// need to zero out the entire array.
+	LoadInst* tally_insts_addr = new LoadInst(inst_mix_histo_var, "ti", false, insert_before);
+	tally_insts_addr->setAlignment(8);
 	LLVMContext& globctx = module->getContext();
-	CastInst* mem_insts_cast =
-	  new BitCastInst(mem_insts_addr,
+	CastInst* tally_insts_cast =
+	  new BitCastInst(tally_insts_addr,
 			  PointerType::get(IntegerType::get(globctx, 8), 0),
 			  "miv", insert_before);
 	static ConstantInt* zero_8bit =
 	  ConstantInt::get(globctx, APInt(8, 0));
-
-        static uint64_t TotalInstCount = uint64_t(Instruction::OtherOpsEnd);
-	static ConstantInt* mem_insts_size =
-	  ConstantInt::get(globctx, APInt(64, TotalInstCount*sizeof(uint64_t)));
-	static ConstantInt* mem_insts_align =
+        static uint64_t totalInstCount = uint64_t(Instruction::OtherOpsEnd);
+	static ConstantInt* tally_insts_size =
+	  ConstantInt::get(globctx, APInt(64, totalInstCount*sizeof(uint64_t)));
+	static ConstantInt* tally_insts_align =
 	  ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
 	static ConstantInt* zero_1bit =
 	  ConstantInt::get(globctx, APInt(1, 0));
 	std::vector<Value*> func_args;
-	func_args.push_back(mem_insts_cast);
+	func_args.push_back(tally_insts_cast);
 	func_args.push_back(zero_8bit);
-	func_args.push_back(mem_insts_size);
-	func_args.push_back(mem_insts_align);
+	func_args.push_back(tally_insts_size);
+	func_args.push_back(tally_insts_align);
 	func_args.push_back(zero_1bit);
 	callinst_create(memset_intrinsic, func_args, insert_before);
       }
