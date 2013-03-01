@@ -105,7 +105,7 @@ The Byfl wrapper scripts accept a number of options to provide more information 
 <dd>Tally <em>type-specific</em> loads and stores of register friendly types.  The current set of included types are: single- and double-precision floating point values, 8-,16-, 32- and 64- integer values, and pointers. Remaining types will be categorized as <em>other types</em>.  Note that this flag will enable the <code>-bf-all-ops</code> option if not supplied on the command line.</dd>
 
 <dt><code>-bf-inst-mix</code></dt>
-<dd> Track the overall instruction mix of the program.  This counts the number of times each instruction in the intermediate representation is issued and produces a histogram output at the end of program execution. Details on the intermediate language can be found [here] (http://llvm.org/docs/LangRef.html).</dd>
+<dd> Track the overall instruction mix of the program.  This counts the number of times each instruction in the intermediate representation is issued and produces a histogram output at the end of program execution. Details on the intermediate language can be found in the <a href="http://llvm.org/docs/LangRef.html">LLVM Language Reference Manual</a>.</dd>
 
 <dt><code>-bf-every-bb</code></dt>
 <dd>Output counters for every <a href="http://en.wikipedia.org/wiki/Basic_block">basic block</a> executed.
@@ -240,7 +240,7 @@ The Byfl options listed above are accepted directly by the Byfl compiler pass.  
 <dd>Instead of instrumenting the code, merely output counts of number of instructions of various types.</dd>
 
 <dt><code>-bf-run-post-op</code></dt>
-<dd>Run the Byfl pass *after* all (architecture-independent) optimization passes. This can be helpful when you wish to more closely match what is likely to run on a particular architecture as well as in interpreting the impact that certain optimizations have on your code.</dd>
+<dd>Run the Byfl pass <em>after</em> all (architecture-independent) optimization passes. This can be helpful when you wish to more closely match what is likely to run on a particular architecture as well as in interpreting the impact that certain optimizations have on your code.</dd>
 
 <dt><code>-bf-disable=</code><i>feature</i></dt>
 <dd>Disables various pieces of the instrumentation process.  This can be useful for performance comparisons and troubleshooting.  The following are acceptable values for <code>-bf-disable</code>:
@@ -286,5 +286,5 @@ Los Alamos National Security, LLC (LANS) owns the copyright to Byfl, which it id
 Authors
 -------
 
-Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)
+Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)<br />
 Pat McCormick, [_pat@lanl.gov_](mailto:pat@lanl.gov)
