@@ -141,8 +141,6 @@ namespace bytesflops_pass {
     GlobalVariable* store_int64_inst_var;       // Global reference to bf_int64_store_ins_count, a 64-bit store-instruction counter for 64-bit integers
     GlobalVariable* store_ptr_inst_var;         // Global reference to bf_ptr_store_ins_count, a 64-bit store-instruction counter for pointers
     GlobalVariable* store_other_type_inst_var;  // Global reference to bf_other_type_store_ins_count, a 64-bit store-instruction counter for other types
-
-    GlobalVariable* total_inst_count_var;       // Global reference to bf_total_inst_count, the total number of instructions in IR. 
     GlobalVariable* inst_mix_histo_var;         // Global reference to bf_inst_mix_histo, an array representing histogram of specific instruction counts.
 
     GlobalVariable* flop_var;  // Global reference to bf_flop_count, a 64-bit flop counter

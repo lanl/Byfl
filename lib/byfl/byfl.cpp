@@ -36,8 +36,6 @@ typedef enum {
 
 
 // The following constants are defined by the instrumented code.
-extern const uint64_t bf_total_inst_count; // Total number of instructions in IR (for instruction mix).
-
 extern uint64_t bf_bb_merge;         // Number of basic blocks to merge to compress the output
 extern uint8_t  bf_all_ops;          // 1=bf_op_count and bf_op_bits_count are valid
 extern uint8_t  bf_types;            // 1=enables bf_all_ops and count loads/stores per type
@@ -90,10 +88,10 @@ public:
     // Initialize inst_mix_histo only if -bf-inst-mix was specified.
     if (bf_tally_inst_mix) {
       if (initial_inst_mix_histo == NULL)
-        for (size_t i = 0; i < bf_total_inst_count; i++)
+        for (size_t i = 0; i < NUM_OPCODES; i++)
           inst_mix_histo[i] = 0;
       else
-        for(size_t i = 0; i < bf_total_inst_count; i++)
+        for(size_t i = 0; i < NUM_OPCODES; i++)
           inst_mix_histo[i] = initial_inst_mix_histo[i];
     }
 
@@ -130,7 +128,7 @@ public:
 
     // Accumulate inst_mix_histo only if -bf-inst-mix was specified.
     if (bf_tally_inst_mix)
-      for (size_t i = 0; i < bf_total_inst_count; i++)
+      for (size_t i = 0; i < NUM_OPCODES; i++)
         inst_mix_histo[i] += more_inst_mix_histo[i];
 
     // Unconditionally accumulate everything else.
@@ -155,7 +153,7 @@ public:
 
     // Accumulate inst_mix_histo only if -bf-inst-mix was specified.
     if (bf_tally_inst_mix)
-      for (size_t i = 0; i < bf_total_inst_count; i++)
+      for (size_t i = 0; i < NUM_OPCODES; i++)
         inst_mix_histo[i] += other->inst_mix_histo[i];
 
     // Unconditionally accumulate everything else.
@@ -182,7 +180,7 @@ public:
     // Take the difference of inst_mix_histo only if -bf-inst-mix was specified.
     uint64_t delta_inst_mix_histo[NUM_OPCODES];
     if (bf_tally_inst_mix)
-      for (size_t i = 0; i < bf_total_inst_count; ++i)
+      for (size_t i = 0; i < NUM_OPCODES; ++i)
         delta_inst_mix_histo[i] = inst_mix_histo[i] - other->inst_mix_histo[i];
 
     // Unconditionally take the difference of everything else.
@@ -210,7 +208,7 @@ public:
 
     // Reset inst_mix_histo only if -bf-inst-mix was specified.
     if (bf_tally_inst_mix)
-      for (size_t i = 0; i < bf_total_inst_count; i++)
+      for (size_t i = 0; i < NUM_OPCODES; i++)
         inst_mix_histo[i] = 0;
 
     // Unconditionally reset everything else.
@@ -427,8 +425,8 @@ void initialize_byfl (void) {
 
   // Make sure we initialize all instruction mix tallys...
   if (bf_tally_inst_mix) {
-    bf_inst_mix_histo = new uint64_t[bf_total_inst_count];
-    for(unsigned int i = 0; i < bf_total_inst_count; ++i)
+    bf_inst_mix_histo = new uint64_t[NUM_OPCODES];
+    for(unsigned int i = 0; i < NUM_OPCODES; ++i)
       bf_inst_mix_histo[i] = 0;
   }
 
@@ -914,7 +912,7 @@ private:
       extern const char* opcode2name[];
       vector<name_tally> sorted_inst_mix;
       size_t maxopnamelen = 0;
-      for (uint64_t i = 0; i < bf_total_inst_count; i++)
+      for (uint64_t i = 0; i < NUM_OPCODES; i++)
         if (counter_totals.inst_mix_histo[i] != 0) {
           sorted_inst_mix.push_back(name_tally(opcode2name[i],
                                                counter_totals.inst_mix_histo[i]));

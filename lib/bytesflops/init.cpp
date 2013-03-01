@@ -81,14 +81,6 @@ namespace bytesflops_pass {
     // Assign a value to bf_max_reuse_dist.
     create_global_constant(module, "bf_max_reuse_distance", uint64_t(MaxReuseDist));
 
-    // Assign a value to bf_total_inst_count (this represents the
-    // total number of instructions within LLVM IR -- note this could
-    // be a bit tricky to deal with if they overhaul the mechanisms
-    // within LLVM for assigning values to each instruction opcode --
-    // in particular if "other ops" no longer comes last in the
-    // enumerated type this is going to bite us...).
-    create_global_constant(module, "bf_total_inst_count", uint64_t(Instruction::OtherOpsEnd));
-
     // Inject external declarations for
     // bf_initialize_if_necessary(), bf_push_basic_block(), and
     // bf_pop_basic_block().
