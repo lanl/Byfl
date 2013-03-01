@@ -44,7 +44,7 @@ extern uint8_t  bf_per_func;         // 1=Tally and output per-function data
 extern uint8_t  bf_call_stack;       // 1=Maintain a function call stack
 extern uint8_t  bf_unique_bytes;     // 1=Tally and output unique bytes
 extern uint8_t  bf_vectors;          // 1=Bin then output vector characteristics
-extern uint8_t  bf_tally_inst_mix;   // 1=enables counting of instruction mix histogram. 
+extern uint8_t  bf_tally_inst_mix;   // 1=enables counting of instruction mix histogram
 
 // Encapsulate of all of our counters into a single structure.
 class ByteFlopCounters {
@@ -61,8 +61,8 @@ public:
   uint64_t cond_brs;                  // Number of conditional branches performed
   uint64_t b_blocks;                  // Number of basic blocks executed
 
-  uint64_t *inst_mix_histo;           // Histogram of total instruction mix. 
-  
+  uint64_t *inst_mix_histo;           // Histogram of total instruction mix
+
   // Initialize all of the counters.
   ByteFlopCounters (uint64_t* initial_mem_insts=NULL,
                     uint64_t* initial_inst_mix_histo=NULL,
@@ -76,7 +76,6 @@ public:
                     uint64_t initial_op_bits=0,
                     uint64_t initial_cbrs=0,
                     uint64_t initial_b_blocks=0) {
-    
     if (initial_mem_insts == NULL)
       for (size_t i = 0; i < NUM_MEM_INSTS; i++)
         mem_insts[i] = 0;
@@ -94,8 +93,7 @@ public:
           inst_mix_histo[i] = initial_inst_mix_histo[i];
       }
     }
-    
-    
+
     loads    = initial_loads;
     stores   = initial_stores;
     load_ins = initial_load_ins;
@@ -114,7 +112,7 @@ public:
 
   // Accumulate new values into our counters.
   void accumulate (uint64_t* more_mem_insts,
-                   uint64_t* more_inst_mix_histo,                   
+                   uint64_t* more_inst_mix_histo,
                    uint64_t more_loads,
                    uint64_t more_stores,
                    uint64_t more_load_ins,
@@ -125,15 +123,15 @@ public:
                    uint64_t more_op_bits,
                    uint64_t more_cbrs,
                    uint64_t more_b_blocks) {
-    
+
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       mem_insts[i] += more_mem_insts[i];
 
-    if (bf_tally_inst_mix) {    
+    if (bf_tally_inst_mix) {
       for (size_t i = 0; i < bf_total_inst_count; i++)
         inst_mix_histo[i] += more_inst_mix_histo[i];
     }
-    
+
     loads += more_loads;
     stores += more_stores;
     load_ins  += more_load_ins;
@@ -148,7 +146,7 @@ public:
 
   // Accumulate another counter's values into our counters.
   void accumulate (ByteFlopCounters* other) {
-    
+
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       mem_insts[i] += other->mem_insts[i];
 
@@ -157,7 +155,7 @@ public:
       for (size_t i = 0; i < bf_total_inst_count; i++)
         inst_mix_histo[i] += other->inst_mix_histo[i];
     }
-    
+
     loads     += other->loads;
     stores    += other->stores;
     load_ins  += other->load_ins;
@@ -195,15 +193,15 @@ public:
                                                    op_bits - other->op_bits,
                                                    cond_brs - other->cond_brs,
                                                    b_blocks - other->b_blocks);
-    if (bf_tally_inst_mix) 
+    if (bf_tally_inst_mix)
       delete []delta_inst_mix_histo;
-    
+
     return byflc;
   }
 
   // Reset all of our counters to zero.
   void reset (void) {
-    
+
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
       mem_insts[i] = 0;
 
@@ -211,7 +209,7 @@ public:
       for (size_t i = 0; i < bf_total_inst_count; i++)
         inst_mix_histo[i] = 0;
     }
-    
+
     loads     = 0;
     stores    = 0;
     load_ins  = 0;
@@ -229,7 +227,7 @@ public:
 __thread uint64_t  bf_load_count       = 0;    // Tally of the number of bytes loaded
 __thread uint64_t  bf_store_count      = 0;    // Tally of the number of bytes stored
 __thread uint64_t* bf_mem_insts_count  = NULL; // Tally of memory instructions by type
-__thread uint64_t* bf_inst_mix_histo   = NULL; // Tally of instruction mix (as histogram) 
+__thread uint64_t* bf_inst_mix_histo   = NULL; // Tally of instruction mix (as histogram)
 __thread uint64_t  bf_load_ins_count   = 0;    // Tally of the number of load instructions performed
 __thread uint64_t  bf_store_ins_count  = 0;    // Tally of the number of store instructions performed
 __thread uint64_t  bf_flop_count       = 0;    // Tally of the number of FP operations performed
@@ -421,7 +419,7 @@ void initialize_byfl (void) {
 
   bf_mem_insts_count = new uint64_t[NUM_MEM_INSTS];
   for (size_t i = 0; i < NUM_MEM_INSTS; i++)
-    bf_mem_insts_count[i] = 0;  
+    bf_mem_insts_count[i] = 0;
 
   // Make sure we initialize all instruction mix tallys...
   if (bf_tally_inst_mix) {
@@ -689,6 +687,16 @@ private:
       return compare_char_stars(one, two);
   }
 
+  // Compare two {name, tally} pairs, reporting which has the greater
+  // tally.  Break ties by comparing names.
+  typedef pair<const char*, uint64_t> name_tally;
+  static bool compare_name_tallies (const name_tally& one, const name_tally& two) {
+    if (one.second != two.second)
+      return one.second > two.second;
+    else
+      return strcmp(one.first, two.first);
+  }
+
   // Report per-function counter totals.
   void report_by_function (void) {
     // Output a header line.
@@ -776,9 +784,9 @@ private:
              << setw(HDR_COL_WIDTH) << tally << ' '
              << (instrumented ? "Yes " : "No  ") << ' '
              << funcname_orig;
-	if (funcname_orig != funcname)
-	  cout << " [" << funcname << ']';
-	cout << '\n';
+        if (funcname_orig != funcname)
+          cout << " [" << funcname << ']';
+        cout << '\n';
       }
     }
   }
@@ -895,6 +903,35 @@ private:
       cout << tag << ": " << separator << '\n';
     }
 
+
+    // Pretty-print the histogram of instructions executed.
+    if (bf_tally_inst_mix) {
+      // Sort the histogram by decreasing opcode tally.
+      extern const char* opcode2name[];
+      vector<name_tally> sorted_inst_mix;
+      size_t maxopnamelen = 0;
+      for (uint64_t i = 0; i < bf_total_inst_count; i++)
+        if (counter_totals.inst_mix_histo[i] != 0) {
+          sorted_inst_mix.push_back(name_tally(opcode2name[i],
+                                               counter_totals.inst_mix_histo[i]));
+          size_t opnamelen = strlen(opcode2name[i]);
+          if (opnamelen > maxopnamelen)
+            maxopnamelen = opnamelen;
+        }
+      sort(sorted_inst_mix.begin(), sorted_inst_mix.end(), compare_name_tallies);
+
+      // Output the sorted results.
+      for (vector<name_tally>::iterator ntiter = sorted_inst_mix.begin();
+           ntiter != sorted_inst_mix.end();
+           ntiter++) {
+        cout << tag << ": " << setw(25) << ntiter->second << ' '
+             << setw(maxopnamelen) << left
+             << ntiter->first << " instructions executed\n"
+             << right;
+      }
+      cout << tag << ": " << separator << '\n';
+    }
+
     // Report a bunch of derived measurements.
     if (counter_totals.stores > 0) {
       cout << tag << ": " << fixed << setw(25) << setprecision(4)
@@ -902,11 +939,11 @@ private:
            << " bytes loaded per byte stored\n";
     } else {
       // Not likely to hit this but it is possible now with our
-      // post-optimization instrumentation... 
+      // post-optimization instrumentation...
       cout << tag << ": " << fixed << setw(25) << setprecision(4)
            << 0 << " bytes loaded per byte stored\n";
     }
-    
+
     if (bf_all_ops) {
       if (counter_totals.load_ins > 0)
         cout << tag << ": " << fixed << setw(25) << setprecision(4)
@@ -975,24 +1012,11 @@ private:
              << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
              << " unique bits per integer op bit\n";
     }
-    
     if (bf_unique_bytes && !partition)
       cout << tag << ": " << fixed << setw(25) << setprecision(4)
            << (double)global_bytes / (double)global_unique_bytes
            << " bytes per unique byte\n";
     cout << tag << ": " << separator << '\n';
-
-    if (bf_tally_inst_mix) {
-      extern const char* opcode2name[];
-      
-      cout << tag << ": Instruction Mix Histogram\n";
-      for(unsigned int i = 0; i < bf_total_inst_count; ++i) {
-        if (counter_totals.inst_mix_histo[i] != 0) {
-          cout << tag << ":" << setw(16) << opcode2name[i] << " [opcode="
-               << setw(2) << i << "]: " << setw(10) << counter_totals.inst_mix_histo[i] << '\n';
-        }
-      }
-    }
   }
 
 public:
