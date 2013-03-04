@@ -263,9 +263,6 @@ The Byfl options listed above are accepted directly by the Byfl compiler pass.  
 <dt><code>-bf-static</code></dt>
 <dd>Instead of instrumenting the code, merely output counts of number of instructions of various types.</dd>
 
-<dt><code>-bf-run-post-op</code></dt>
-<dd>Run the Byfl pass <em>after</em> all (architecture-independent) optimization passes. This can be helpful when you wish to more closely match what is likely to run on a particular architecture as well as in interpreting the impact that certain optimizations have on your code.</dd>
-
 <dt><code>-bf-disable=</code><i>feature</i></dt>
 <dd>Disables various pieces of the instrumentation process.  This can be useful for performance comparisons and troubleshooting.  The following are acceptable values for <code>-bf-disable</code>:
 
@@ -290,9 +287,10 @@ The Byfl options listed above are accepted directly by the Byfl compiler pass.  
 
 Under the covers, the Byfl wrapper scripts are using GCC to compile code to GCC IR and DragonEgg to convert GCC IR to LLVM IR, which is output in LLVM bitcode format.  The wrapper scripts then run LLVM's `opt` command, specifying Byfl's `bytesflops` plugin as an additional compiler pass.  The resulting instrumented bitcode is then converted to native machine code using Clang.  The following is an example of how to manually instrument `myprog.c` without using the wrapper scripts:
 
-    gcc -g -fplugin=/usr/local/lib/dragonegg.so -fplugin-arg-dragonegg-emit-ir -O3 -S myprog.c
-    opt -load /usr/local/lib/bytesflops.so -bytesflops -bf-all-ops -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -std-compile-opts myprog.s -o myprog.bc
-    clang myprog.bc -o myprog -L/usr/lib/x86_64-linux-gnu/gcc/x86_64-linux-gnu/4.5.2/ -L/usr/lib/x86_64-linux-gnu/gcc/x86_64-linux-gnu/4.5.2/../../../ -L/lib/ -L/usr/lib/ -L/usr/lib/x86_64-linux-gnu/ -L/usr/local/lib -L/usr/local/lib -Wl,--allow-multiple-definition -lm /usr/local/lib/libbyfl.bc -lstdc++ -lstdc++ -lm
+    $ gcc -g -fplugin=/usr/local/lib/dragonegg.so -fplugin-arg-dragonegg-emit-ir -O3 -Wall -Wextra -S myprog.c
+    $ opt -O3 myprog.s -o myprog.opt.bc
+    $ opt -load /usr/local/lib/bytesflops.so -bytesflops -bf-all-ops -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -std-compile-opts myprog.opt.bc -o myprog.bc
+    $ clang myprog.bc -o myprog -L/usr/lib/gcc/x86_64-linux-gnu/4.7/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../x86_64-linux-gnu/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../../lib/ -L/lib/x86_64-linux-gnu/ -L/lib/../lib/ -L/usr/lib/x86_64-linux-gnu/ -L/usr/lib/../lib/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../ -L/lib/ -L/usr/lib/ -L/usr/local/lib -Wl,--allow-multiple-definition -lm /usr/local/lib/libbyfl.bc -lstdc++ -lm
 
 This approach can be useful for instrumenting code in languages other than C, C++, and Fortran.  For example, code compiled with any of the other [GCC frontends](http://gcc.gnu.org/frontends.html) can be instrumented as above.  Also, recent versions of the [Glasgow Haskell Compiler](http://www.haskell.org/ghc/) can compile directly to LLVM bitcode.
 

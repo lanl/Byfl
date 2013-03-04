@@ -33,8 +33,9 @@ my $verbosity = 0;
 # Let the user request static analysis in addition to instrumentation.
 my $static_analysis = 0;
 
-# Should we run pre- or post-optimization?
-my $run_post_opt = 0;
+# Optimization level requested on the command line via -O.  Note: Not
+# necessary numeric (e.g., "-Os").
+my $optimization_level = "0";
 
 # Take bytesflops options from the BF_OPTS environment variable.
 my @bf_options = split(" ", $ENV{"BF_OPTS"} || "");
@@ -185,8 +186,7 @@ GetOptionsFromArray(\@constructed_ARGV,
                     "bf-static"       => \$static_analysis,
                     "bf-dragonegg=s"  => \$dragonegg,
                     "bf-libdir=s"     => \$byfl_libdir,
-                    "bf-disable=s"    => \$bf_disable,
-                    "bf-run-post-opt" => \$run_post_opt)
+                    "bf-disable=s"    => \$bf_disable)
     || die "${progname}: Failed to parse the command line\n";
 switch ($bf_disable) {
     case "none" {
@@ -264,7 +264,11 @@ if (defined $build_type{"compile"}) {
         my ($opt, $arg) = @$opt_arg;
         if (defined $arg) {
             # The option has an argument.
-            if ($opt eq "O" || $opt eq "g") {
+            if ($opt eq "O") {
+                push @command_line, "-$opt$arg";
+                $optimization_level = $arg;
+            }
+            elsif ($opt eq "g") {
                 push @command_line, "-$opt$arg";
             }
             elsif ($opt eq "o") {
@@ -286,6 +290,10 @@ if (defined $build_type{"compile"}) {
                 # Ignore -c.  We'll soon be replacing it with -S.
                 # Ignore -g.  We'll be adding it in explicitly.
             }
+            elsif ($opt eq "O") {
+                push @command_line, "-$opt";
+                $optimization_level = "1";
+            }
             else {
                 push @command_line, "-" . $opt;
             }
@@ -301,41 +309,51 @@ if (defined $build_type{"compile"}) {
     # very sneakily embed the bitcode within a .o file so as not to
     # confuse the invoking Makefile.
     foreach my $srcfile (@source_files) {
-        # Run the Byfl LLVM pass.
+        # Prepare to run the Byfl LLVM pass.
         my $ofile = $src2obj{$srcfile};
         my $sfile = basename $srcfile;
         $sfile =~ s/\.[^.]+$/.s/;
         my $bcfile = $sfile;
         $bcfile =~ s/\.s$/.bc/;
+        my $opt_bcfile = $bcfile;
+        $opt_bcfile =~ s/\.bc$/.opt.bc/;
+        my @deletable = ($sfile, $bcfile, $opt_bcfile);
+
+        # Run the static analyzer if -bf-static was specified.
+        execute_command ("opt", "-load", "$byfl_libdir/bytesflops.so",
+                         "-bytesflops", @bf_options,
+                         "-analyze", "$sfile") if $static_analysis;
+
+        # Unfortunately, DragonEgg's bitcode generation apparently
+        # runs *before* GCC code optimizations.  This implies that
+        # Byfl is analyzing unoptimized code, which is likely to
+        # produce substantially different output from
+        # binary-instrumentation tools.  We therefore explicitly
+        # run an optimization pass before Byfl instrumentation if
+        # any optimizations are specified on the command line.
+        my $infile = $sfile;
+        if ($optimization_level ne "0") {
+            execute_command ("opt",
+                             "-O$optimization_level",
+                             $infile, "-o", $opt_bcfile);
+            $infile = $opt_bcfile;
+        }
+
+        # Instrument with Byfl then optimize the result using the
+        # LLVM optimizer's standard compiler options.
         if ($bf_disable eq "byfl") {
-            # Disable the bytesflops plugin if instructed to do so.
-            execute_command ("opt", "$sfile", "-o", $bcfile);
+            # Disable the bytesflops plugin if so instructed.
+            if ($optimization_level ne "0") {
+                print STDERR "mv $opt_bcfile $bcfile\n" if $verbosity > 0;
+                rename($opt_bcfile, $bcfile) || die "${progname}: $!\n";
+            }
         }
         else {
-            # Normally, run the bytesflops plugin on the generated LLVM IR.
+            # Normally, we run Byfl instrumentation.
             execute_command ("opt", "-load", "$byfl_libdir/bytesflops.so",
                              "-bytesflops", @bf_options,
-                             "-analyze", "$sfile") if $static_analysis;
-
-	    if ($run_post_opt) {
-		# Post-optimization mode -- generate optimized code first then run
-		# byfl plugin... 
-		my $opt_bcfile = $bcfile.".opt.bc";
-		execute_command ("opt", 
-				 "-std-compile-opts",
-				 "$sfile", "-o", $opt_bcfile);
-
-		execute_command ("opt", "-load", "$byfl_libdir/bytesflops.so",
-				 "-bytesflops", @bf_options,
-				 "-std-compile-opts",
-				 "$opt_bcfile", "-o", $bcfile);
-	    } else {
-		# Pre-optimization mode. 
-		execute_command ("opt", "-load", "$byfl_libdir/bytesflops.so",
-				 "-bytesflops", @bf_options,
-				 "-std-compile-opts",
-				 "$sfile", "-o", $bcfile);
-	    }
+                             "-std-compile-opts",
+                             $infile, "-o", $bcfile);
         }
 
         # Embed the LLVM bitcode within a .o file.
@@ -344,8 +362,8 @@ if (defined $build_type{"compile"}) {
                          "--set-section-flags", ".bitcode=alloc", $ofile);
 
         # Remove the .s and .bc files.
-        print STDERR "rm -f $sfile $bcfile\n" if $verbosity > 0;
-        unlink ($sfile, $bcfile) || die "${progname}: $!\n";
+        print STDERR "rm -f @deletable\n" if $verbosity > 0;
+        unlink @deletable || die "${progname}: $!\n";
     }
 }
 
