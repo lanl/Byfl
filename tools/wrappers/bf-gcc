@@ -371,6 +371,9 @@ if (defined $build_type{"link"}) {
         elsif ($opt =~ /^(pg|fopenmp)$/) {
             push @llvm_ld_options, "-$opt";
         }
+        elsif ($opt =~ /^(march|mtune)$/) {
+            push @llvm_ld_options, "-$opt=$arg";
+        }
         else {
             push @llvm_ld_options, "-Xlinker=-$opt";
             push @llvm_ld_options, "-Xlinker=$arg" if defined $arg;
