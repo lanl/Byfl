@@ -39,14 +39,37 @@ Installation
 
 ### Automatic installation
 
-Byfl relies on [LLVM](http://www.llvm.org/), [Clang](http://clang.llvm.org/), and [DragonEgg](http://dragonegg.llvm.org/).  These are huge and must be built from trunk (i.e., the post-3.1-release development code).  My [`build-llvm-byfl`](https://github.com/downloads/losalamos/Byfl/build-llvm-byfl) script automatically downloads all of these plus Byfl into a temporary directory, configures them, builds them, and installs the result into a directory you specify.
+Byfl relies on [LLVM](http://www.llvm.org/), [Clang](http://clang.llvm.org/), and [DragonEgg](http://dragonegg.llvm.org/).  These are huge and must be built from trunk (i.e., the post-3.2-release development code).  The [`build-llvm-byfl`](https://github.com/losalamos/Byfl/blob/master/build-llvm-byfl) script automatically downloads all of these plus Byfl, configures them, builds them, and installs the result into a directory you specify.
 
-Byfl also relies on [GCC](http://gcc.gnu.org/).  You should already have GCC installed and in your path before running [`build-llvm-byfl`](https://github.com/downloads/losalamos/Byfl/build-llvm-byfl).  The LLVM guys currently seem to do most of their testing with GCC 4.6 so that's your best bet for having everything work.
+Byfl also relies on [GCC](http://gcc.gnu.org/).  You should already have GCC installed and in your path before running [`build-llvm-byfl`](https://github.com/losalamos/Byfl/blob/master/build-llvm-byfl).  The LLVM guys currently seem to do most of their testing with GCC 4.6 so that's your best bet for having everything work.
 
+[`build-llvm-byfl`](https://github.com/losalamos/Byfl/blob/master/build-llvm-byfl) takes one required argument, which is the root of the installation directory (e.g., `/usr/local` or `/opt/byfl` or whatnot).  The following optional arguments can appear before the required argument:
+
+<dl>
+  <dt><code>-b</code> <em>build_dir</em></dt>
+  <dd>Build Byfl and its dependencies in directory <em>build_dir</em>.<br/>
+      <em>Default:</em> <code>./byfl-build.</code><em>random</em><code>/</code></dd>
+
+  <dt><code>-j</code> <em>parallelism</em></dt>
+  <dd>Specify the maximum number of processes to use for compilation, passed directly to <code>make -j</code>.<br/>
+      <em>Default:</em> number of entries in <code>/proc/cpuinfo</code></dd>
+
+  <dt><code>-d</code></dt>
+  <dd>Download Byfl and its dependencies into <em>build_dir</em>, but don't configure, build, or install them.<br/>
+      <em>Default:</em> off</dd>
+
+  <dt><code>-c</code></dt>
+  <dd>Configure, build, and install Byfl and its dependencies without re-downloading them into <em>build_dir</em>.<br/>
+      <em>Default:</em> off</dd>
+
+  <dt><code>-t</code></dt>
+  <dd>Display progress textually instead of with a GUI progress bar (<a href="https://help.gnome.org/users/zenity/stable/">Zenity</a>).<br/>
+      <em>Default:</em> GUI display if available</dd>
+</dl>
 
 ### Manual installation
 
-Manual installation is good if you periodically want to update Byfl and its prerequisites without doing having to re-download everything every time.  Byfl depends on LLVM (the compiler infrastructure), Clang (an LLVM-based C/C++ compiler), and DragonEgg (a technically optional but strongly recommended tool for using GCC compilers as LLVM front ends).  See the following URLs for instructions on building each of these:
+If, for whatever reason, you're unable to run the [automatic build script](https://github.com/losalamos/Byfl/blob/master/build-llvm-byfl), you can always manually build and install Byfl and its prerequisites.  Byfl depends on LLVM (the compiler infrastructure), Clang (an LLVM-based C/C++ compiler), and DragonEgg (a technically optional but strongly recommended tool for using GCC compilers as LLVM front ends).  See the following URLs for instructions on building each of these:
 
 * **LLVM:** [http://llvm.org/docs/GettingStarted.html#checkout](http://llvm.org/docs/GettingStarted.html#checkout)
 
