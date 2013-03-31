@@ -271,8 +271,8 @@ namespace bytesflops_pass {
     // The steps we take to walk the instructions in the code are bit
     // fragile and care should be taken in making sure we don't
     // process injected code (nor introduce duplicate tallies).  This
-    // is particularly true here with the details of BBs with phi
-    // nodes.  When in doubt draw pictures!
+    // is particularly true here with the details of BBs with phi and
+    // landing_pad nodes...  When in doubt draw pictures!
 
     unsigned int opcode = iter->getOpcode();
     LLVMContext& modctx = module->getContext();
@@ -283,11 +283,23 @@ namespace bytesflops_pass {
     // for the rest of the code to process...
     unsigned int cur_opcode = opcode;
     uint64_t phi_count      = 0;
-    while(cur_opcode == Instruction::PHI &&
-          iter != terminator_inst) {
+    
+    while(cur_opcode == Instruction::PHI && iter != terminator_inst) {
       phi_count++;
       iter++;
       cur_opcode = iter->getOpcode();
+    }
+
+    // Deal with the landing_pad instruction. Like phi nodes, we have
+    // to treat them as a special case -- the generated IR will fail
+    // validation if we insert code before them -- thus we need to
+    // deal with them before inserting phi counting code... Note, that
+    // there can be only one landing pad per basic block...
+    uint64_t lp_count = 0;
+    if (cur_opcode == Instruction::LandingPad && iter != terminator_inst) {
+      lp_count = 1;
+      iter++;
+      cur_opcode = iter->getOpcode();      
     }
 
     if (phi_count > 0) {
@@ -300,30 +312,16 @@ namespace bytesflops_pass {
       iter++; // jump past inserted code...
     }
 
-    // llvm's landing_pad instruction is part of the exception
-    // handling system...  We have to treat them as a special case --
-    // like phi nodes or we will fail validation by inserting code
-    // before them...
-    uint64_t lp_count      = 0;    
-    while(cur_opcode == Instruction::LandingPad &&
-          iter != terminator_inst) {
-      lp_count++;
-      iter++;
-      cur_opcode = iter->getOpcode();
-    }
-
     if (lp_count > 0) {
-      // Record total number of landing pad (lp) instructions
-      // encountered...  We jump ahead to process the next non-lp
-      // instruction below.
       ConstantInt* opCodeIdx = ConstantInt::get(modctx, APInt(64, int64_t(opcode)));
       ConstantInt* lpcount   = ConstantInt::get(modctx, APInt(64, lp_count));
       increment_global_array(iter, inst_mix_histo_var, opCodeIdx, lpcount, false);
-      iter++; // jump past inserted code...
+      iter++; // jump past inserted code...      
     }
 
-    // Tally the non-phi instruction.  Make sure we leave the
-    // instruction iter available for the rest of the pass to process
+    // Tally non-phi and landing pad instruction.  Make sure we leave
+    // the instruction iter available for the rest of the pass to
+    // process
     ConstantInt* opCodeIdx = ConstantInt::get(modctx,  APInt(64, int64_t(cur_opcode)));
     increment_global_array(iter, inst_mix_histo_var, opCodeIdx, one, false);
     iter++; // jump past inserted code...
