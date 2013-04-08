@@ -90,6 +90,7 @@ extern "C" {
   extern const char* bf_categorize_counters (void);   // Return a category in which to partition data.
 }
 extern string bf_output_prefix;
+extern ostream* bfout;
 
 
 // Initialize some of our variables at first use.
@@ -195,20 +196,20 @@ void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* tota
 void bf_report_vector_operations (size_t call_stack_depth)
 {
   // Output a header line.
-  cout << bf_output_prefix
-       << "BYFL_VECTOR_HEADER: "
-       << setw(20) << "Elements" << ' '
-       << setw(20) << "Elt_bits" << ' '
-       << setw(4)  << "Type" << ' '
-       << setw(20) << "Tally";
+  *bfout << bf_output_prefix
+         << "BYFL_VECTOR_HEADER: "
+         << setw(20) << "Elements" << ' '
+         << setw(20) << "Elt_bits" << ' '
+         << setw(4)  << "Type" << ' '
+         << setw(20) << "Tally";
   if (bf_per_func) {
-    cout << " Function";
+    *bfout << " Function";
     if (bf_call_stack)
       for (size_t i=0; i<call_stack_depth-1; i++)
-        cout << ' '
-             << "Parent_func_" << i+1;
+        *bfout << ' '
+               << "Parent_func_" << i+1;
   }
-  cout << '\n';
+  *bfout << '\n';
 
   // Output a histogram.  Each line represents one set of vector
   // characteristics from one function.
@@ -222,15 +223,15 @@ void bf_report_vector_operations (size_t call_stack_depth)
          tally_iter++) {
       VectorOperation* vecop = tally_iter->first;
       uint64_t tally = tally_iter->second;
-      cout << bf_output_prefix
-           << "BYFL_VECTOR:        "
-           << setw(20) << vecop->num_elements << ' '
-           << setw(20) << vecop->element_bits << ' '
-           << (vecop->is_flop ? "FP   " : "Int   ")
-           << setw(20) << tally;
+      *bfout << bf_output_prefix
+             << "BYFL_VECTOR:        "
+             << setw(20) << vecop->num_elements << ' '
+             << setw(20) << vecop->element_bits << ' '
+             << (vecop->is_flop ? "FP   " : "Int   ")
+             << setw(20) << tally;
       if (bf_per_func)
-        cout << ' ' << funcname;
-      cout << '\n';
+        *bfout << ' ' << funcname;
+      *bfout << '\n';
     }
   }
 }

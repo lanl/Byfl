@@ -7,6 +7,7 @@
  */
 
 #include <iostream>
+#include <fstream>
 #include <cassert>
 #include <iomanip>
 #include <string>
@@ -291,6 +292,7 @@ extern void bf_get_median_reuse_distance (uint64_t* median_value, uint64_t* mad_
 
 const char* bf_func_and_parents; // Top of the complete_call_stack stack
 string bf_output_prefix;         // String to output before "BYFL" on every line
+ostream* bfout;                  // Stream to which to send standard output
 
 
 // Define a stack of tallies of all of our counters across <=
@@ -506,31 +508,15 @@ static bool suppress_output (void)
     return true;
   static enum {UNKNOWN, SUPPRESS, SHOW} output = UNKNOWN;
   if (output == UNKNOWN) {
-    // First invocation -- parse the BF_OUTPUT_IF environment variable.
-    char *value = getenv("BF_OUTPUT_IF");
-    if (value) {
-      // The variable is defined -- ensure that it's of the form VAR=VALUE.
-      string output_if(value);
-      size_t eqpos = output_if.find_first_of('=');
-      if (eqpos == string::npos) {
-        cerr << "Failed to parse \"" << value << "\" into VAR=VALUE\n";
-        exit(1);
-      }
-      string output_var = output_if.substr(0, eqpos);
-      string output_value = output_if.substr(eqpos+1);
-      string actual_value("");
-      if ((value = getenv(output_var.c_str())))
-        actual_value = value;
-      output = output_value == actual_value ? SHOW : SUPPRESS;
-    }
-    else
-      // The variable isn't defined.  Show all output.
-      output = SHOW;
+    // First invocation -- we can begin outputting.
+    bfout = &cout;
+    output = SHOW;
 
     // If the BF_PREFIX environment variable is set, expand it and
     // output it before each line of output.
     char *prefix = getenv("BF_PREFIX");
     if (prefix) {
+      // Perform shell expansion on BF_PREFIX.
       wordexp_t expansion;
       if (wordexp(prefix, &expansion, 0)) {
         cerr << "Failed to expand BF_PREFIX (\"" << prefix << "\")\n";
@@ -539,6 +525,19 @@ static bool suppress_output (void)
       for (size_t i = 0; i < expansion.we_wordc; i++)
         bf_output_prefix += string(expansion.we_wordv[i]) + string(" ");
       wordfree(&expansion);
+
+      // If the prefix starts with "/" or "./", treat it as a filename
+      // and write all output there.
+      if ((bf_output_prefix.size() >= 1 && bf_output_prefix[0] == '/')
+          || (bf_output_prefix.size() >= 2 && bf_output_prefix[0] == '.' && bf_output_prefix[1] == '/')) {
+        bf_output_prefix.pop_back();   // Drop the trailing space character.
+        bfout = new ofstream(bf_output_prefix.c_str(), ios_base::out | ios_base::trunc);
+        if (bfout->fail()) {
+          cerr << "Failed to create output file " << bf_output_prefix << '\n';
+          exit(1);
+        }
+        bf_output_prefix = "";
+      }
     }
   }
   return output == SUPPRESS;
@@ -599,19 +598,19 @@ void bf_report_bb_tallies (void)
 
   // If this is our first invocation, output a basic-block header line.
   if (__builtin_expect(!showed_header, 0)) {
-    cout << bf_output_prefix
-         << "BYFL_BB_HEADER: "
-         << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
-         << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
-         << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
-         << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
-         << setw(HDR_COL_WIDTH) << "Flops" << ' '
-         << setw(HDR_COL_WIDTH) << "FP_bits";
+    *bfout << bf_output_prefix
+           << "BYFL_BB_HEADER: "
+           << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
+           << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
+           << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
+           << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
+           << setw(HDR_COL_WIDTH) << "Flops" << ' '
+           << setw(HDR_COL_WIDTH) << "FP_bits";
     if (bf_all_ops)
-      cout << ' '
-           << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "Int_op_bits";
-    cout << '\n';
+      *bfout << ' '
+             << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
+             << setw(HDR_COL_WIDTH) << "Int_op_bits";
+    *bfout << '\n';
     showed_header = true;
   }
 
@@ -621,19 +620,19 @@ void bf_report_bb_tallies (void)
     // Output the difference between the current counter values and
     // our previously saved values.
     ByteFlopCounters* counter_deltas = global_totals.difference(&prev_global_totals);
-    cout << bf_output_prefix
-         << "BYFL_BB:        "
-         << setw(HDR_COL_WIDTH) << counter_deltas->loads << ' '
-         << setw(HDR_COL_WIDTH) << counter_deltas->stores << ' '
-         << setw(HDR_COL_WIDTH) << counter_deltas->load_ins << ' '
-         << setw(HDR_COL_WIDTH) << counter_deltas->store_ins << ' '
-         << setw(HDR_COL_WIDTH) << counter_deltas->flops << ' '
-         << setw(HDR_COL_WIDTH) << counter_deltas->fp_bits;
+    *bfout << bf_output_prefix
+           << "BYFL_BB:        "
+           << setw(HDR_COL_WIDTH) << counter_deltas->loads << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas->stores << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas->load_ins << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas->store_ins << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas->flops << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas->fp_bits;
     if (bf_all_ops)
-      cout << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->ops << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->op_bits;
-    cout << '\n';
+      *bfout << ' '
+             << setw(HDR_COL_WIDTH) << counter_deltas->ops << ' '
+             << setw(HDR_COL_WIDTH) << counter_deltas->op_bits;
+    *bfout << '\n';
     num_merged = 0;
     prev_global_totals = global_totals;
     delete counter_deltas;
@@ -719,30 +718,30 @@ private:
   // Report per-function counter totals.
   void report_by_function (void) {
     // Output a header line.
-    cout << bf_output_prefix
-         << "BYFL_FUNC_HEADER: "
-         << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
-         << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
-         << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
-         << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
-         << setw(HDR_COL_WIDTH) << "Flops" << ' '
-         << setw(HDR_COL_WIDTH) << "FP_bits";
+    *bfout << bf_output_prefix
+           << "BYFL_FUNC_HEADER: "
+           << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
+           << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
+           << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
+           << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
+           << setw(HDR_COL_WIDTH) << "Flops" << ' '
+           << setw(HDR_COL_WIDTH) << "FP_bits";
     if (bf_all_ops)
-      cout << ' '
-           << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "Int_op_bits";
+      *bfout << ' '
+             << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
+             << setw(HDR_COL_WIDTH) << "Int_op_bits";
     if (bf_unique_bytes)
-      cout << ' '
-           << setw(HDR_COL_WIDTH) << "Uniq_bytes";
-    cout << ' '
-         << setw(HDR_COL_WIDTH) << "Cond_brs" << ' '
-         << setw(HDR_COL_WIDTH) << "Invocations" << ' '
-         << "Function";
+      *bfout << ' '
+             << setw(HDR_COL_WIDTH) << "Uniq_bytes";
+    *bfout << ' '
+           << setw(HDR_COL_WIDTH) << "Cond_brs" << ' '
+           << setw(HDR_COL_WIDTH) << "Invocations" << ' '
+           << "Function";
     if (bf_call_stack)
       for (size_t i=0; i<call_stack->max_depth-1; i++)
-        cout << ' '
-             << "Parent_func_" << i+1;
-    cout << '\n';
+        *bfout << ' '
+               << "Parent_func_" << i+1;
+    *bfout << '\n';
 
     // Output the data by sorted function name.
     vector<const char*>* all_func_names = per_func_totals().sorted_keys(compare_char_stars);
@@ -752,35 +751,35 @@ private:
       const string funcname = *fn_iter;
       const char* funcname_c = bf_string_to_symbol(funcname.c_str());
       ByteFlopCounters* func_counters = per_func_totals()[funcname_c];
-      cout << bf_output_prefix
-           << "BYFL_FUNC:        "
-           << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
-           << setw(HDR_COL_WIDTH) << func_counters->stores << ' '
-           << setw(HDR_COL_WIDTH) << func_counters->load_ins << ' '
-           << setw(HDR_COL_WIDTH) << func_counters->store_ins << ' '
-           << setw(HDR_COL_WIDTH) << func_counters->flops << ' '
-           << setw(HDR_COL_WIDTH) << func_counters->fp_bits;
+      *bfout << bf_output_prefix
+             << "BYFL_FUNC:        "
+             << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->stores << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->load_ins << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->store_ins << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->flops << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->fp_bits;
       if (bf_all_ops)
-        cout << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->op_bits;
+        *bfout << ' '
+               << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
+               << setw(HDR_COL_WIDTH) << func_counters->op_bits;
       if (bf_unique_bytes)
-        cout << ' '
-             << setw(HDR_COL_WIDTH) << bf_tally_unique_addresses(funcname_c);
-      cout << ' '
-           << setw(HDR_COL_WIDTH) << func_counters->cond_brs << ' '
-           << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
-           << funcname_c << '\n';
+        *bfout << ' '
+               << setw(HDR_COL_WIDTH) << bf_tally_unique_addresses(funcname_c);
+      *bfout << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->cond_brs << ' '
+             << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
+             << funcname_c << '\n';
     }
     delete all_func_names;
 
     // Output invocation tallies for all called functions, not just
     // instrumented functions.
-    cout << bf_output_prefix
-         << "BYFL_CALLEE_HEADER: "
-         << setw(13) << "Invocations" << ' '
-         << "Byfl" << ' '
-         << "Function\n";
+    *bfout << bf_output_prefix
+           << "BYFL_CALLEE_HEADER: "
+           << setw(13) << "Invocations" << ' '
+           << "Byfl" << ' '
+           << "Function\n";
     vector<const char*> all_called_funcs;
     for (str2num_t::iterator sm_iter = func_call_tallies().begin();
          sm_iter != func_call_tallies().end();
@@ -802,14 +801,14 @@ private:
       }
       string funcname_orig = demangle_func_name(funcname);
       if (tally > 0) {
-        cout << bf_output_prefix
-             << "BYFL_CALLEE: "
-             << setw(HDR_COL_WIDTH) << tally << ' '
-             << (instrumented ? "Yes " : "No  ") << ' '
-             << funcname_orig;
+        *bfout << bf_output_prefix
+               << "BYFL_CALLEE: "
+               << setw(HDR_COL_WIDTH) << tally << ' '
+               << (instrumented ? "Yes " : "No  ") << ' '
+               << funcname_orig;
         if (funcname_orig != funcname)
-          cout << " [" << funcname << ']';
-        cout << '\n';
+          *bfout << " [" << funcname << ']';
+        *bfout << '\n';
       }
     }
   }
@@ -831,40 +830,40 @@ private:
 
     // Report the dynamic basic-block count.
     string tag(bf_output_prefix + "BYFL_SUMMARY");
-    cout.imbue(std::locale(""));
+    bfout->imbue(std::locale(""));
     if (partition)
       tag += '(' + string(partition) + ')';
-    cout << tag << ": " << separator << '\n';
+    *bfout << tag << ": " << separator << '\n';
     if (counter_totals.cond_brs > 0)
-      cout << tag << ": " << setw(25) << counter_totals.b_blocks << " basic blocks\n"
-           << tag << ": " << setw(25) << counter_totals.cond_brs << " conditional or indirect branches\n"
-           << tag << ": " << separator << '\n';
+      *bfout << tag << ": " << setw(25) << counter_totals.b_blocks << " basic blocks\n"
+             << tag << ": " << setw(25) << counter_totals.cond_brs << " conditional or indirect branches\n"
+             << tag << ": " << separator << '\n';
 
     // Report the raw measurements in terms of bytes and operations.
-    cout << tag << ": " << setw(25) << global_bytes << " bytes ("
-         << counter_totals.loads << " loaded + "
-         << counter_totals.stores << " stored)\n";
+    *bfout << tag << ": " << setw(25) << global_bytes << " bytes ("
+           << counter_totals.loads << " loaded + "
+           << counter_totals.stores << " stored)\n";
     if (bf_unique_bytes && !partition)
-      cout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
-    cout << tag << ": " << setw(25) << counter_totals.flops << " flops\n";
+      *bfout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
+    *bfout << tag << ": " << setw(25) << counter_totals.flops << " flops\n";
     if (bf_all_ops) {
-      cout << tag << ": " << setw(25) << counter_totals.ops << " integer ops\n";
-      cout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
-           << counter_totals.load_ins << " loads + "
-           << counter_totals.store_ins << " stores)\n";
+      *bfout << tag << ": " << setw(25) << counter_totals.ops << " integer ops\n";
+      *bfout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
+             << counter_totals.load_ins << " loads + "
+             << counter_totals.store_ins << " stores)\n";
     }
     if (reuse_unique > 0) {
       uint64_t median_value;
       uint64_t mad_value;
       bf_get_median_reuse_distance(&median_value, &mad_value);
-      cout << tag << ": " << setw(25);
+      *bfout << tag << ": " << setw(25);
       if (median_value == ~(uint64_t)0)
-        cout << "infinite" << " median reuse distance\n";
+        *bfout << "infinite" << " median reuse distance\n";
       else
-        cout << median_value << " median reuse distance (+/- "
-             << mad_value << ")\n";
+        *bfout << median_value << " median reuse distance (+/- "
+               << mad_value << ")\n";
     }
-    cout << tag << ": " << separator << '\n';
+    *bfout << tag << ": " << separator << '\n';
 
     // Output raw, per-type information.
     if (bf_types) {
@@ -886,27 +885,27 @@ private:
                 uint64_t idx = mem_type_to_index(memop, memref, memagg, memtype, memwidth);
                 uint64_t tally = counter_totals.mem_insts[idx];
                 if (tally > 0)
-                  cout << tag << ": " << setw(25) << tally << ' '
-                       << memop2name[memop]
-                       << memref2name[memref]
-                       << memagg2name[memagg]
-                       << memwidth2name[memwidth]
-                       << memtype2name[memtype]
-                       << '\n';
+                  *bfout << tag << ": " << setw(25) << tally << ' '
+                         << memop2name[memop]
+                         << memref2name[memref]
+                         << memagg2name[memagg]
+                         << memwidth2name[memwidth]
+                         << memtype2name[memtype]
+                         << '\n';
               }
-      cout << tag << ": " << separator << '\n';
+      *bfout << tag << ": " << separator << '\n';
     }
 
     // Report the raw measurements in terms of bits and bit operations.
-    cout << tag << ": " << setw(25) << global_bytes*8 << " bits ("
-         << counter_totals.loads*8 << " loaded + "
-         << counter_totals.stores*8 << " stored)\n";
+    *bfout << tag << ": " << setw(25) << global_bytes*8 << " bits ("
+           << counter_totals.loads*8 << " loaded + "
+           << counter_totals.stores*8 << " stored)\n";
     if (bf_unique_bytes && !partition)
-      cout << tag << ": " << setw(25) << global_unique_bytes*8 << " unique bits\n";
-    cout << tag << ": " << setw(25) << counter_totals.fp_bits << " flop bits\n";
+      *bfout << tag << ": " << setw(25) << global_unique_bytes*8 << " unique bits\n";
+    *bfout << tag << ": " << setw(25) << counter_totals.fp_bits << " flop bits\n";
     if (bf_all_ops)
-      cout << tag << ": " << setw(25) << counter_totals.op_bits << " integer op bits\n";
-    cout << tag << ": " << separator << '\n';
+      *bfout << tag << ": " << setw(25) << counter_totals.op_bits << " integer op bits\n";
+    *bfout << tag << ": " << separator << '\n';
 
     // Report vector-operation measurements.
     uint64_t num_vec_ops=0, total_vec_elts, total_vec_bits;
@@ -915,15 +914,15 @@ private:
         bf_get_vector_statistics(partition, &num_vec_ops, &total_vec_elts, &total_vec_bits);
       else
         bf_get_vector_statistics(&num_vec_ops, &total_vec_elts, &total_vec_bits);
-      cout << tag << ": " << setw(25) << num_vec_ops << " vector operations\n";
+      *bfout << tag << ": " << setw(25) << num_vec_ops << " vector operations\n";
       if (num_vec_ops > 0)
-        cout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)total_vec_elts / (double)num_vec_ops
-             << " elements per vector\n"
-             << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)total_vec_bits / (double)num_vec_ops
-             << " bits per element\n";
-      cout << tag << ": " << separator << '\n';
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)total_vec_elts / (double)num_vec_ops
+               << " elements per vector\n"
+               << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)total_vec_bits / (double)num_vec_ops
+               << " bits per element\n";
+      *bfout << tag << ": " << separator << '\n';
     }
 
 
@@ -947,99 +946,99 @@ private:
       for (vector<name_tally>::iterator ntiter = sorted_inst_mix.begin();
            ntiter != sorted_inst_mix.end();
            ntiter++) {
-        cout << tag << ": " << setw(25) << ntiter->second << ' '
-             << setw(maxopnamelen) << left
-             << ntiter->first << " instructions executed\n"
-             << right;
+        *bfout << tag << ": " << setw(25) << ntiter->second << ' '
+               << setw(maxopnamelen) << left
+               << ntiter->first << " instructions executed\n"
+               << right;
       }
-      cout << tag << ": " << separator << '\n';
+      *bfout << tag << ": " << separator << '\n';
     }
 
     // Report a bunch of derived measurements.
     if (counter_totals.stores > 0) {
-      cout << tag << ": " << fixed << setw(25) << setprecision(4)
-           << (double)counter_totals.loads / (double)counter_totals.stores
-           << " bytes loaded per byte stored\n";
+      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+             << (double)counter_totals.loads / (double)counter_totals.stores
+             << " bytes loaded per byte stored\n";
     } else {
       // Not likely to hit this but it is possible now with our
       // post-optimization instrumentation...
-      cout << tag << ": " << fixed << setw(25) << setprecision(4)
-           << 0 << " bytes loaded per byte stored\n";
+      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+             << 0 << " bytes loaded per byte stored\n";
     }
 
     if (bf_all_ops) {
       if (counter_totals.load_ins > 0)
-        cout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)counter_totals.ops / (double)counter_totals.load_ins
-             << " integer ops per load instruction\n";
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)counter_totals.ops / (double)counter_totals.load_ins
+               << " integer ops per load instruction\n";
       if (global_mem_ops > 0)
-        cout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_bytes*8 / (double)global_mem_ops
-             << " bits loaded/stored per memory op\n";
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)global_bytes*8 / (double)global_mem_ops
+               << " bits loaded/stored per memory op\n";
     }
 
     if (counter_totals.cond_brs > 0) {
       if (counter_totals.flops > 0)
-        cout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)counter_totals.flops / (double)counter_totals.cond_brs
-             << " flops per conditional/indirect branch\n";
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)counter_totals.flops / (double)counter_totals.cond_brs
+               << " flops per conditional/indirect branch\n";
       if (counter_totals.ops > 0)
-        cout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)counter_totals.ops / (double)counter_totals.cond_brs
-             << " ops per conditional/indirect branch\n";
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)counter_totals.ops / (double)counter_totals.cond_brs
+               << " ops per conditional/indirect branch\n";
       if (num_vec_ops > 0)
-        cout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)num_vec_ops / (double)counter_totals.cond_brs
-             << " vector ops per conditional/indirect branch\n";
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)num_vec_ops / (double)counter_totals.cond_brs
+               << " vector ops per conditional/indirect branch\n";
     }
     if (num_vec_ops > 0) {
       if (counter_totals.flops > 0)
-        cout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)num_vec_ops / (double)counter_totals.flops
-             << " vector operations (FP & int) per flop\n";
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)num_vec_ops / (double)counter_totals.flops
+               << " vector operations (FP & int) per flop\n";
       if (counter_totals.ops > 0)
-        cout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)num_vec_ops / (double)counter_totals.ops
-             << " vector operations per integer op\n";
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)num_vec_ops / (double)counter_totals.ops
+               << " vector operations per integer op\n";
     }
-    cout << tag << ": " << separator << '\n';
+    *bfout << tag << ": " << separator << '\n';
     if (counter_totals.flops > 0) {
-      cout << tag << ": " << fixed << setw(25) << setprecision(4)
-           << (double)global_bytes / (double)counter_totals.flops
-           << " bytes per flop\n"
-           << tag << ": " << fixed << setw(25) << setprecision(4)
-           << (double)global_bytes*8.0 / (double)counter_totals.fp_bits
-           << " bits per flop bit\n";
+      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+             << (double)global_bytes / (double)counter_totals.flops
+             << " bytes per flop\n"
+             << tag << ": " << fixed << setw(25) << setprecision(4)
+             << (double)global_bytes*8.0 / (double)counter_totals.fp_bits
+             << " bits per flop bit\n";
     }
     if (counter_totals.ops > 0)
-      cout << tag << ": " << fixed << setw(25) << setprecision(4)
-           << (double)global_bytes / (double)counter_totals.ops
-           << " bytes per integer op\n"
-           << tag << ": " << fixed << setw(25) << setprecision(4)
-           << (double)global_bytes*8.0 / (double)counter_totals.op_bits
-           << " bits per integer op bit\n";
+      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+             << (double)global_bytes / (double)counter_totals.ops
+             << " bytes per integer op\n"
+             << tag << ": " << fixed << setw(25) << setprecision(4)
+             << (double)global_bytes*8.0 / (double)counter_totals.op_bits
+             << " bits per integer op bit\n";
     if (bf_unique_bytes && (counter_totals.flops > 0 || counter_totals.ops > 0)) {
-      cout << tag << ": " << separator << '\n';
+      *bfout << tag << ": " << separator << '\n';
       if (counter_totals.flops > 0)
-        cout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_unique_bytes / (double)counter_totals.flops
-             << " unique bytes per flop\n"
-             << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_unique_bytes*8.0 / (double)counter_totals.fp_bits
-             << " unique bits per flop bit\n";
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)global_unique_bytes / (double)counter_totals.flops
+               << " unique bytes per flop\n"
+               << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)global_unique_bytes*8.0 / (double)counter_totals.fp_bits
+               << " unique bits per flop bit\n";
       if (counter_totals.ops > 0)
-        cout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_unique_bytes / (double)counter_totals.ops
-             << " unique bytes per integer op\n"
-             << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
-             << " unique bits per integer op bit\n";
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)global_unique_bytes / (double)counter_totals.ops
+               << " unique bytes per integer op\n"
+               << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
+               << " unique bits per integer op bit\n";
     }
     if (bf_unique_bytes && !partition)
-      cout << tag << ": " << fixed << setw(25) << setprecision(4)
-           << (double)global_bytes / (double)global_unique_bytes
-           << " bytes per unique byte\n";
-    cout << tag << ": " << separator << '\n';
+      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+             << (double)global_bytes / (double)global_unique_bytes
+             << " bytes per unique byte\n";
+    *bfout << tag << ": " << separator << '\n';
   }
 
 public:
@@ -1103,6 +1102,7 @@ public:
 
     // Report the global counter totals across all basic blocks.
     report_totals(NULL, global_totals);
+    bfout->flush();
   }
 } run_at_end_of_program;
 

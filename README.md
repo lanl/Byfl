@@ -306,6 +306,48 @@ The Byfl options listed above are accepted directly by the Byfl compiler pass.  
 </dl>
 
 
+### Environment variables
+
+<dl>
+  <dt><code>BF_OPTS</code></dt>
+  <dd>The Byfl wrapper scripts (<code>bf-gcc</code>, <code>bf-g++</code>, and
+      <code>bf-gfortran</code>) treat the <code>BF_OPTS</code> environment
+      variable as a list of command-line options.  This lets users control
+      the type of Byfl instrumentation used without having to edit
+      <code>Makefile</code>s or other build scripts.</dd>
+
+  <dt><code>BF_PREFIX</code></dt>
+
+  <dd>Byfl-instrumented executables expand the <code>BF_PREFIX</code>
+      environment variable, honoring POSIX shell-style variable
+      expansions, and prefix every line of Byfl output with the
+      result.  For example, if <code>BF_PREFIX</code> is set to the
+      string <q><code>Rank ${OMPI_COMM_WORLD_RANK}</code></q>, then a
+      line that would otherwise begin with
+      <q><code>BYFL_SUMMARY:</code></q> will instead begin with
+      <q><code>Rank 3 BYFL_SUMMARY:</code></q>, assuming that the
+      <code>OMPI_COMM_WORLD_RANK</code> environment variable has the
+      value <code>3</code>.
+
+      <p>Although the characters <code>|</code>, <code>&amp;</code>,
+      <code>;</code>, <code>&lt;</code>, <code>&gt;</code>,
+      <code>(</code>, <code>)</code>, <code>{</code>, and
+      <code>}</code> are not normally allowed within
+      <code>BF_PREFIX</code>, <code>BF_PREFIX</code> does support
+      backquoted-command evaluation, and the child command can contain
+      those characters, as in <code>BF_PREFIX='`if true; then (echo
+      YES; echo MAYBE); else echo NO; fi`'</code> (which prefixes each
+      line with <q><code>YES MAYBE</code></q>).</p>
+
+      <p>As a special case, if <code>BF_PREFIX</code> expands to a
+      string that begins with <q><code>/</code></q> or
+      <q><code>./</code></q>, it is treated not as a prefix but as a
+      filename.  The Byfl-instrumented executable will redirect all of
+      its Byfl output to that file instead of to the standard output
+      device.</p></dd>
+</dl>
+
+
 ### Advanced usage
 
 Under the covers, the Byfl wrapper scripts are using GCC to compile code to GCC IR and DragonEgg to convert GCC IR to LLVM IR, which is output in LLVM bitcode format.  The wrapper scripts then run LLVM's `opt` command, specifying Byfl's `bytesflops` plugin as an additional compiler pass.  The resulting instrumented bitcode is then converted to native machine code using Clang.  The following is an example of how to manually instrument `myprog.c` without using the wrapper scripts:
