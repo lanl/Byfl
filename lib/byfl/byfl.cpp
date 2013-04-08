@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <locale>
+#include <wordexp.h>
 
 #include "byfl-common.h"
 #include "cachemap.h"
@@ -278,18 +279,18 @@ extern "C" {
   }
 }
 
-// The following constants are defined by the instrumented code.
-
 namespace bytesflops {
 
-const char* bf_func_and_parents;   // Top of the complete_call_stack stack
-
+// The following constants are defined by the instrumented code.
 extern const char* bf_string_to_symbol (const char *nonunique);
 extern void bf_report_vector_operations (size_t call_stack_depth);
 extern void bf_get_vector_statistics(uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
 extern void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
 extern void bf_get_reuse_distance (vector<uint64_t>** hist, uint64_t* unique_addrs);
 extern void bf_get_median_reuse_distance (uint64_t* median_value, uint64_t* mad_value);
+
+const char* bf_func_and_parents; // Top of the complete_call_stack stack
+string bf_output_prefix;         // String to output before "BYFL" on every line
 
 
 // Define a stack of tallies of all of our counters across <=
@@ -505,8 +506,8 @@ static bool suppress_output (void)
     return true;
   static enum {UNKNOWN, SUPPRESS, SHOW} output = UNKNOWN;
   if (output == UNKNOWN) {
-    // First invocation -- parse the BYFL_OUTPUT_IF environment variable.
-    char *value = getenv("BYFL_OUTPUT_IF");
+    // First invocation -- parse the BF_OUTPUT_IF environment variable.
+    char *value = getenv("BF_OUTPUT_IF");
     if (value) {
       // The variable is defined -- ensure that it's of the form VAR=VALUE.
       string output_if(value);
@@ -525,6 +526,20 @@ static bool suppress_output (void)
     else
       // The variable isn't defined.  Show all output.
       output = SHOW;
+
+    // If the BF_PREFIX environment variable is set, expand it and
+    // output it before each line of output.
+    char *prefix = getenv("BF_PREFIX");
+    if (prefix) {
+      wordexp_t expansion;
+      if (wordexp(prefix, &expansion, 0)) {
+        cerr << "Failed to expand BF_PREFIX (\"" << prefix << "\")\n";
+        exit(1);
+      }
+      for (size_t i = 0; i < expansion.we_wordc; i++)
+        bf_output_prefix += string(expansion.we_wordv[i]) + string(" ");
+      wordfree(&expansion);
+    }
   }
   return output == SUPPRESS;
 }
@@ -584,7 +599,8 @@ void bf_report_bb_tallies (void)
 
   // If this is our first invocation, output a basic-block header line.
   if (__builtin_expect(!showed_header, 0)) {
-    cout << "BYFL_BB_HEADER: "
+    cout << bf_output_prefix
+         << "BYFL_BB_HEADER: "
          << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
          << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
          << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
@@ -605,7 +621,8 @@ void bf_report_bb_tallies (void)
     // Output the difference between the current counter values and
     // our previously saved values.
     ByteFlopCounters* counter_deltas = global_totals.difference(&prev_global_totals);
-    cout << "BYFL_BB:        "
+    cout << bf_output_prefix
+         << "BYFL_BB:        "
          << setw(HDR_COL_WIDTH) << counter_deltas->loads << ' '
          << setw(HDR_COL_WIDTH) << counter_deltas->stores << ' '
          << setw(HDR_COL_WIDTH) << counter_deltas->load_ins << ' '
@@ -702,7 +719,8 @@ private:
   // Report per-function counter totals.
   void report_by_function (void) {
     // Output a header line.
-    cout << "BYFL_FUNC_HEADER: "
+    cout << bf_output_prefix
+         << "BYFL_FUNC_HEADER: "
          << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
          << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
          << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
@@ -734,7 +752,8 @@ private:
       const string funcname = *fn_iter;
       const char* funcname_c = bf_string_to_symbol(funcname.c_str());
       ByteFlopCounters* func_counters = per_func_totals()[funcname_c];
-      cout << "BYFL_FUNC:        "
+      cout << bf_output_prefix
+           << "BYFL_FUNC:        "
            << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
            << setw(HDR_COL_WIDTH) << func_counters->stores << ' '
            << setw(HDR_COL_WIDTH) << func_counters->load_ins << ' '
@@ -757,7 +776,8 @@ private:
 
     // Output invocation tallies for all called functions, not just
     // instrumented functions.
-    cout << "BYFL_CALLEE_HEADER: "
+    cout << bf_output_prefix
+         << "BYFL_CALLEE_HEADER: "
          << setw(13) << "Invocations" << ' '
          << "Byfl" << ' '
          << "Function\n";
@@ -782,7 +802,8 @@ private:
       }
       string funcname_orig = demangle_func_name(funcname);
       if (tally > 0) {
-        cout << "BYFL_CALLEE: "
+        cout << bf_output_prefix
+             << "BYFL_CALLEE: "
              << setw(HDR_COL_WIDTH) << tally << ' '
              << (instrumented ? "Yes " : "No  ") << ' '
              << funcname_orig;
@@ -809,7 +830,7 @@ private:
         global_unique_bytes = bf_tally_unique_addresses();
 
     // Report the dynamic basic-block count.
-    string tag("BYFL_SUMMARY");
+    string tag(bf_output_prefix + "BYFL_SUMMARY");
     cout.imbue(std::locale(""));
     if (partition)
       tag += '(' + string(partition) + ')';

@@ -89,6 +89,7 @@ extern const char* bf_string_to_symbol (const char *nonunique);  // Map a nonuni
 extern "C" {
   extern const char* bf_categorize_counters (void);   // Return a category in which to partition data.
 }
+extern string bf_output_prefix;
 
 
 // Initialize some of our variables at first use.
@@ -194,7 +195,8 @@ void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* tota
 void bf_report_vector_operations (size_t call_stack_depth)
 {
   // Output a header line.
-  cout << "BYFL_VECTOR_HEADER: "
+  cout << bf_output_prefix
+       << "BYFL_VECTOR_HEADER: "
        << setw(20) << "Elements" << ' '
        << setw(20) << "Elt_bits" << ' '
        << setw(4)  << "Type" << ' '
@@ -220,7 +222,8 @@ void bf_report_vector_operations (size_t call_stack_depth)
          tally_iter++) {
       VectorOperation* vecop = tally_iter->first;
       uint64_t tally = tally_iter->second;
-      cout << "BYFL_VECTOR:        "
+      cout << bf_output_prefix
+           << "BYFL_VECTOR:        "
            << setw(20) << vecop->num_elements << ' '
            << setw(20) << vecop->element_bits << ' '
            << (vecop->is_flop ? "FP   " : "Int   ")
