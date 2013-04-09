@@ -530,7 +530,7 @@ static bool suppress_output (void)
       // and write all output there.
       if ((bf_output_prefix.size() >= 1 && bf_output_prefix[0] == '/')
           || (bf_output_prefix.size() >= 2 && bf_output_prefix[0] == '.' && bf_output_prefix[1] == '/')) {
-        bf_output_prefix.pop_back();   // Drop the trailing space character.
+	bf_output_prefix.resize(bf_output_prefix.size() - 1);  // Drop the trailing space character.
         bfout = new ofstream(bf_output_prefix.c_str(), ios_base::out | ios_base::trunc);
         if (bfout->fail()) {
           cerr << "Failed to create output file " << bf_output_prefix << '\n';
