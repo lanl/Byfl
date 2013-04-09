@@ -74,7 +74,7 @@ public:
     // If we filled the page, deallocate the memory used by the bit
     // vector, as we won't be setting any more bits.
     if (bits_set == logical_page_size) {
-      delete bit_vector;
+      delete[] bit_vector;
       bit_vector = NULL;
     }
   }
@@ -86,7 +86,7 @@ public:
   }
 
   ~PageTableEntry() {
-    delete bit_vector;
+    delete[] bit_vector;
   }
 };
 typedef CachedUnorderedMap<uintptr_t, PageTableEntry*, hash<uintptr_t>, eqaddr> page_to_bits_t;
