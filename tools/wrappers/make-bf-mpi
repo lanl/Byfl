@@ -1,0 +1,26 @@
+#! /bin/bash
+
+##########################################
+# Generate Byfl wrappers for the various #
+# Open MPI and MPICH2 wrapper scripts	 #
+#					 #
+# By Scott Pakin <pakin@lanl.gov>	 #
+##########################################
+
+# Parse the command line.
+mpiwrap="$1"
+bfwrap="$2"
+ompivar="$3"
+mpichvar="$4"
+bindir="$5"
+
+# Output a wrapper script to standard output.
+cat <<SCRIPT
+#! /bin/sh
+
+# Run either Open MPI's or MPICH's $mpiwrap, but instruct it to use $bfwrap.
+$ompivar=$bindir/$bfwrap
+$mpichvar=$bindir/$bfwrap
+export $ompivar $mpichvar
+exec $mpiwrap "\$@"
+SCRIPT

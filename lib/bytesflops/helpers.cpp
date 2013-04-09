@@ -348,10 +348,8 @@ namespace bytesflops_pass {
     // and the following call to either bf_reset_bb_tallies() or
     // bf_pop_function() into a single critical section.
     if (InstrumentEveryBB || TallyByFunction) {
-      
       if (ThreadSafety)
 	CallInst::Create(take_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
-
       if (must_clear & CLEAR_LOADS) {
 	new StoreInst(zero, load_var, false, insert_before);
 	if (TallyAllOps)

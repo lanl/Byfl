@@ -426,7 +426,7 @@ void initialize_byfl (void) {
   for (size_t i = 0; i < NUM_MEM_INSTS; i++)
     bf_mem_insts_count[i] = 0;
 
-  // Make sure we initialize all instruction mix tallys...
+  // Make sure we initialize all instruction mix tallies.
   if (bf_tally_inst_mix) {
     bf_inst_mix_histo = new uint64_t[NUM_OPCODES];
     for(unsigned int i = 0; i < NUM_OPCODES; ++i)

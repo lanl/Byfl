@@ -272,7 +272,7 @@ namespace bytesflops_pass {
     // fragile and care should be taken in making sure we don't
     // process injected code (nor introduce duplicate tallies).  This
     // is particularly true here with the details of BBs with phi and
-    // landing_pad nodes...  When in doubt draw pictures!
+    // landing_pad nodes.  When in doubt draw pictures!
 
     unsigned int opcode = iter->getOpcode();
     LLVMContext& modctx = module->getContext();
@@ -303,20 +303,19 @@ namespace bytesflops_pass {
     }
 
     if (phi_count > 0) {
-      // Record total number of phi nodes/instructions
-      // encountered... We jump ahead to process the next 'non-phi'
-      // instruction below.
+      // Record total number of phi nodes/instructions encountered.
+      // We jump ahead to process the next non-phi instruction below.
       ConstantInt* opCodeIdx = ConstantInt::get(modctx,  APInt(64, int64_t(opcode)));
       ConstantInt* pcount = ConstantInt::get(modctx, APInt(64, phi_count));
       increment_global_array(iter, inst_mix_histo_var, opCodeIdx, pcount, false);
-      iter++; // jump past inserted code...
+      iter++;  // Jump past inserted code.
     }
 
     if (lp_count > 0) {
       ConstantInt* opCodeIdx = ConstantInt::get(modctx, APInt(64, int64_t(opcode)));
       ConstantInt* lpcount   = ConstantInt::get(modctx, APInt(64, lp_count));
       increment_global_array(iter, inst_mix_histo_var, opCodeIdx, lpcount, false);
-      iter++; // jump past inserted code...      
+      iter++;  // Jump past inserted code.
     }
 
     // Tally non-phi and landing pad instruction.  Make sure we leave
@@ -324,7 +323,7 @@ namespace bytesflops_pass {
     // process
     ConstantInt* opCodeIdx = ConstantInt::get(modctx,  APInt(64, int64_t(cur_opcode)));
     increment_global_array(iter, inst_mix_histo_var, opCodeIdx, one, false);
-    iter++; // jump past inserted code...
+    iter++;    // Jump past inserted code.
   }
 
   // Do most of the instrumentation work: Walk each instruction in
