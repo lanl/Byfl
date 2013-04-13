@@ -321,8 +321,8 @@ if (defined $build_type{"compile"}) {
 
         # Run the static analyzer if -bf-static was specified.
         execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
-			"-bytesflops", @bf_options,
-			"-analyze", "$sfile") if $static_analysis;
+                        "-bytesflops", @bf_options,
+                        "-analyze", "$sfile") if $static_analysis;
 
         # Unfortunately, DragonEgg's bitcode generation apparently
         # runs *before* GCC code optimizations.  This implies that
@@ -334,8 +334,8 @@ if (defined $build_type{"compile"}) {
         my $infile = $sfile;
         if ($optimization_level ne "0") {
             execute_command("opt",
-			    "-O$optimization_level",
-			    $infile, "-o", $opt_bcfile);
+                            "-O$optimization_level",
+                            $infile, "-o", $opt_bcfile);
             $infile = $opt_bcfile;
         }
 
@@ -344,9 +344,9 @@ if (defined $build_type{"compile"}) {
         if ($bf_disable eq "byfl") {
             # Disable the bytesflops plugin if so instructed.
             if ($optimization_level eq "0") {
-		execute_command("llvm-as", "-o", $bcfile, $sfile);
+                execute_command("llvm-as", "-o", $bcfile, $sfile);
             }
-	    else {
+            else {
                 print STDERR "mv $opt_bcfile $bcfile\n" if $verbosity > 0;
                 rename($opt_bcfile, $bcfile) || die "${progname}: $!\n";
             }
@@ -354,19 +354,19 @@ if (defined $build_type{"compile"}) {
         else {
             # Normally, we run Byfl instrumentation.
             execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
-			    "-bytesflops", @bf_options,
-			    "-std-compile-opts",
-			    $infile, "-o", $bcfile);
+                            "-bytesflops", @bf_options,
+                            "-std-compile-opts",
+                            $infile, "-o", $bcfile);
         }
 
         # Embed the LLVM bitcode within a .o file.
         execute_command($compiler, "-o", $ofile, "-c", "-x", "c", "/dev/null");
         execute_command("objcopy", "--add-section", ".bitcode=$bcfile",
-			"--set-section-flags", ".bitcode=alloc", $ofile);
+                        "--set-section-flags", ".bitcode=alloc", $ofile);
 
         # Remove the .s and .bc files.
         print STDERR "rm -f @deletable\n" if $verbosity > 0;
-        unlink @deletable || die "${progname}: $!\n";
+        unlink(@deletable) || die "${progname}: $!\n";
     }
 }
 
@@ -464,4 +464,9 @@ if (defined $build_type{"link"}) {
 
     # Run the linker.
     execute_command("clang", @llvm_ld_inputs, @llvm_ld_options);
+
+    # Clean up all of the .bc files we created.
+    my @deletable = grep(/\.bc$/, @llvm_ld_inputs);
+    print STDERR "rm -f @deletable\n" if $verbosity > 0;
+    unlink(@deletable) || die "${progname}: $!\n";
 }
