@@ -163,8 +163,13 @@ my %tag2column;           # Map from a tag to a column number
 my %fname2parent2data;    # Map from function name to parent name to data
 my $funccol;              # Column number of the Function tag
 my $parentcol;            # Column number of the Parent_func_1 tag
+my %byfl_tags;            # List of all BYFL tags encountered.
 open(BYFL, "<$byfl_output") || die "open(\"$byfl_output\"): $!\n";
 while (my $oneline = <BYFL>) {
+    # Remove the user-specified prefix, if any.
+    $oneline =~ s/^.*(?=BYFL\w+:\s)//o;
+    $byfl_tags{$1} = 1 if $oneline =~ /^(BYFL_\w+):\s/o;
+
     # Process the header line.
     if (substr($oneline, 0, 17) eq "BYFL_FUNC_HEADER:") {
         chomp $oneline;
@@ -207,6 +212,11 @@ while (my ($funcname, $allparents) = each %fname2parent2data) {
         push @flattened_input, [@$data, $funcname, $parentname];
     }
 }
+
+# Ensure we have work to do.
+die "${progname}: $byfl_output does not appear to contain any Byfl output\n" if !keys %byfl_tags;
+die "${progname}: $exe_name does not appear to have been instrumented using -bf-by-func\n" if !defined $byfl_tags{"BYFL_FUNC_HEADER"};
+die "${progname}: No instrumented functions were found in $byfl_output\n" if !defined $byfl_tags{"BYFL_FUNC"};
 
 # As our second pass, create a FunctionInfo object for each {function,
 # parent} combination.
