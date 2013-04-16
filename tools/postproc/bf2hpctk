@@ -74,13 +74,18 @@ sub find_function_location ($) {
         else {
             # Get the filename and line number.
             open(A2L, "addr2line --exe=$exe_name $address|") || die "open: $!\n";
-            my $oneline = <A2L>;
-            die "${progname}: Failed to parse addr2line's output\n" if $oneline !~ /^([^:]+):(\d+)/;
+            chomp(my $oneline = <A2L>);
+            die "${progname}: Failed to parse addr2line's output ($oneline)\n" if $oneline !~ /^([^:]+):(\?|\d+)/;
             ($filename, $lineno) = ($1, $2);
+            $lineno = 0 if $lineno eq "?";
             close A2L;
         }
     };
-    $filename = abs_path $filename if $filename ne "??";
+    if ($filename ne "??") {
+        my $absname = abs_path $filename;   # Accesses the filesystem
+        $absname = File::Spec->rel2abs($filename) if !defined $absname;  # Does not access the filesystem
+        $filename = $absname;
+    }
     my @result = ($longfuncname, $filename, $lineno);
     $previous_function_location{$funcname} = \@result;
     return @result;
@@ -553,6 +558,14 @@ $data_trie->walk(before => sub ($$$) {
                      my (undef, $filename, $lineno) = find_function_location($name);
                      printf XML '%s<S i="%d" s="%d" l="%d">%s', "  " x ($depth+3), $next_id, $next_id, $lineno, "\n";
                      $next_id++;
+                     if ($#{$node->{data}} == -1) {
+                         # We sometimes encounter functions called ex nihilo,
+                         # i.e., a function that is never encountered by Byfl
+                         # even though its children are.  In this case, we
+                         # assign all zeroes to the data to avoid accessing
+                         # uninitialized values.
+                         $node->{data} = [(0) x $numdatafields];
+                     }
                      foreach my $col (0 .. $numdatafields-1) {
                          printf XML '%s<M n="%d" v="%d"/>%s', "  " x ($depth+4), $col, $node->{data}->[$col], "\n";
                      }
