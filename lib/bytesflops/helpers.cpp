@@ -15,7 +15,7 @@ namespace bytesflops_pass {
     size_t tally = 0;
     for (string::const_iterator iter = some_string.cbegin(); iter != some_string.cend(); iter++)
       if (*iter == some_char)
-	tally++;
+        tally++;
     return tally;
   }
 
@@ -38,7 +38,7 @@ namespace bytesflops_pass {
   // Destructively remove all instances of a given character from a string.
   void remove_all_instances(string& some_string, char some_char) {
     some_string.erase(remove(some_string.begin(), some_string.end(), some_char),
-		      some_string.end());
+                      some_string.end());
   }
 
   // Parse a list of function names into a set.  The trick is that (1)
@@ -53,28 +53,28 @@ namespace bytesflops_pass {
     size_t rparens = 0;
     set<string>* resulting_set = new(set<string>);
     for (vector<string>::iterator fniter = funclist.begin();
-	 fniter != funclist.end();
-	 fniter++) {
+         fniter != funclist.end();
+         fniter++) {
       // Combine pieces of mangled names.
       string partial_name(*fniter);
       if (lparens > 0 || rparens > 0)
-	funcname += ',';
+        funcname += ',';
       funcname += partial_name;
       lparens += tally_all_instances(partial_name, '(');
       rparens += tally_all_instances(partial_name, ')');
       if (lparens != rparens)
-	continue;
-	  
+        continue;
+
       // We have a complete function name.  Add it to the set.
       if (funcname[0] == '@')
-	// Read function names from a file into the set.
-	functions_from_file(funcname.substr(1), resulting_set);
+        // Read function names from a file into the set.
+        functions_from_file(funcname.substr(1), resulting_set);
       else {
-	// Function name was specified literally.  Normalize
-	// unmangled names by removing spaces then insert the result
-	// into the set.
-	remove_all_instances(funcname, ' ');
-	resulting_set->insert(funcname);
+        // Function name was specified literally.  Normalize
+        // unmangled names by removing spaces then insert the result
+        // into the set.
+        remove_all_instances(funcname, ' ');
+        resulting_set->insert(funcname);
       }
       funcname = "";
       lparens = 0;
@@ -85,67 +85,45 @@ namespace bytesflops_pass {
 
   // Insert after a given instruction some code to increment a global
   // variable.
-  void BytesFlops::increment_global_variable(BasicBlock::iterator& iter,
-					     Constant* global_var,
-					     Value* increment) {
-    // Point to the next instruction, because it's easy to insert before that.
-    BasicBlock::iterator next_iter = iter;
-    next_iter++;
-
+  void BytesFlops::increment_global_variable(BasicBlock::iterator& insert_before,
+                                             Constant* global_var,
+                                             Value* increment) {
     // %0 = load i64* @<global_var>, align 8
-    LoadInst* load_var = new LoadInst(global_var, "gvar", false, next_iter);
+    LoadInst* load_var = new LoadInst(global_var, "gvar", false, insert_before);
 
     // %1 = add i64 %0, <increment>
     BinaryOperator* inc_var =
       BinaryOperator::Create(Instruction::Add, load_var, increment,
-			     "new_gvar", next_iter);
+                             "new_gvar", insert_before);
 
     // store i64 %1, i64* @<global_var>, align 8
-    new StoreInst(inc_var, global_var, false, next_iter);
-
-    // Point to the last instruction we inserted.  The loop over
-    // instructions will then increment this to point one past the
-    // last instruction we inserted.
-    iter = next_iter;
-    iter--;
+    new StoreInst(inc_var, global_var, false, insert_before);
   }
 
-  // Insert after a given instruction some code to increment an
+  // Insert before a given instruction some code to increment an
   // element of a global array.
-  void BytesFlops::increment_global_array(BasicBlock::iterator& iter,
-					  Constant* global_var,
-					  Value* idx,
-					  Value* increment,
-                                          bool ins_after) {
-    // Point to the next instruction, because it's easy to insert before that.
-    BasicBlock::iterator next_iter = iter;
-    if (ins_after)
-      next_iter++;
-
+  void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
+                                          Constant* global_var,
+                                          Value* idx,
+                                          Value* increment) {
     // %1 = load i64** @myarray, align 8
-    LoadInst* load_array = new LoadInst(global_var, "bfmic", false, next_iter);
+    LoadInst* load_array = new LoadInst(global_var, "bfmic", false, insert_before);
     load_array->setAlignment(8);
 
     // %2 = getelementptr inbounds i64* %1, i64 %idx
-    GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(load_array, idx, "idx_ptr", next_iter);
+    GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(load_array, idx, "idx_ptr", insert_before);
 
     // %3 = load i64* %2, align 8
-    LoadInst* idx_val = new LoadInst(idx_ptr, "idx_val", false, next_iter);
+    LoadInst* idx_val = new LoadInst(idx_ptr, "idx_val", false, insert_before);
     idx_val->setAlignment(8);
 
     // %4 = add i64 %3, %increment
     BinaryOperator* inc_elt =
-      BinaryOperator::Create(Instruction::Add, idx_val, increment, "new_val", next_iter);
+      BinaryOperator::Create(Instruction::Add, idx_val, increment, "new_val", insert_before);
 
     // store i64 %4, i64* %2, align 8
-    StoreInst* store_inst = new StoreInst(inc_elt, idx_ptr, false, next_iter);
+    StoreInst* store_inst = new StoreInst(inc_elt, idx_ptr, false, insert_before);
     store_inst->setAlignment(8);
-
-    // Point to the last instruction we inserted.  The loop over
-    // instructions will then increment this to point one past the
-    // last instruction we inserted.
-    iter = next_iter;
-    iter--;
   }
 
   // Mark a variable as "used" (not eligible for dead-code elimination).
@@ -156,25 +134,25 @@ namespace bytesflops_pass {
 
     GlobalVariable* llvm_used =
       new GlobalVariable(module, ptr8_array, false,
-			 GlobalValue::AppendingLinkage, 0, "llvm.used");
+                         GlobalValue::AppendingLinkage, 0, "llvm.used");
     llvm_used->setSection("llvm.metadata");
     std::vector<Constant*> llvm_used_elts;
     llvm_used_elts.push_back(ConstantExpr::getCast(Instruction::BitCast,
-						   protected_var, ptr8));
+                                                   protected_var, ptr8));
     llvm_used->setInitializer(ConstantArray::get(ptr8_array, llvm_used_elts));
   }
 
   // Create and initialize a global uint64_t constant in the
   // instrumented code.
   GlobalVariable* BytesFlops::create_global_constant(Module& module,
-						     const char *name,
-						     uint64_t value) {
+                                                     const char *name,
+                                                     uint64_t value) {
     LLVMContext& globctx = module.getContext();
     IntegerType* i64type = Type::getInt64Ty(globctx);
     ConstantInt* const_value = ConstantInt::get(globctx, APInt(64, value));
     GlobalVariable* new_constant =
       new GlobalVariable(module, i64type, true, GlobalValue::LinkOnceODRLinkage,
-			 const_value, name);
+                         const_value, name);
     mark_as_used(module, new_constant);
     return new_constant;
   }
@@ -182,14 +160,14 @@ namespace bytesflops_pass {
   // Create and initialize a global bool constant in the instrumented
   // code.
   GlobalVariable* BytesFlops::create_global_constant(Module& module,
-						     const char *name,
-						     bool value) {
+                                                     const char *name,
+                                                     bool value) {
     LLVMContext& globctx = module.getContext();
     IntegerType* booltype = Type::getInt1Ty(globctx);
     ConstantInt* const_value = ConstantInt::get(globctx, APInt(1, value));
     GlobalVariable* new_constant =
       new GlobalVariable(module, booltype, true, GlobalValue::LinkOnceODRLinkage,
-			 const_value, name);
+                         const_value, name);
     mark_as_used(module, new_constant);
     return new_constant;
   }
@@ -207,8 +185,8 @@ namespace bytesflops_pass {
   // Return true if and only if the given instruction should be
   // tallied as an operation.
   bool BytesFlops::is_any_operation(const Instruction& inst,
-				    const unsigned int opcode,
-				    const Type* instType) {
+                                    const unsigned int opcode,
+                                    const Type* instType) {
     // Treat a variety of instructions as "operations".
     if (inst.isBinaryOp(opcode))
       // Binary operator (e.g., add)
@@ -227,8 +205,8 @@ namespace bytesflops_pass {
   // Return true if and only if the given instruction should be
   // tallied as a floating-point operation.
   bool BytesFlops::is_fp_operation(const Instruction& inst,
-				   const unsigned int opcode,
-				   const Type* instType) {
+                                   const unsigned int opcode,
+                                   const Type* instType) {
     return inst.isBinaryOp(opcode) && instType->isFPOrFPVectorTy();
   }
 
@@ -238,8 +216,8 @@ namespace bytesflops_pass {
   uint64_t BytesFlops::instruction_operand_bits(const Instruction& inst) {
     uint64_t total_bits = inst.getType()->getPrimitiveSizeInBits();
     for (User::const_op_iterator iter = inst.op_begin(); iter != inst.op_end(); iter++) {
-	Value* val = dyn_cast<Value>(*iter);
-	total_bits += val->getType()->getPrimitiveSizeInBits();
+        Value* val = dyn_cast<Value>(*iter);
+        total_bits += val->getType()->getPrimitiveSizeInBits();
       }
     return total_bits;
   }
@@ -251,7 +229,7 @@ namespace bytesflops_pass {
       FunctionType::get(Type::getVoidTy(module->getContext()), no_args, false);
     Function* thunk_function =
       Function::Create(void_func_result, GlobalValue::ExternalLinkage,
-		       thunk_name, module);
+                       thunk_name, module);
     thunk_function->setCallingConv(CallingConv::C);
     return thunk_function;
   }
@@ -270,9 +248,9 @@ namespace bytesflops_pass {
       ArrayType::get(IntegerType::get(globctx, 8), funcname.size()+1);
     GlobalVariable* const_char_ptr =
       new GlobalVariable(*module, char_array, true,
-			 GlobalValue::PrivateLinkage,
-			 ConstantDataArray::getString(globctx, funcname, true),
-			 ".fname");
+                         GlobalValue::PrivateLinkage,
+                         ConstantDataArray::getString(globctx, funcname, true),
+                         ".fname");
     vector<Constant*> getelementptr_indices;
     ConstantInt* zero_index = ConstantInt::get(globctx, APInt(64, 0));
     getelementptr_indices.push_back(zero_index);
@@ -283,54 +261,46 @@ namespace bytesflops_pass {
     return string_argument;
   }
 
-  // Declare an external thread-local variable.
-  GlobalVariable* BytesFlops::declare_TLS_global(Module& module, Type* var_type, StringRef var_name) {
+  // Declare an external variable.
+  GlobalVariable* BytesFlops::declare_global_var(Module& module, Type* var_type, StringRef var_name) {
     return new GlobalVariable(module, var_type, false,
-			      GlobalVariable::ExternalLinkage, 0, var_name, 0,
-			      GlobalVariable::GeneralDynamicTLSModel);
+                              GlobalVariable::ExternalLinkage, 0, var_name, 0,
+                              GlobalVariable::NotThreadLocal);
   }
 
   // Insert code at the end of a basic block.
   void BytesFlops::insert_end_bb_code (Module* module, StringRef function_name,
-				       int& must_clear,
-				       BasicBlock::iterator& insert_before) {
+                                       int& must_clear,
+                                       BasicBlock::iterator& insert_before) {
     // Determine if we're really at the end of a basic block or if
     // we're simply at a call instruction.
     Instruction& inst = *insert_before;
-    bool is_end_of_bb = insert_before->isTerminator();
     ConstantInt* end_of_bb_type;
-    if (is_end_of_bb) {
-      unsigned int opcode = inst.getOpcode();   // Terminator instruction's opcode
-      switch (opcode) {
-	case Instruction::IndirectBr:
-	case Instruction::Switch:
-	  end_of_bb_type = cond_end_bb;
-	  break;
+    unsigned int opcode = inst.getOpcode();   // Terminator instruction's opcode
+    switch (opcode) {
+      case Instruction::IndirectBr:
+      case Instruction::Switch:
+        end_of_bb_type = cond_end_bb;
+        break;
 
-	case Instruction::Br:
-	  end_of_bb_type = dyn_cast<BranchInst>(&inst)->isConditional() ? cond_end_bb : uncond_end_bb;
-	  break;
+      case Instruction::Br:
+        end_of_bb_type = dyn_cast<BranchInst>(&inst)->isConditional() ? cond_end_bb : uncond_end_bb;
+        break;
 
-	default:
-	  end_of_bb_type = uncond_end_bb;
-	  break;
-      }
+      default:
+        end_of_bb_type = uncond_end_bb;
+        break;
     }
-    else
-      end_of_bb_type = not_end_of_bb;
-    if (end_of_bb_type == cond_end_bb)
-      static_cond_brs++;
+    static_cond_brs++;
 
-    // If requested by the user, insert a call to
-    // bf_accumulate_bb_tallies() and, at the true end of the basic
-    // block, bf_report_bb_tallies().
+    // If we're instrumenting every basic block, insert calls to
+    // bf_accumulate_bb_tallies() and bf_report_bb_tallies().
     if (InstrumentEveryBB) {
       callinst_create(accum_bb_tallies, end_of_bb_type, insert_before);
-      if (is_end_of_bb)
-	callinst_create(report_bb_tallies, insert_before);
+      callinst_create(report_bb_tallies, insert_before);
     }
 
-    // If requested by the user, insert a call to
+    // If we're instrumenting by function, insert a call to
     // bf_assoc_counters_with_func() at the end of the basic block.
     if (TallyByFunction) {
       vector<Value*> arg_list;
@@ -339,199 +309,132 @@ namespace bytesflops_pass {
       callinst_create(assoc_counts_with_func, arg_list, insert_before);
     }
 
-    // Reset all of our counter variables.  Technically, even when
-    // instrumenting in thread-safe mode we don't need to protect
-    // these with a lock because all counter variables are
-    // thread-local.  However, we do so anyway to enable
-    // reduce_mega_lock_activity() to merge the preceding call to
-    // bf_assoc_counters_with_func(), the counter-resetting code,
-    // and the following call to either bf_reset_bb_tallies() or
-    // bf_pop_function() into a single critical section.
+    // Reset all of our counter variables.
     if (InstrumentEveryBB || TallyByFunction) {
-      if (ThreadSafety)
-	CallInst::Create(take_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
       if (must_clear & CLEAR_LOADS) {
-	new StoreInst(zero, load_var, false, insert_before);
-	if (TallyAllOps)
-	  new StoreInst(zero, load_inst_var, false, insert_before);
+        new StoreInst(zero, load_var, false, insert_before);
+        if (TallyAllOps)
+          new StoreInst(zero, load_inst_var, false, insert_before);
       }
       if (must_clear & CLEAR_STORES) {
-	new StoreInst(zero, store_var, false, insert_before);
-	if (TallyAllOps)
-	  new StoreInst(zero, store_inst_var, false, insert_before);
+        new StoreInst(zero, store_var, false, insert_before);
+        if (TallyAllOps)
+          new StoreInst(zero, store_inst_var, false, insert_before);
       }
       if (must_clear & CLEAR_FLOPS)
-	new StoreInst(zero, flop_var, false, insert_before);
+        new StoreInst(zero, flop_var, false, insert_before);
       if (must_clear & CLEAR_FP_BITS)
-	new StoreInst(zero, fp_bits_var, false, insert_before);
+        new StoreInst(zero, fp_bits_var, false, insert_before);
       if (must_clear & CLEAR_OPS)
-	new StoreInst(zero, op_var, false, insert_before);
+        new StoreInst(zero, op_var, false, insert_before);
       if (must_clear & CLEAR_OP_BITS)
-	new StoreInst(zero, op_bits_var, false, insert_before);
+        new StoreInst(zero, op_bits_var, false, insert_before);
       if (must_clear & CLEAR_MEM_TYPES) {
-	// Zero out the entire array.
-	LoadInst* mem_insts_addr = new LoadInst(mem_insts_var, "mi", false, insert_before);
-	mem_insts_addr->setAlignment(8);
-	LLVMContext& globctx = module->getContext();
-	CastInst* mem_insts_cast =
-	  new BitCastInst(mem_insts_addr,
-			  PointerType::get(IntegerType::get(globctx, 8), 0),
-			  "miv", insert_before);
-	static ConstantInt* zero_8bit =
-	  ConstantInt::get(globctx, APInt(8, 0));
-	static ConstantInt* mem_insts_size =
-	  ConstantInt::get(globctx, APInt(64, NUM_MEM_INSTS*sizeof(uint64_t)));
-	static ConstantInt* mem_insts_align =
-	  ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
-	static ConstantInt* zero_1bit =
-	  ConstantInt::get(globctx, APInt(1, 0));
-	std::vector<Value*> func_args;
-	func_args.push_back(mem_insts_cast);
-	func_args.push_back(zero_8bit);
-	func_args.push_back(mem_insts_size);
-	func_args.push_back(mem_insts_align);
-	func_args.push_back(zero_1bit);
-	callinst_create(memset_intrinsic, func_args, insert_before);
-      }      
-      if (TallyInstMix) {
-       	// If we're tallying instructions we don't need a must_clear
-       	// bit to tell us that an instruction was executed.  We always
-       	// need to zero out the entire array.
-	LoadInst* tally_insts_addr = new LoadInst(inst_mix_histo_var, "ti", false, insert_before);
-	tally_insts_addr->setAlignment(8);
-	LLVMContext& globctx = module->getContext();
-	CastInst* tally_insts_cast =
-	  new BitCastInst(tally_insts_addr,
-			  PointerType::get(IntegerType::get(globctx, 8), 0),
-			  "miv", insert_before);
-	static ConstantInt* zero_8bit =
-	  ConstantInt::get(globctx, APInt(8, 0));
-        static uint64_t totalInstCount = uint64_t(Instruction::OtherOpsEnd);
-	static ConstantInt* tally_insts_size =
-	  ConstantInt::get(globctx, APInt(64, totalInstCount*sizeof(uint64_t)));
-	static ConstantInt* tally_insts_align =
-	  ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
-	static ConstantInt* zero_1bit =
-	  ConstantInt::get(globctx, APInt(1, 0));
-	std::vector<Value*> func_args;
-	func_args.push_back(tally_insts_cast);
-	func_args.push_back(zero_8bit);
-	func_args.push_back(tally_insts_size);
-	func_args.push_back(tally_insts_align);
-	func_args.push_back(zero_1bit);
-	callinst_create(memset_intrinsic, func_args, insert_before);
+        // Zero out the entire array.
+        LoadInst* mem_insts_addr = new LoadInst(mem_insts_var, "mi", false, insert_before);
+        mem_insts_addr->setAlignment(8);
+        LLVMContext& globctx = module->getContext();
+        CastInst* mem_insts_cast =
+          new BitCastInst(mem_insts_addr,
+                          PointerType::get(IntegerType::get(globctx, 8), 0),
+                          "miv", insert_before);
+        static ConstantInt* zero_8bit =
+          ConstantInt::get(globctx, APInt(8, 0));
+        static ConstantInt* mem_insts_size =
+          ConstantInt::get(globctx, APInt(64, NUM_MEM_INSTS*sizeof(uint64_t)));
+        static ConstantInt* mem_insts_align =
+          ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
+        static ConstantInt* zero_1bit =
+          ConstantInt::get(globctx, APInt(1, 0));
+        std::vector<Value*> func_args;
+        func_args.push_back(mem_insts_cast);
+        func_args.push_back(zero_8bit);
+        func_args.push_back(mem_insts_size);
+        func_args.push_back(mem_insts_align);
+        func_args.push_back(zero_1bit);
+        callinst_create(memset_intrinsic, func_args, insert_before);
       }
-      
+      if (TallyInstMix) {
+        // If we're tallying instructions we don't need a must_clear
+        // bit to tell us that an instruction was executed.  We always
+        // need to zero out the entire array.
+        LoadInst* tally_insts_addr = new LoadInst(inst_mix_histo_var, "ti", false, insert_before);
+        tally_insts_addr->setAlignment(8);
+        LLVMContext& globctx = module->getContext();
+        CastInst* tally_insts_cast =
+          new BitCastInst(tally_insts_addr,
+                          PointerType::get(IntegerType::get(globctx, 8), 0),
+                          "miv", insert_before);
+        static ConstantInt* zero_8bit =
+          ConstantInt::get(globctx, APInt(8, 0));
+        static uint64_t totalInstCount = uint64_t(Instruction::OtherOpsEnd);
+        static ConstantInt* tally_insts_size =
+          ConstantInt::get(globctx, APInt(64, totalInstCount*sizeof(uint64_t)));
+        static ConstantInt* tally_insts_align =
+          ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
+        static ConstantInt* zero_1bit =
+          ConstantInt::get(globctx, APInt(1, 0));
+        std::vector<Value*> func_args;
+        func_args.push_back(tally_insts_cast);
+        func_args.push_back(zero_8bit);
+        func_args.push_back(tally_insts_size);
+        func_args.push_back(tally_insts_align);
+        func_args.push_back(zero_1bit);
+        callinst_create(memset_intrinsic, func_args, insert_before);
+      }
       must_clear = 0;
-      if (ThreadSafety)
-	CallInst::Create(release_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
-      if (is_end_of_bb && InstrumentEveryBB)
-	callinst_create(reset_bb_tallies, insert_before);
     }
 
-    // If requested by the user, insert a call to bf_pop_function()
-    // at every return from the function.
+    // If we're instrumenting every basic block, insert a call to
+    // bf_reset_bb_tallies().
+    if (InstrumentEveryBB)
+      callinst_create(reset_bb_tallies, insert_before);
+
+    // If we're instrumenting by call stack, insert a call to
+    // bf_pop_function() at every return from the function.
     if (TrackCallStack && insert_before->getOpcode() == Instruction::Ret)
       callinst_create(pop_function, insert_before);
   }
 
-  // Wrap CallInst::Create() with code to acquire and release the
-  // mega-lock when instrumenting in thread-safe mode.
+  // Wrap CallInst::Create() with a more convenient interface.
   void BytesFlops::callinst_create(Value* function, ArrayRef<Value*> args,
-				   Instruction* insert_before) {
-    if (ThreadSafety)
-      CallInst::Create(take_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
+                                   Instruction* insert_before) {
     CallInst::Create(function, args, "", insert_before)->setCallingConv(CallingConv::C);
-    if (ThreadSafety)
-      CallInst::Create(release_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
   }
 
   // Ditto the above but for parameterless functions.
   void BytesFlops::callinst_create(Value* function, Instruction* insert_before) {
-    if (ThreadSafety)
-      CallInst::Create(take_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
     CallInst::Create(function, "", insert_before)->setCallingConv(CallingConv::C);
-    if (ThreadSafety)
-      CallInst::Create(release_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
   }
 
   // Ditto the above but with a different parameter list.
   void BytesFlops::callinst_create(Value* function, BasicBlock* insert_before) {
-    if (ThreadSafety)
-      CallInst::Create(take_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
     CallInst::Create(function, "", insert_before)->setCallingConv(CallingConv::C);
-    if (ThreadSafety)
-      CallInst::Create(release_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
   }
 
   // Ditto the above but for functions with arguments.
   void BytesFlops::callinst_create(Value* function, ArrayRef<Value*> args,
-				   BasicBlock* insert_before) {
-    if (ThreadSafety)
-      CallInst::Create(take_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
+                                   BasicBlock* insert_before) {
     CallInst::Create(function, args, "", insert_before)->setCallingConv(CallingConv::C);
-    if (ThreadSafety)
-      CallInst::Create(release_mega_lock, "", insert_before)->setCallingConv(CallingConv::C);
   }
 
-  // Optimize the instrumented code by deleting back-to-back
-  // mega-lock releases and acquisitions.
-  void BytesFlops::reduce_mega_lock_activity(Function& function) {
-    // Store a few constant strings.
-    StringRef take_mega_lock_name = take_mega_lock->getName();
-    StringRef release_mega_lock_name = release_mega_lock->getName();
+  // Given a Call instruction, return true if we can safely ignore it.
+  bool BytesFlops::ignorable_call (Instruction* inst) {
+    // Ignore debug intrinsics (llvm.dbg.*).
+    if (isa<DbgInfoIntrinsic>(*inst))
+      return true;
 
-    // Iterate over each basic block in turn.
-    for (Function::iterator func_iter = function.begin();
-	 func_iter != function.end();
-	 func_iter++) {
-      // Perform per-basic-block variable initialization.
-      BasicBlock& bb = *func_iter;
-      BasicBlock::iterator terminator_inst = bb.end();
-      terminator_inst--;
-
-      // Iterate over the basic block's instructions one-by-one,
-      // accumulating a list of function calls to delete.
-      vector<Instruction*> deletable_insts;   // List of function calls to delete
-      Instruction* prev_inst = NULL;  // Immediately preceding function call or NULL if the previous instruction wasn't a function call
-      for (BasicBlock::iterator iter = bb.begin();
-	   iter != terminator_inst;
-	   iter++) {
-	// Find a pair of back-to-back functions.
-	Instruction& inst = *iter;                // Current instruction
-	if (inst.getOpcode() != Instruction::Call) {
-	  // We care only about function calls.
-	  prev_inst = NULL;
-	  continue;
-	}
-	Function* func = dyn_cast<CallInst>(&inst)->getCalledFunction();
-	if (!prev_inst) {
-	  // We care only about back-to-back functions.
-	  prev_inst = &inst;
-	  continue;
-	}
-
-	// Delete release-acquire pairs.  (None of the other three
-	// combinations of release and acquire are likely to occur
-	// in practice.)
-	Function* prev_func = dyn_cast<CallInst>(prev_inst)->getCalledFunction();
-	if (prev_func
-	    && func
-	    && prev_func->getName() == release_mega_lock_name
-	    && func->getName() == take_mega_lock_name) {
-	  deletable_insts.push_back(prev_inst);
-	  deletable_insts.push_back(&inst);
-	  prev_inst = NULL;
-	}
-	else
-	  prev_inst = &inst;
-      }
-
-      // Delete all function calls we marked as deletable.
-      while (!deletable_insts.empty()) {
-	deletable_insts.back()->eraseFromParent();
-	deletable_insts.pop_back();
+    // Ignore lifetime intrinsics (llvm.lifetime.*).
+    if (isa<CallInst>(inst)) {
+      Function* func = dyn_cast<CallInst>(inst)->getCalledFunction();
+      if (func) {
+        StringRef callee_name = func->getName();
+        if (callee_name.startswith("llvm.lifetime"))
+          return true;
       }
     }
+
+    // Pay attention to everything else.
+    return false;
   }
 } // namespace bytesflops_pass

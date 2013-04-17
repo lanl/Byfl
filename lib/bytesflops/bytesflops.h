@@ -6,14 +6,15 @@
  * and Pat McCormick <pat@lanl.gov>
  */
 
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/Constants.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include <fstream>
@@ -185,11 +186,10 @@ namespace bytesflops_pass {
 
     // Insert after a given instruction some code to increment an
     // element of a global array.
-    void increment_global_array(BasicBlock::iterator& iter,
+    void increment_global_array(BasicBlock::iterator& insert_before,
                                 Constant* global_var,
                                 Value* idx,
-                                Value* increment,
-                                bool ins_after = true);
+                                Value* increment);
 
     // Mark a variable as "used" (not eligible for dead-code elimination).
     void mark_as_used(Module& module, GlobalVariable* protected_var);
@@ -229,9 +229,8 @@ namespace bytesflops_pass {
     // Map a function name (string) to an argument to an IR function call.
     Constant* map_func_name_to_arg (Module* module, StringRef funcname);
 
-    // Declare an external thread-local variable.
-    GlobalVariable* declare_TLS_global(Module& module, Type* var_type,
-                                       StringRef var_name);
+    // Declare an external variable.
+    GlobalVariable* declare_global_var(Module& module, Type* var_type, StringRef var_name);
 
     // Insert code at the end of a basic block.
     void insert_end_bb_code (Module* module, StringRef function_name,
@@ -252,6 +251,9 @@ namespace bytesflops_pass {
     void callinst_create(Value* function, ArrayRef<Value*> args,
                          BasicBlock* insert_before);
 
+    // Given a Call instruction, return true if we can safely ignore it.
+    bool ignorable_call (Instruction* inst);
+
     // Instrument Load and Store instructions.
     void instrument_load_store(Module* module,
                                StringRef function_name,
@@ -261,23 +263,19 @@ namespace bytesflops_pass {
                                BasicBlock::iterator& terminator_inst,
                                int& must_clear);
 
-    // Instrument full program instruction mix.
-    void instrument_inst_mix(Module* module,
-                             BasicBlock::iterator& iter,
-                             BasicBlock::iterator& terminator_inst);
-
     // Instrument Call instructions.
     void instrument_call(Module* module,
-                         StringRef function_name,
-                         BasicBlock::iterator& iter,
-                         int& must_clear);
+			 StringRef function_name,
+			 Instruction* inst,
+			 BasicBlock::iterator& insert_before,
+			 int& must_clear);
 
     // Instrument miscellaneous instructions.
     void instrument_other(Module* module,
                           StringRef function_name,
-                          BasicBlock::iterator& iter,
+                          Instruction& iter,
                           LLVMContext& bbctx,
-                          BasicBlock::iterator& terminator_inst,
+                          BasicBlock::iterator& insert_before,
                           int& must_clear);
 
     // Do most of the instrumentation work: Walk each instruction in
@@ -304,10 +302,6 @@ namespace bytesflops_pass {
     void instrument_store_types(BasicBlock::iterator &iter,
                                 Type *data_type,
                                 int &must_clear);
-
-    // Optimize the instrumented code by deleting back-to-back
-    // mega-lock releases and acquisitions.
-    void reduce_mega_lock_activity(Function& function);
 
     // Indicate that we need access to DataLayout.
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {

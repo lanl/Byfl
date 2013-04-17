@@ -228,16 +228,16 @@ public:
 };
 
 // The following values get reset at the end of every basic block.
-__thread uint64_t  bf_load_count       = 0;    // Tally of the number of bytes loaded
-__thread uint64_t  bf_store_count      = 0;    // Tally of the number of bytes stored
-__thread uint64_t* bf_mem_insts_count  = NULL; // Tally of memory instructions by type
-__thread uint64_t* bf_inst_mix_histo   = NULL; // Tally of instruction mix (as histogram)
-__thread uint64_t  bf_load_ins_count   = 0;    // Tally of the number of load instructions performed
-__thread uint64_t  bf_store_ins_count  = 0;    // Tally of the number of store instructions performed
-__thread uint64_t  bf_flop_count       = 0;    // Tally of the number of FP operations performed
-__thread uint64_t  bf_fp_bits_count    = 0;    // Tally of the number of bits used by all FP operations
-__thread uint64_t  bf_op_count         = 0;    // Tally of the number of operations performed
-__thread uint64_t  bf_op_bits_count    = 0;    // Tally of the number of bits used by all operations
+uint64_t  bf_load_count       = 0;    // Tally of the number of bytes loaded
+uint64_t  bf_store_count      = 0;    // Tally of the number of bytes stored
+uint64_t* bf_mem_insts_count  = NULL; // Tally of memory instructions by type
+uint64_t* bf_inst_mix_histo   = NULL; // Tally of instruction mix (as histogram)
+uint64_t  bf_load_ins_count   = 0;    // Tally of the number of load instructions performed
+uint64_t  bf_store_ins_count  = 0;    // Tally of the number of store instructions performed
+uint64_t  bf_flop_count       = 0;    // Tally of the number of FP operations performed
+uint64_t  bf_fp_bits_count    = 0;    // Tally of the number of bits used by all FP operations
+uint64_t  bf_op_count         = 0;    // Tally of the number of operations performed
+uint64_t  bf_op_bits_count    = 0;    // Tally of the number of bits used by all operations
 
 // The following values represent more persistent counter and other state.
 static uint64_t num_merged = 0;    // Number of basic blocks merged so far
