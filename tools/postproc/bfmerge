@@ -1,0 +1,149 @@
+#! /usr/bin/env perl
+
+#############################################
+# Merge multiple Byfl-produced output files #
+#                                           #
+# By Scott Pakin <pakin@lanl.gov>           #
+#############################################
+
+use File::Basename;
+use Number::Format;
+use Statistics::Basic qw(:all);
+use warnings;
+use strict;
+use feature "switch";
+
+# Define some global variables.
+my $progname = basename $0;    # Name of this program
+my @byfl_keys;                 # BYFL lines sorted by order of appearance
+my %all_byfl_data;             # Map from a BYFL line to a list of data, one per input file/prefix
+
+# Define a subroutine to process a single file, mapping each Byfl
+# output string to a list of data, one per input file/prefix.  Note
+# that we ignore the current locale and assume commas as thousands
+# separators and periods as decimal separators.
+sub process_file ($)
+{
+    my $infile = $_[0];
+    open(INFILE, "<$infile") || die "${progname}: Failed to open $infile ($!)\n";
+    while (my $oneline = <INFILE>) {
+	# Ignore non-Byfl data and BYFL_BB lines.
+        next if $oneline !~ /^(.*)(BYFL\w+:\s)(.*)$/o;
+        my ($prefix, $tag, $info) = ($1, $2, $3);
+	next if substr($tag, 0, 7) eq "BYFL_BB";
+
+        # Parse the input line.
+        my $key = $info;
+        $key =~ s/(\s*[\d,]+(\.\d+)?)/sprintf '%%%d.%df', length($1), defined $2 ? length($2)-1 : 0/ge;
+	$key =~ s/(?<=[+\w])\%(\d+)/' %' . ($1-1)/ge;
+	$key = $tag . $key;
+        my @data;
+        while ($info =~ /([\d,]+(\.\d+)?)/g) {
+            my $value = $1;
+            $value =~ s/,//g;
+            push @data, $value + 0;
+        }
+
+        # Store the parsed data.
+        if (!defined $all_byfl_data{$key}) {
+            $all_byfl_data{$key} = [];
+            push @byfl_keys, $key;
+        }
+        push @{$all_byfl_data{$key}}, \@data;
+    }
+    close INFILE;
+}
+
+# Process all of our input files.
+if ($#ARGV == -1) {
+    process_file "-";
+}
+else {
+    foreach my $fname (@ARGV) {
+	process_file $fname;
+    }
+}
+
+# Define a subroutine that wraps printf with code to output
+# floating-point numbers with thousands separators.  If the first
+# argument is true, fall back to ordinary printf.
+my $fmt = new Number::Format;
+sub printf_1000 ($$@)
+{
+    my ($ordinary, $format, @args) = @_;
+    if ($ordinary) {
+	printf $format, @args;
+	return;
+    }
+    my $i = 0;
+    while ($format =~ /\%(\d+)\.(\d+)f/g) {
+	$args[$i] = $fmt->format_number($args[$i], $2, 1);
+	$i++;
+    }
+    $format =~ s/\%(\d+)\.(\d+)f/sprintf '%%%d.%ds', ($1+$2+($2>0)), ($1+$2+($2>0))/ge;
+    while ($format =~ s/(\(.*)\%[^s]+s/$1\%s/) {
+    }
+    printf $format, @args;
+}
+
+# For convenience, transpose the data associated with each key from M
+# lists of N values to N lists of M values.
+foreach my $key (@byfl_keys) {
+    my @datalists = @{$all_byfl_data{$key}};  # Each element is one input file's data (all data positions).
+    my $numelts = 1 + $#{$datalists[0]};
+    my @data_by_pos;   # Each element is the data for one position across all input files.
+    foreach my $e (0 .. $numelts - 1) {
+	my @data;
+	foreach my $lst (0 .. $#datalists) {
+	    push @data, $datalists[$lst]->[$e];
+	}
+	@data = sort {$a <=> $b} @data;
+	push @data_by_pos, \@data;
+    }
+    $all_byfl_data{$key} = \@data_by_pos;
+}
+
+# Output the entire file once per statistic.
+foreach my $statistic (qw(sum min max median mad mean stdev)) {
+    my $stat_str = sprintf '%-8.8s', "[" . uc($statistic) . "]";
+    print "$stat_str BYFL_STATISTICS: ", "-" x 70, "\n";
+    foreach my $key (@byfl_keys) {
+	# Compute the given statistic across all the data.
+	next if $key =~ /-{5}/o;
+	my @data_by_pos = @{$all_byfl_data{$key}};
+	my $is_summary = substr($key, 0, 12) eq "BYFL_SUMMARY";
+	my @data;    # Data after $statistic is applied to each list in @data_by_pos
+	given ($statistic) {
+	    when ("sum") {
+		# Compute the sum across all data.
+		foreach my $lst (@data_by_pos) {
+		    my $sum = 0;
+		    foreach my $val (@$lst) {
+			$sum += $val;
+		    }
+		    push @data, $sum;
+		}
+	    }
+	    when ("mad") {
+		# Compute the median absolute deviation across all data.
+		foreach my $lst (@data_by_pos) {
+		    my $median = median $lst;
+		    my @absdev;
+		    foreach my $val (@$lst) {
+			push @absdev, abs($val - $median);
+		    }
+		    push @data, median @absdev;
+		}
+	    }
+	    when ("min")    { @data = map {$_->[0]} @data_by_pos }
+	    when ("max")    { @data = map {$_->[$#_]} @data_by_pos }
+	    when ("median") { @data = map {median $_} @data_by_pos }
+	    when ("mean")   { @data = map {mean $_} @data_by_pos }
+	    when ("stdev")  { @data = map {stddev $_} @data_by_pos }
+	    default         { die "${progname}: Internal error (\U$statistic\E)" }
+	}
+
+	# Substitute the data into the template ($key) and output the result.
+	printf_1000 !$is_summary, "$stat_str $key\n", @data;
+    }
+}

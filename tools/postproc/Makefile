@@ -15,7 +15,7 @@ LEVEL=../..
 #
 # Name all of the scripts we want to install.
 #
-SCRIPTS = bf2cgrind bf2hpctk
+SCRIPTS = bf2cgrind bf2hpctk bfmerge
 EXTRA_DIST = $(SCRIPTS)
 
 include $(LEVEL)/Makefile.common
