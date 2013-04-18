@@ -363,6 +363,8 @@ This approach can be useful for instrumenting code in languages other than C, C+
 
 Byfl installs two scripts to convert Byfl output (lines beginning with `BYFL`) into formats readable by various GUIs.  `bf2cgrind` converts Byfl output into [KCachegrind](http://kcachegrind.sourceforge.net/) input, and `bf2hpctk` converts Byfl output into [HPCToolkit](http://www.hpctoolkit.org/) input.  (The latter program is more robust and appears to be more actively maintained.)  Run each of those scripts with no arguments to see the usage text.
 
+In addition, Byfl includes a script called `bfmerge`, which merges multiple Byfl output files by computing statistics across all of the files of each data value encountered.  These output files might represent multiple runs of a sequential application or multiple processes from a single run of a parallel application.  Currently, the set of statistics includes the sum, minimum, maximum, median, median absolute deviation, mean, and standard deviation.  Thus, `bfmerge` facilitates quantifying the similarities and differences across applications or processes.
+
 
 License
 -------
