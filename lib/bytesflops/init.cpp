@@ -50,14 +50,6 @@ namespace bytesflops_pass {
       report_fatal_error("-bf-merge requires a positive integer argument");
     create_global_constant(module, "bf_bb_merge", uint64_t(merge_count));
 
-    // Tallying of types requires us to enable TallAllOps...
-    if (TallyTypes && !TallyAllOps) {
-      TallyAllOps = true;
-    }
-
-    // Assign a value to bf_all_ops.
-    create_global_constant(module, "bf_all_ops", bool(TallyAllOps));
-
     // Assign a value to bf_types.
     create_global_constant(module, "bf_types", bool(TallyTypes));
 
@@ -275,8 +267,7 @@ namespace bytesflops_pass {
             << static_loads << " loads, "
             << static_stores << " stores, "
             << static_flops << " flins";
-    if (TallyAllOps)
-      outfile << ", " << static_ops << " binops";
+    outfile << ", " << static_ops << " binops";
     if (InstrumentEveryBB)
       outfile << ", " << static_cond_brs << " cond_brs";
     outfile << '\n';

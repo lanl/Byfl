@@ -111,8 +111,7 @@ namespace bytesflops_pass {
       ConstantInt::get(bbctx, APInt(64, byte_count));
     if (opcode == Instruction::Load) {
       increment_global_variable(insert_before, load_var, num_bytes);
-      if (TallyAllOps)
-        increment_global_variable(insert_before, load_inst_var, one);
+      increment_global_variable(insert_before, load_inst_var, one);
       if (TallyTypes) {
         Type *data_type = mem_value->getType();
         instrument_mem_type(module, false, insert_before, data_type);
@@ -124,8 +123,7 @@ namespace bytesflops_pass {
     else
       if (opcode == Instruction::Store) {
         increment_global_variable(insert_before, store_var, num_bytes);
-        if (TallyAllOps)
-          increment_global_variable(insert_before, store_inst_var, one);
+        increment_global_variable(insert_before, store_inst_var, one);
         if (TallyTypes) {
           Type *data_type = mem_value->getType();
           instrument_mem_type(module, true, insert_before, data_type);
@@ -213,34 +211,28 @@ namespace bytesflops_pass {
       ConstantInt* num_bits;    // Number of bits that this instruction produces
       bool tally_fp = is_fp_operation(inst, opcode, instType);
 
-      if (TallyAllOps || tally_fp) {
-        // Initialize variables needed by at least one of the FP
-        // counter and the all-operation counter.
-        num_elts = get_vector_length(bbctx, instType, one);
-        num_bits = ConstantInt::get(bbctx, APInt(64, instruction_operand_bits(inst)));
-      }
+      // Initialize variables needed by at least one of the FP
+      // counter and the all-operation counter.
+      num_elts = get_vector_length(bbctx, instType, one);
+      num_bits = ConstantInt::get(bbctx, APInt(64, instruction_operand_bits(inst)));
 
       if (tally_fp) {
-        // Increment the flop counter and floating-point bit
-        // counter for any binary instruction with a
-        // floating-point type.
+        // Increment the flop counter and floating-point bit counter
+        // for any binary instruction with a floating-point type.
         increment_global_variable(insert_before, flop_var, num_elts);
         must_clear |= CLEAR_FLOPS;
         increment_global_variable(insert_before, fp_bits_var, num_bits);
         must_clear |= CLEAR_FP_BITS;
         static_flops++;
-      } else {
-        // If the user requested a count of *all* operations, not
-        // just floating-point operations, increment the operation
-        // counter and the operation bit counter for non-floating point
-        // operations.
-        if (TallyAllOps) {
-          increment_global_variable(insert_before, op_var, num_elts);
-          must_clear |= CLEAR_OPS;
-          increment_global_variable(insert_before, op_bits_var, num_bits);
-          must_clear |= CLEAR_OP_BITS;
-          static_ops++;
-        }
+      }
+      else {
+        // Increment the operation counter and the operation bit
+        // counter for non-floating point operations.
+        increment_global_variable(insert_before, op_var, num_elts);
+        must_clear |= CLEAR_OPS;
+        increment_global_variable(insert_before, op_bits_var, num_bits);
+        must_clear |= CLEAR_OP_BITS;
+        static_ops++;
       }
 
       // If the user requested a characterization of vector
@@ -274,7 +266,7 @@ namespace bytesflops_pass {
         while (0);
     }
     else
-      if (TallyAllOps && isa<GetElementPtrInst>(inst)) {
+      if (isa<GetElementPtrInst>(inst)) {
         // LLVM's getelementptr instruction requires special
         // handling.  Given the C declaration "int *a", the
         // getelementptr representation of a[3] is likely to

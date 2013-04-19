@@ -39,13 +39,12 @@ typedef enum {
 
 // The following constants are defined by the instrumented code.
 extern uint64_t bf_bb_merge;         // Number of basic blocks to merge to compress the output
-extern uint8_t  bf_all_ops;          // 1=bf_op_count and bf_op_bits_count are valid
-extern uint8_t  bf_types;            // 1=enables bf_all_ops and count loads/stores per type
-extern uint8_t  bf_per_func;         // 1=Tally and output per-function data
-extern uint8_t  bf_call_stack;       // 1=Maintain a function call stack
-extern uint8_t  bf_unique_bytes;     // 1=Tally and output unique bytes
-extern uint8_t  bf_vectors;          // 1=Bin then output vector characteristics
-extern uint8_t  bf_tally_inst_mix;   // 1=enables counting of instruction mix histogram
+extern uint8_t  bf_types;            // 1=count loads/stores per type
+extern uint8_t  bf_per_func;         // 1=tally and output per-function data
+extern uint8_t  bf_call_stack;       // 1=maintain a function call stack
+extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
+extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
+extern uint8_t  bf_tally_inst_mix;   // 1=maintain instruction mix histogram
 
 // Encapsulate of all of our counters into a single structure.
 class ByteFlopCounters {
@@ -530,7 +529,7 @@ static bool suppress_output (void)
       // and write all output there.
       if ((bf_output_prefix.size() >= 1 && bf_output_prefix[0] == '/')
           || (bf_output_prefix.size() >= 2 && bf_output_prefix[0] == '.' && bf_output_prefix[1] == '/')) {
-	bf_output_prefix.resize(bf_output_prefix.size() - 1);  // Drop the trailing space character.
+        bf_output_prefix.resize(bf_output_prefix.size() - 1);  // Drop the trailing space character.
         bfout = new ofstream(bf_output_prefix.c_str(), ios_base::out | ios_base::trunc);
         if (bfout->fail()) {
           cerr << "Failed to create output file " << bf_output_prefix << '\n';
@@ -605,11 +604,9 @@ void bf_report_bb_tallies (void)
            << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
            << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
            << setw(HDR_COL_WIDTH) << "Flops" << ' '
-           << setw(HDR_COL_WIDTH) << "FP_bits";
-    if (bf_all_ops)
-      *bfout << ' '
-             << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
-             << setw(HDR_COL_WIDTH) << "Int_op_bits";
+           << setw(HDR_COL_WIDTH) << "FP_bits" << ' '
+           << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
+           << setw(HDR_COL_WIDTH) << "Int_op_bits";
     *bfout << '\n';
     showed_header = true;
   }
@@ -627,11 +624,9 @@ void bf_report_bb_tallies (void)
            << setw(HDR_COL_WIDTH) << counter_deltas->load_ins << ' '
            << setw(HDR_COL_WIDTH) << counter_deltas->store_ins << ' '
            << setw(HDR_COL_WIDTH) << counter_deltas->flops << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->fp_bits;
-    if (bf_all_ops)
-      *bfout << ' '
-             << setw(HDR_COL_WIDTH) << counter_deltas->ops << ' '
-             << setw(HDR_COL_WIDTH) << counter_deltas->op_bits;
+           << setw(HDR_COL_WIDTH) << counter_deltas->fp_bits << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas->ops << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas->op_bits;
     *bfout << '\n';
     num_merged = 0;
     prev_global_totals = global_totals;
@@ -725,11 +720,9 @@ private:
            << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
            << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
            << setw(HDR_COL_WIDTH) << "Flops" << ' '
-           << setw(HDR_COL_WIDTH) << "FP_bits";
-    if (bf_all_ops)
-      *bfout << ' '
-             << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
-             << setw(HDR_COL_WIDTH) << "Int_op_bits";
+           << setw(HDR_COL_WIDTH) << "FP_bits" << ' '
+           << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
+           << setw(HDR_COL_WIDTH) << "Int_op_bits";
     if (bf_unique_bytes)
       *bfout << ' '
              << setw(HDR_COL_WIDTH) << "Uniq_bytes";
@@ -758,11 +751,9 @@ private:
              << setw(HDR_COL_WIDTH) << func_counters->load_ins << ' '
              << setw(HDR_COL_WIDTH) << func_counters->store_ins << ' '
              << setw(HDR_COL_WIDTH) << func_counters->flops << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->fp_bits;
-      if (bf_all_ops)
-        *bfout << ' '
-               << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
-               << setw(HDR_COL_WIDTH) << func_counters->op_bits;
+             << setw(HDR_COL_WIDTH) << func_counters->fp_bits << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->op_bits;
       if (bf_unique_bytes)
         *bfout << ' '
                << setw(HDR_COL_WIDTH) << bf_tally_unique_addresses(funcname_c);
@@ -846,12 +837,10 @@ private:
     if (bf_unique_bytes && !partition)
       *bfout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
     *bfout << tag << ": " << setw(25) << counter_totals.flops << " flops\n";
-    if (bf_all_ops) {
-      *bfout << tag << ": " << setw(25) << counter_totals.ops << " integer ops\n";
-      *bfout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
-             << counter_totals.load_ins << " loads + "
-             << counter_totals.store_ins << " stores)\n";
-    }
+    *bfout << tag << ": " << setw(25) << counter_totals.ops << " integer ops\n";
+    *bfout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
+           << counter_totals.load_ins << " loads + "
+           << counter_totals.store_ins << " stores)\n";
     if (reuse_unique > 0) {
       uint64_t median_value;
       uint64_t mad_value;
@@ -903,8 +892,7 @@ private:
     if (bf_unique_bytes && !partition)
       *bfout << tag << ": " << setw(25) << global_unique_bytes*8 << " unique bits\n";
     *bfout << tag << ": " << setw(25) << counter_totals.fp_bits << " flop bits\n";
-    if (bf_all_ops)
-      *bfout << tag << ": " << setw(25) << counter_totals.op_bits << " integer op bits\n";
+    *bfout << tag << ": " << setw(25) << counter_totals.op_bits << " integer op bits\n";
     *bfout << tag << ": " << separator << '\n';
 
     // Report vector-operation measurements.
@@ -965,18 +953,14 @@ private:
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
              << 0 << " bytes loaded per byte stored\n";
     }
-
-    if (bf_all_ops) {
-      if (counter_totals.load_ins > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)counter_totals.ops / (double)counter_totals.load_ins
-               << " integer ops per load instruction\n";
-      if (global_mem_ops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)global_bytes*8 / (double)global_mem_ops
-               << " bits loaded/stored per memory op\n";
-    }
-
+    if (counter_totals.load_ins > 0)
+      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+             << (double)counter_totals.ops / (double)counter_totals.load_ins
+             << " integer ops per load instruction\n";
+    if (global_mem_ops > 0)
+      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+             << (double)global_bytes*8 / (double)global_mem_ops
+             << " bits loaded/stored per memory op\n";
     if (counter_totals.cond_brs > 0) {
       if (counter_totals.flops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)

@@ -313,13 +313,11 @@ namespace bytesflops_pass {
     if (InstrumentEveryBB || TallyByFunction) {
       if (must_clear & CLEAR_LOADS) {
         new StoreInst(zero, load_var, false, insert_before);
-        if (TallyAllOps)
-          new StoreInst(zero, load_inst_var, false, insert_before);
+        new StoreInst(zero, load_inst_var, false, insert_before);
       }
       if (must_clear & CLEAR_STORES) {
         new StoreInst(zero, store_var, false, insert_before);
-        if (TallyAllOps)
-          new StoreInst(zero, store_inst_var, false, insert_before);
+        new StoreInst(zero, store_inst_var, false, insert_before);
       }
       if (must_clear & CLEAR_FLOPS)
         new StoreInst(zero, flop_var, false, insert_before);

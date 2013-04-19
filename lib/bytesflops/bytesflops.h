@@ -42,10 +42,6 @@ namespace bytesflops_pass {
   // Define a command-line option for keeping track of unique bytes
   extern cl::opt<bool> TrackUniqueBytes;
 
-  // Define a command-line option for tallying all binary operations,
-  // not just floating-point operations.
-  extern cl::opt<bool> TallyAllOps;
-
   // Define a command-line option for tallying load/store operations
   // based on various data types (note this also implies --bf-all-ops).
   extern  cl::opt<bool> TallyTypes;

@@ -32,12 +32,6 @@ namespace bytesflops_pass {
   TrackUniqueBytes("bf-unique-bytes", cl::init(false), cl::NotHidden,
                    cl::desc("Additionally tally unique bytes accessed"));
 
-  // Define a command-line option for tallying all binary operations,
-  // not just floating-point operations.
-  cl::opt<bool>
-  TallyAllOps("bf-all-ops", cl::init(false), cl::NotHidden,
-              cl::desc("Tally all operations, not just floating-point operations"));
-
   // Define a command-line option for tallying load/store operations
   // based on various data types (note this also implies --bf-all-ops).
   cl::opt<bool>
