@@ -288,11 +288,14 @@ namespace bytesflops_pass {
         User::const_op_iterator arg_iter = inst.op_begin();
         for (arg_iter++; arg_iter != inst.op_end(); arg_iter++) {
           Value* arg = dyn_cast<Value>(*arg_iter);
+          unsigned int this_arg_bits = arg->getType()->getPrimitiveSizeInBits();
           switch (arg->getValueID()) {
             // All of the following constant cases were copied
             // and pasted from LLVM's Value.h.
             case Value::ConstantExprVal:
             case Value::ConstantAggregateZeroVal:
+            case Value::ConstantDataArrayVal:
+            case Value::ConstantDataVectorVal:
             case Value::ConstantIntVal:
             case Value::ConstantFPVal:
             case Value::ConstantArrayVal:
@@ -300,13 +303,13 @@ namespace bytesflops_pass {
             case Value::ConstantVectorVal:
             case Value::ConstantPointerNullVal:
               arg_ops++;
-              arg_op_bits += sizeof(int)*3;  // a = b + c
+              arg_op_bits += this_arg_bits*3;  // a = b + c
               break;
 
               // Non-constant cases count as a multiply and an add.
             default:
               arg_ops += 2;
-              arg_op_bits += sizeof(int)*6;  // a = b * c; d = a + f
+              arg_op_bits += this_arg_bits*6;  // a = b * c; d = a + f
               break;
           }
         }
