@@ -252,6 +252,11 @@ namespace bytesflops_pass {
         && (dont_instrument->find(function_name) != dont_instrument->end()
             || dont_instrument->find(function_name_orig) != dont_instrument->end()))
       return false;
+    if (function_name == "bf_categorize_counters")
+      // Avoid the endless recursion that would be caused if we were
+      // to instrument bf_categorize_counters() using
+      // bf_categorize_counters().
+      return false;
 
     // Instrument "interesting" instructions in every basic block.
     Module* module = function.getParent();
