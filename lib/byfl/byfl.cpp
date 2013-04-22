@@ -947,11 +947,6 @@ private:
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)counter_totals.loads / (double)counter_totals.stores
              << " bytes loaded per byte stored\n";
-    } else {
-      // Not likely to hit this but it is possible now with our
-      // post-optimization instrumentation...
-      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << 0 << " bytes loaded per byte stored\n";
     }
     if (counter_totals.load_ins > 0)
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)

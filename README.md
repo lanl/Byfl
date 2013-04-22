@@ -121,11 +121,8 @@ Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc
 The Byfl wrapper scripts accept a number of options to provide more information about your program at a cost of increased execution times.  The following can be specified either on the command line or within the `BF_OPTS` environment variable.  (The former takes precedence.)
 
 <dl>
-<dt><code>-bf-all-ops</code></dt>
-<dd>Tally <em>all</em> ALU operations, not just floating-point operations.</dd>
-
 <dt><code>-bf-types</code></dt>
-<dd>Tally <em>type-specific</em> loads and stores of register friendly types.  The current set of included types are: single- and double-precision floating point values, 8-,16-, 32- and 64- integer values, and pointers. Remaining types will be categorized as <em>other types</em>.  Note that this flag will enable the <code>-bf-all-ops</code> option if not supplied on the command line.</dd>
+<dd>Tally <em>type-specific</em> loads and stores of register friendly types.  The current set of included types are: single- and double-precision floating point values, 8-,16-, 32- and 64- integer values, and pointers. Remaining types will be categorized as <em>other types</em>.</dd>
 
 <dt><code>-bf-inst-mix</code></dt>
 <dd> Track the overall instruction mix of the program.  This counts the number of times each instruction in the intermediate representation is issued and produces a histogram output at the end of program execution. Details on the intermediate language can be found in the <a href="http://llvm.org/docs/LangRef.html">LLVM Language Reference Manual</a>.</dd>
@@ -354,7 +351,7 @@ Under the covers, the Byfl wrapper scripts are using GCC to compile code to GCC 
 
     $ gcc -g -fplugin=/usr/local/lib/dragonegg.so -fplugin-arg-dragonegg-emit-ir -O3 -Wall -Wextra -S myprog.c
     $ opt -O3 myprog.s -o myprog.opt.bc
-    $ opt -load /usr/local/lib/bytesflops.so -bytesflops -bf-all-ops -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -std-compile-opts myprog.opt.bc -o myprog.bc
+    $ opt -load /usr/local/lib/bytesflops.so -bytesflops -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -std-compile-opts myprog.opt.bc -o myprog.bc
     $ clang myprog.bc -o myprog -L/usr/lib/gcc/x86_64-linux-gnu/4.7/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../x86_64-linux-gnu/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../../lib/ -L/lib/x86_64-linux-gnu/ -L/lib/../lib/ -L/usr/lib/x86_64-linux-gnu/ -L/usr/lib/../lib/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../ -L/lib/ -L/usr/lib/ -L/usr/local/lib -Wl,--allow-multiple-definition -lm /usr/local/lib/libbyfl.bc -lstdc++ -lm
 
 This approach can be useful for instrumenting code in languages other than C, C++, and Fortran.  For example, code compiled with any of the other [GCC frontends](http://gcc.gnu.org/frontends.html) can be instrumented as above.  Also, recent versions of the [Glasgow Haskell Compiler](http://www.haskell.org/ghc/) can compile directly to LLVM bitcode.
