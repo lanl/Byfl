@@ -9,9 +9,10 @@ use constant DEBUG => 0;
 
 use Cwd qw(abs_path);
 use File::Basename;
+use File::Copy;
 use File::Spec;
-use File::stat;
 use File::Temp qw(tempdir);
+use File::stat;
 use Getopt::Long qw(GetOptionsFromArray);
 use ParseGccOpts;
 use Switch;
@@ -44,6 +45,9 @@ my @bf_options = split(" ", $ENV{"BF_OPTS"} || "");
 # emission, or everything besides command-line filtering.
 my $bf_disable = "none";
 
+# Apply GCC's -save-temps option to our temporary files as well.
+my $save_temps = "no";
+
 # Define a function that optionally prints, then executes a system
 # command, aborting on failure.  If the first argument is "NO FAIL",
 # then return an error code rather than aborting.
@@ -60,6 +64,29 @@ sub execute_command (@)
     }
     return $? >> 8 if system(@command) == 0 || !$die_on_fail;
     die "${progname}: Aborting\n";
+}
+
+# Define a function that removes a set of intermediate files unless
+# -save-temps is specified, in which case it either leaves the files
+# where they are or moves them to the current directory.
+sub remove_files (@)
+{
+    my @deletable = @_;
+    if ($save_temps eq "no") {
+        # Remove intermediate files.
+        print STDERR "rm -f @deletable\n" if $verbosity > 0;
+        unlink(@deletable) || die "${progname}: $!\n";
+    }
+    elsif ($save_temps eq "cwd") {
+        # Move intermediate files to the current directory.
+        print STDERR "mv @deletable .\n" if $verbosity > 0;
+        foreach my $fname (@deletable) {
+            move($fname, ".") || die "${progname}: $!\n";
+        }
+    }
+    else {
+        # Leave intermediate files where they are.
+    }
 }
 
 # Define a subroutine that initializes the default and gcc-specific
@@ -252,6 +279,26 @@ foreach my $i (0 .. $#source_files) {
     $src2obj{$source_files[$i]} = $object_files[$i];
 }
 
+# Determine if we should keep our intermediate files and if so, where
+# to put them.
+foreach my $opt_arg (@compiler_opts, @linker_opts) {
+    my ($opt, $arg) = @$opt_arg;
+    if ($opt eq "save-temps") {
+        if (!defined $arg) {
+            $save_temps = "cwd";
+        }
+        elsif ($arg eq "cwd") {
+            $save_temps = "cwd";
+        }
+        elsif ($arg eq "obj") {
+            $save_temps = "obj";
+        }
+        else {
+            $save_temps = "no";
+        }
+    }
+}
+
 # If we're compiling, then add options to invoke the DragonEgg plugin
 # and produce LLVM IR.
 if (defined $build_type{"compile"}) {
@@ -365,8 +412,7 @@ if (defined $build_type{"compile"}) {
                         "--set-section-flags", ".bitcode=alloc", $ofile);
 
         # Remove the .s and .bc files.
-        print STDERR "rm -f @deletable\n" if $verbosity > 0;
-        unlink(@deletable) || die "${progname}: $!\n";
+        remove_files(@deletable);
     }
 }
 
@@ -466,7 +512,5 @@ if (defined $build_type{"link"}) {
     execute_command("clang", @llvm_ld_inputs, @llvm_ld_options);
 
     # Clean up all of the .bc files we created.
-    my @deletable = grep(/\.bc$/, @llvm_ld_inputs);
-    print STDERR "rm -f @deletable\n" if $verbosity > 0;
-    unlink(@deletable) || die "${progname}: $!\n";
+    remove_files(grep(/\.bc$/, @llvm_ld_inputs));
 }
