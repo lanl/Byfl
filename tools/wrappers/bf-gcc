@@ -337,10 +337,6 @@ if (defined $build_type{"compile"}) {
                 # Ignore -c.  We'll soon be replacing it with -S.
                 # Ignore -g.  We'll be adding it in explicitly.
             }
-            elsif ($opt eq "O") {
-                push @command_line, "-$opt";
-                $optimization_level = "1";
-            }
             else {
                 push @command_line, "-" . $opt;
             }
@@ -380,8 +376,13 @@ if (defined $build_type{"compile"}) {
         # any optimizations are specified on the command line.
         my $infile = $sfile;
         if ($optimization_level ne "0") {
-            execute_command("opt",
-                            "-O$optimization_level",
+            # Make a few modifications to the optimization level
+            # specified on the command line for opt's benefit.
+            # Specifically, replace "-Ofast" and any "-O<n>" for n>3
+            # with "-O3".
+            my $optlevel = $optimization_level;
+            $optlevel = "3" if $optlevel eq "fast" || ($optlevel =~ /^(\d+)$/ && $1 > 3);
+            execute_command("opt", "-O$optlevel",
                             $infile, "-o", $opt_bcfile);
             $infile = $opt_bcfile;
         }
@@ -434,6 +435,19 @@ if (defined $build_type{"link"}) {
         }
         elsif ($opt eq "o") {
             push @llvm_ld_options, ("-o", $arg);
+        }
+        elsif ($opt eq "O") {
+            # Make a few modifications to the optimization level
+            # specified on the command line for clang's benefit.
+            # Specifically, "-Ofast" with "-O3" and any "-O<n>" for
+            # n>4 with "-O4".
+            if ($arg eq "fast") {
+                $arg = "3";
+            }
+            elsif ($arg =~ /^(\d+)$/ && $1 > 4) {
+                $arg = "4";
+            }
+            push @llvm_ld_options, "-$opt$arg";
         }
         elsif ($opt =~ /^(pg|fopenmp)$/) {
             push @llvm_ld_options, "-$opt";

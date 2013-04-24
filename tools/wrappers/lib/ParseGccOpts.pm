@@ -72,6 +72,7 @@ sub parse_gcc_options (@)
     my $for_linker_1 = sub ($$) {
         push @linker_opts, [$_[0], undef];
     };
+    @arg_list = map {s/^-O$/-O1/g; $_} @arg_list;   # Simplify parsing.
     Getopt::Long::Configure("bundling", "bundling_override", "pass_through");
     GetOptionsFromArray(\@arg_list,
                         # Handle a few special cases.
@@ -157,7 +158,10 @@ sub parse_gcc_options (@)
                                 $for_linker->($_[0], $_[1]);
                             }
                         },
-                        "O:1" => $for_compiler,
+                        "O=s" => sub {
+                            $for_compiler->($_[0], $_[1]);
+                            $for_linker->($_[0], $_[1]);
+                        },
                         "x=s" => $for_compiler,
 
                         # Recognize preprocessor options as compiler options.
