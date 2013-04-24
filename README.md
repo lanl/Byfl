@@ -104,16 +104,23 @@ Usage
 Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc`, `bf-g++`, and `bf-gfortran` wrap, respectively, the GNU C, C++, and Fortran compilers.  `bf-mpicc`, `bf-mpicxx`, `bf-mpif90`, and `bf-mpif77` further wrap the similarly named [Open MPI](http://www.open-mpi.org/) and [MPICH](http://www.mpich.org/) wrapper scripts to use the Byfl compiler scripts instead of the default C, C++, and Fortran compilers.  Use any of these scripts as you would the underlying compiler.  When you run your code, Byfl will output a sequence of `BYFL`-prefixed lines to the standard output device:
 
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                      1280 bytes (512 loaded + 768 stored)
+    BYFL_SUMMARY:                     1,280 bytes (512 loaded + 768 stored)
     BYFL_SUMMARY:                        32 flops
+    BYFL_SUMMARY:                       576 integer ops
+    BYFL_SUMMARY:                        67 memory ops (2 loads + 65 stores)
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                     10240 bits (4096 loaded + 6144 stored)
-    BYFL_SUMMARY:                      6144 flop bits
+    BYFL_SUMMARY:                    10,240 bits (4,096 loaded + 6,144 stored)
+    BYFL_SUMMARY:                     6,144 flop bits
+    BYFL_SUMMARY:                    85,024 integer op bits
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                    0.6667 bytes loaded per byte stored
+    BYFL_SUMMARY:                  288.0000 integer ops per load instruction
+    BYFL_SUMMARY:                  152.8358 bits loaded/stored per memory op
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                   40.0000 bytes per flop
     BYFL_SUMMARY:                    1.6667 bits per flop bit
+    BYFL_SUMMARY:                    2.2222 bytes per integer op
+    BYFL_SUMMARY:                    0.1204 bits per integer op bit
     BYFL_SUMMARY: -----------------------------------------------------------------
 
 "Bits" are simply bytes*8.  "Flop bits" are the total number of bits in all inputs and outputs to each floating-point function.  As motivation, consider the operation `A = B + C`, where `A`, `B`, and `C` reside in memory.  This operation consumes 12 bytes per flop if the arguments are all single-precision but 24 bytes per flop if the arguments are all double-precision.  Similarly, `A = -B` consumes either 8 or 16 bytes per flop based on the argument type.  However, all of these examples consume one bit per flop bit regardless of numerical precision: every bit loaded or stored either enters or exits the floating-point unit.  Bit:flop-bit ratios above 1.0 imply that more memory is moved than fed into the floating-point unit; Bit:flop-bit ratios below 1.0 imply register reuse.
