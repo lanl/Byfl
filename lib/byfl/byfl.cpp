@@ -39,6 +39,7 @@ typedef enum {
 
 // The following constants are defined by the instrumented code.
 extern uint64_t bf_bb_merge;         // Number of basic blocks to merge to compress the output
+extern uint8_t  bf_every_bb;         // 1=tally and output per-basic-block data
 extern uint8_t  bf_types;            // 1=count loads/stores per type
 extern uint8_t  bf_per_func;         // 1=tally and output per-function data
 extern uint8_t  bf_call_stack;       // 1=maintain a function call stack
@@ -272,11 +273,11 @@ static str2bfc_t& user_defined_totals()
 // bf_categorize_counters() is intended to be overridden by a
 // user-defined function.
 extern "C" {
-  const char* bf_categorize_counters (void) __attribute__((weak));
-  const char* bf_categorize_counters (void)
+  static const char* bf_categorize_counters_original (void)
   {
     return NULL;
   }
+  const char* bf_categorize_counters (void) __attribute__((weak, alias("bf_categorize_counters_original")));
 }
 
 namespace bytesflops {
@@ -420,18 +421,16 @@ extern uint64_t bf_tally_unique_addresses (const char* funcname);
 void initialize_byfl (void) {
   call_stack = new CallStack();
   counter_memory_pool = new CounterMemoryPool();
-
-  bf_mem_insts_count = new uint64_t[NUM_MEM_INSTS];
-  for (size_t i = 0; i < NUM_MEM_INSTS; i++)
-    bf_mem_insts_count[i] = 0;
-
-  // Make sure we initialize all instruction mix tallies.
+  if (bf_types) {
+    bf_mem_insts_count = new uint64_t[NUM_MEM_INSTS];
+    for (size_t i = 0; i < NUM_MEM_INSTS; i++)
+      bf_mem_insts_count[i] = 0;
+  }
   if (bf_tally_inst_mix) {
     bf_inst_mix_histo = new uint64_t[NUM_OPCODES];
     for(unsigned int i = 0; i < NUM_OPCODES; ++i)
       bf_inst_mix_histo[i] = 0;
   }
-
   bf_push_basic_block();
 }
 
@@ -538,6 +537,13 @@ static bool suppress_output (void)
         bf_output_prefix = "";
       }
     }
+
+    // Warn the user if he defined bf_categorize_counters() but didn't
+    // compile with -bf-every-bb.
+    if (bf_categorize_counters != bf_categorize_counters_original && !bf_every_bb)
+      cout << "BYFL_WARNING: bf_categorize_counters() has no effect without -bf-every-bb.\n"
+           << "BYFL_WARNING: Consider using -bf-every-bb -bf-merge-bb="
+           << uint64_t(-1) << ".\n";
   }
   return output == SUPPRESS;
 }
@@ -563,7 +569,6 @@ void bf_accumulate_bb_tallies (bb_end_t end_of_basic_block)
                          bf_op_bits_count,
                          uint64_t(end_of_basic_block == BB_END_COND),
                          uint64_t(end_of_basic_block != BB_NOT_END));
-
   // At the end of the basic block, transfer all values to the global
   // counters and, if defined, a user-specified set of counters.
   if (end_of_basic_block != BB_NOT_END) {
@@ -1065,6 +1070,7 @@ public:
            sm_iter != per_func_totals().end();
            sm_iter++)
         global_totals.accumulate(sm_iter->second);
+
       // The above was not a per-BB accumulate.
       global_totals.b_blocks = 0;
       global_totals.cond_brs = 0;

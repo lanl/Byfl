@@ -45,10 +45,10 @@ namespace bytesflops_pass {
       report_fatal_error("-bf-include and -bf-exclude are mutually exclusive");
 
     // Assign a value to bf_bb_merge.
-    int merge_count = BBMergeCount;
-    if (merge_count <= 0)
-      report_fatal_error("-bf-merge requires a positive integer argument");
-    create_global_constant(module, "bf_bb_merge", uint64_t(merge_count));
+    create_global_constant(module, "bf_bb_merge", uint64_t(BBMergeCount));
+
+    // Assign a value to bf_every_bb.
+    create_global_constant(module, "bf_every_bb", bool(InstrumentEveryBB));
 
     // Assign a value to bf_types.
     create_global_constant(module, "bf_types", bool(TallyTypes));

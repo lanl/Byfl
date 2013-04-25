@@ -44,16 +44,16 @@ namespace bytesflops_pass {
 
   // Define a command-line option for tallying load/store operations
   // based on various data types (note this also implies --bf-all-ops).
-  extern  cl::opt<bool> TallyTypes;
+  extern cl::opt<bool> TallyTypes;
 
   // Define a command-line option for tallying a histogram of the
   // occurrence of individual instructions within the code; aka the
   // instruction mix.
-  extern  cl::opt<bool> TallyInstMix;
+  extern cl::opt<bool> TallyInstMix;
 
   // Define a command-line option for merging basic-block measurements
   // to reduce the output volume.
-  extern cl::opt<int> BBMergeCount;
+  extern cl::opt<unsigned long long> BBMergeCount;
 
   // Define a command-line option to accept a list of functions to
   // instrument, ignoring all others.
@@ -261,10 +261,10 @@ namespace bytesflops_pass {
 
     // Instrument Call instructions.
     void instrument_call(Module* module,
-			 StringRef function_name,
-			 Instruction* inst,
-			 BasicBlock::iterator& insert_before,
-			 int& must_clear);
+                         StringRef function_name,
+                         Instruction* inst,
+                         BasicBlock::iterator& insert_before,
+                         int& must_clear);
 
     // Instrument miscellaneous instructions.
     void instrument_other(Module* module,

@@ -45,7 +45,7 @@ namespace bytesflops_pass {
 
   // Define a command-line option for merging basic-block measurements
   // to reduce the output volume.
-  cl::opt<int>
+  cl::opt<unsigned long long>
   BBMergeCount("bf-merge-bb", cl::init(1), cl::NotHidden,
                cl::desc("Merge this many basic blocks into a single line of output"),
                cl::value_desc("count"));
