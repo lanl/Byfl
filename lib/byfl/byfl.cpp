@@ -936,15 +936,21 @@ private:
       sort(sorted_inst_mix.begin(), sorted_inst_mix.end(), compare_name_tallies);
 
       // Output the sorted results.
+      uint64_t total_insts = 0;
       for (vector<name_tally>::iterator ntiter = sorted_inst_mix.begin();
            ntiter != sorted_inst_mix.end();
            ntiter++) {
+        total_insts += ntiter->second;
         *bfout << tag << ": " << setw(25) << ntiter->second << ' '
                << setw(maxopnamelen) << left
                << ntiter->first << " instructions executed\n"
                << right;
       }
-      *bfout << tag << ": " << separator << '\n';
+      *bfout << tag << ": " << setw(25) << total_insts << ' '
+             << setw(maxopnamelen) << left
+             << "TOTAL" << " instructions executed\n"
+             << right
+             << tag << ": " << separator << '\n';
     }
 
     // Report a bunch of derived measurements.
