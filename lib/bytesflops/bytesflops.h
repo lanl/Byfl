@@ -114,31 +114,10 @@ namespace bytesflops_pass {
 
     GlobalVariable* load_var;  // Global reference to bf_load_count, a 64-bit load counter
     GlobalVariable* store_var; // Global reference to bf_store_count, a 64-bit store counter
-
-    // TODO: We might want to collapse types into a single array-based set of counters to
-    // make the code a bit cleaner...
     GlobalVariable* load_inst_var;              // Global reference to bf_load_ins_count, a 64-bit load-instruction counter
-    GlobalVariable* mem_insts_var;              // Global reference to bf_mem_insts, a set of 64-bit memory instruction counters
-    GlobalVariable* load_float_inst_var;        // Global reference to bf_float_load_ins_count, a 64-bit load-instruction counter for single-precision floats
-    GlobalVariable* load_double_inst_var;       // Global reference to bf_double_load_ins_count, a 64-bit load-instruction counter for double-precision floats
-    GlobalVariable* load_int8_inst_var;         // Global reference to bf_int8_load_ins_count, a 64-bit load-instruction counter for 8-bit integers
-    GlobalVariable* load_int16_inst_var;        // Global reference to bf_int16_load_ins_count, a 64-bit load-instruction counter for 16-bit integers
-    GlobalVariable* load_int32_inst_var;        // Global reference to bf_int32_load_ins_count, a 64-bit load-instruction counter for 32-bit integers
-    GlobalVariable* load_int64_inst_var;        // Global reference to bf_int64_load_ins_count, a 64-bit load-instruction counter for 64-bit integers
-    GlobalVariable* load_ptr_inst_var;          // Global reference to bf_ptr_load_ins_count, a 64-bit load-instruction counter for pointers
-    GlobalVariable* load_other_type_inst_var;   // Global reference to bf_other_type_load_ins_count, a 64-bit load-instruction counter for other types
-
     GlobalVariable* store_inst_var;             // Global reference to bf_store_ins_count, a 64-bit store-instruction counter
-    GlobalVariable* store_float_inst_var;       // Global reference to bf_float_store_ins_count, a 64-bit store-instruction counter for single-precision floats
-    GlobalVariable* store_double_inst_var;      // Global reference to bf_double_store_ins_count, a 64-bit store-instruction counter for double-precision floats
-    GlobalVariable* store_int8_inst_var;        // Global reference to bf_int8_store_ins_count, a 64-bit store-instruction counter for 8-bit integers
-    GlobalVariable* store_int16_inst_var;       // Global reference to bf_int16_store_ins_count, a 64-bit store-instruction counter for 16-bit integers
-    GlobalVariable* store_int32_inst_var;       // Global reference to bf_int32_store_ins_count, a 64-bit store-instruction counter for 32-bit integers
-    GlobalVariable* store_int64_inst_var;       // Global reference to bf_int64_store_ins_count, a 64-bit store-instruction counter for 64-bit integers
-    GlobalVariable* store_ptr_inst_var;         // Global reference to bf_ptr_store_ins_count, a 64-bit store-instruction counter for pointers
-    GlobalVariable* store_other_type_inst_var;  // Global reference to bf_other_type_store_ins_count, a 64-bit store-instruction counter for other types
+    GlobalVariable* mem_insts_var;              // Global reference to bf_mem_insts, a set of 64-bit memory instruction counters
     GlobalVariable* inst_mix_histo_var;         // Global reference to bf_inst_mix_histo, an array representing histogram of specific instruction counts.
-
     GlobalVariable* flop_var;  // Global reference to bf_flop_count, a 64-bit flop counter
     GlobalVariable* fp_bits_var;  // Global reference to bf_fp_bits_count, a 64-bit FP-bit counter
     GlobalVariable* op_var;    // Global reference to bf_op_count, a 64-bit operation counter
