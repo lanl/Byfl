@@ -50,6 +50,13 @@ enum {
 
 #define NUM_MEM_INSTS (BF_OP_NUM*BF_REF_NUM*BF_AGG_NUM*BF_TYPE_NUM*BF_WIDTH_NUM)
 
+enum {
+  BF_END_BB_ANY,       // Any terminator (i.e., total number of basic blocks)
+  BF_END_BB_STATIC,    // Unconditional BranchInst
+  BF_END_BB_DYNAMIC,   // IndirectBrinst, SwitchInst, or conditional BranchInst
+  BF_END_BB_NUM
+};
+
 // Map a memory-access type to an index into bf_mem_insts_count[].
 static inline uint64_t
 mem_type_to_index(uint64_t memop,

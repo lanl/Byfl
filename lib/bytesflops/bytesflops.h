@@ -118,6 +118,7 @@ namespace bytesflops_pass {
     GlobalVariable* store_inst_var;             // Global reference to bf_store_ins_count, a 64-bit store-instruction counter
     GlobalVariable* mem_insts_var;              // Global reference to bf_mem_insts, a set of 64-bit memory instruction counters
     GlobalVariable* inst_mix_histo_var;         // Global reference to bf_inst_mix_histo, an array representing histogram of specific instruction counts.
+    GlobalVariable* terminator_var;             // Global reference to bf_terminator_count, an array of terminator tallies
     GlobalVariable* flop_var;  // Global reference to bf_flop_count, a 64-bit flop counter
     GlobalVariable* fp_bits_var;  // Global reference to bf_fp_bits_count, a 64-bit FP-bit counter
     GlobalVariable* op_var;    // Global reference to bf_op_count, a 64-bit operation counter
@@ -206,6 +207,12 @@ namespace bytesflops_pass {
 
     // Declare an external variable.
     GlobalVariable* declare_global_var(Module& module, Type* var_type, StringRef var_name);
+
+    // Insert code to set every element of a given array to zero.
+    void insert_zero_array_code(Module* module,
+				GlobalVariable* array_to_zero,
+				uint64_t num_elts,
+				BasicBlock::iterator& insert_before);
 
     // Insert code at the end of a basic block.
     void insert_end_bb_code (Module* module, StringRef function_name,

@@ -52,6 +52,7 @@ class ByteFlopCounters {
 public:
   uint64_t mem_insts[NUM_MEM_INSTS];  // Number of memory instructions by type
   uint64_t inst_mix_histo[NUM_OPCODES];   // Histogram of instruction mix
+  uint64_t terminators[BF_END_BB_NUM];    // Tally of basic-block terminator types
   uint64_t loads;                     // Number of bytes loaded
   uint64_t stores;                    // Number of bytes stored
   uint64_t load_ins;                  // Number of load instructions executed
@@ -63,10 +64,10 @@ public:
   uint64_t cond_brs;                  // Number of conditional branches performed
   uint64_t b_blocks;                  // Number of basic blocks executed
 
-
   // Initialize all of the counters.
   ByteFlopCounters (uint64_t* initial_mem_insts=NULL,
                     uint64_t* initial_inst_mix_histo=NULL,
+                    uint64_t* initial_terminators=NULL,
                     uint64_t initial_loads=0,
                     uint64_t initial_stores=0,
                     uint64_t initial_load_ins=0,
@@ -98,6 +99,12 @@ public:
     }
 
     // Unconditionally initialize everything else.
+    if (initial_terminators == NULL)
+      for (size_t i = 0; i < BF_END_BB_NUM; i++)
+        terminators[i] = 0;
+    else
+      for (size_t i = 0; i < BF_END_BB_NUM; i++)
+        terminators[i] = initial_terminators[i];
     loads    = initial_loads;
     stores   = initial_stores;
     load_ins = initial_load_ins;
@@ -113,6 +120,7 @@ public:
   // Accumulate new values into our counters.
   void accumulate (uint64_t* more_mem_insts,
                    uint64_t* more_inst_mix_histo,
+                   uint64_t* more_terminators,
                    uint64_t more_loads,
                    uint64_t more_stores,
                    uint64_t more_load_ins,
@@ -134,8 +142,10 @@ public:
         inst_mix_histo[i] += more_inst_mix_histo[i];
 
     // Unconditionally accumulate everything else.
-    loads += more_loads;
-    stores += more_stores;
+    for (size_t i = 0; i < BF_END_BB_NUM; i++)
+      terminators[i] += more_terminators[i];
+    loads     += more_loads;
+    stores    += more_stores;
     load_ins  += more_load_ins;
     store_ins += more_store_ins;
     flops     += more_flops;
@@ -159,6 +169,8 @@ public:
         inst_mix_histo[i] += other->inst_mix_histo[i];
 
     // Unconditionally accumulate everything else.
+    for (size_t i = 0; i < BF_END_BB_NUM; i++)
+      terminators[i] += other->terminators[i];
     loads     += other->loads;
     stores    += other->stores;
     load_ins  += other->load_ins;
@@ -182,12 +194,16 @@ public:
     // Take the difference of inst_mix_histo only if -bf-inst-mix was specified.
     uint64_t delta_inst_mix_histo[NUM_OPCODES];
     if (bf_tally_inst_mix)
-      for (size_t i = 0; i < NUM_OPCODES; ++i)
+      for (size_t i = 0; i < NUM_OPCODES; i++)
         delta_inst_mix_histo[i] = inst_mix_histo[i] - other->inst_mix_histo[i];
 
     // Unconditionally take the difference of everything else.
+    uint64_t delta_terminators[BF_END_BB_NUM];
+    for (size_t i = 0; i < BF_END_BB_NUM; i++)
+      delta_terminators[i] = terminators[i] - other->terminators[i];
     ByteFlopCounters *byflc = new ByteFlopCounters(delta_mem_insts,
                                                    delta_inst_mix_histo,
+                                                   delta_terminators,
                                                    loads - other->loads,
                                                    stores - other->stores,
                                                    load_ins - other->load_ins,
@@ -214,6 +230,8 @@ public:
         inst_mix_histo[i] = 0;
 
     // Unconditionally reset everything else.
+    for (size_t i = 0; i < BF_END_BB_NUM; i++)
+      terminators[i] = 0;
     loads     = 0;
     stores    = 0;
     load_ins  = 0;
@@ -232,6 +250,7 @@ uint64_t  bf_load_count       = 0;    // Tally of the number of bytes loaded
 uint64_t  bf_store_count      = 0;    // Tally of the number of bytes stored
 uint64_t* bf_mem_insts_count  = NULL; // Tally of memory instructions by type
 uint64_t* bf_inst_mix_histo   = NULL; // Tally of instruction mix (as histogram)
+uint64_t* bf_terminator_count = NULL; // Tally of terminators by type
 uint64_t  bf_load_ins_count   = 0;    // Tally of the number of load instructions performed
 uint64_t  bf_store_ins_count  = 0;    // Tally of the number of store instructions performed
 uint64_t  bf_flop_count       = 0;    // Tally of the number of FP operations performed
@@ -431,6 +450,9 @@ void initialize_byfl (void) {
     for(unsigned int i = 0; i < NUM_OPCODES; ++i)
       bf_inst_mix_histo[i] = 0;
   }
+  bf_terminator_count = new uint64_t[BF_END_BB_NUM];
+  for(unsigned int i = 0; i < BF_END_BB_NUM; ++i)
+    bf_terminator_count[i] = 0;
   bf_push_basic_block();
 }
 
@@ -541,9 +563,9 @@ static bool suppress_output (void)
     // Warn the user if he defined bf_categorize_counters() but didn't
     // compile with -bf-every-bb.
     if (bf_categorize_counters != bf_categorize_counters_original && !bf_every_bb)
-      cout << "BYFL_WARNING: bf_categorize_counters() has no effect without -bf-every-bb.\n"
-           << "BYFL_WARNING: Consider using -bf-every-bb -bf-merge-bb="
-           << uint64_t(-1) << ".\n";
+      *bfout << "BYFL_WARNING: bf_categorize_counters() has no effect without -bf-every-bb.\n"
+             << "BYFL_WARNING: Consider using -bf-every-bb -bf-merge-bb="
+             << uint64_t(-1) << ".\n";
   }
   return output == SUPPRESS;
 }
@@ -559,6 +581,7 @@ void bf_accumulate_bb_tallies (bb_end_t end_of_basic_block)
   ByteFlopCounters* current_bb = bb_totals().back();
   current_bb->accumulate(bf_mem_insts_count,
                          bf_inst_mix_histo,
+                         bf_terminator_count,
                          bf_load_count,
                          bf_store_count,
                          bf_load_ins_count,
@@ -655,6 +678,7 @@ void bf_assoc_counters_with_func (const char* funcname, bb_end_t end_of_basic_bl
     per_func_totals()[funcname] =
       new ByteFlopCounters(bf_mem_insts_count,
                            bf_inst_mix_histo,
+                           bf_terminator_count,
                            bf_load_count,
                            bf_store_count,
                            bf_load_ins_count,
@@ -671,6 +695,7 @@ void bf_assoc_counters_with_func (const char* funcname, bb_end_t end_of_basic_bl
     ByteFlopCounters* func_counters = sm_iter->second;
     func_counters->accumulate(bf_mem_insts_count,
                               bf_inst_mix_histo,
+                              bf_terminator_count,
                               bf_load_count,
                               bf_store_count,
                               bf_load_ins_count,
@@ -830,7 +855,7 @@ private:
     if (partition)
       tag += '(' + string(partition) + ')';
     *bfout << tag << ": " << separator << '\n';
-    if (counter_totals.cond_brs > 0)
+    if (counter_totals.b_blocks > 0)
       *bfout << tag << ": " << setw(25) << counter_totals.b_blocks << " basic blocks\n"
              << tag << ": " << setw(25) << counter_totals.cond_brs << " conditional or indirect branches\n"
              << tag << ": " << separator << '\n';
@@ -846,6 +871,13 @@ private:
     *bfout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
            << counter_totals.load_ins << " loads + "
            << counter_totals.store_ins << " stores)\n";
+    const uint64_t term_static = counter_totals.terminators[BF_END_BB_STATIC];
+    const uint64_t term_dynamic = counter_totals.terminators[BF_END_BB_DYNAMIC];
+    const uint64_t term_any = counter_totals.terminators[BF_END_BB_ANY];
+    *bfout << tag << ": " << setw(25) << term_any << " branch ops ("
+           << term_static << " unconditional and direct + "
+           << term_dynamic << " conditional or indirect + "
+           << term_any - term_static - term_dynamic << " other)\n";
     if (reuse_unique > 0) {
       uint64_t median_value;
       uint64_t mad_value;
@@ -975,7 +1007,7 @@ private:
       if (counter_totals.ops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)counter_totals.ops / (double)counter_totals.cond_brs
-               << " ops per conditional/indirect branch\n";
+               << " integer ops per conditional/indirect branch\n";
       if (num_vec_ops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)num_vec_ops / (double)counter_totals.cond_brs
@@ -1056,6 +1088,7 @@ public:
     if (global_totals.b_blocks == 0)
       global_totals.accumulate(bf_mem_insts_count,
                                bf_inst_mix_histo,
+       bf_terminator_count,
                                bf_load_count,
                                bf_store_count,
                                bf_load_ins_count,

@@ -106,8 +106,8 @@ namespace bytesflops_pass {
                                           Constant* global_var,
                                           Value* idx,
                                           Value* increment) {
-    // %1 = load i64** @myarray, align 8
-    LoadInst* load_array = new LoadInst(global_var, "bfmic", false, insert_before);
+    // %1 = load i64** @<global_var>, align 8
+    LoadInst* load_array = new LoadInst(global_var, "garray", false, insert_before);
     load_array->setAlignment(8);
 
     // %2 = getelementptr inbounds i64* %1, i64 %idx
@@ -268,15 +268,73 @@ namespace bytesflops_pass {
                               GlobalVariable::NotThreadLocal);
   }
 
+  // Insert code to set every element of a given array to zero.
+  void BytesFlops::insert_zero_array_code(Module* module,
+					  GlobalVariable* array_to_zero,
+					  uint64_t num_elts,
+					  BasicBlock::iterator& insert_before) {
+    LoadInst* array_addr = new LoadInst(array_to_zero, "ar", false, insert_before);
+    array_addr->setAlignment(8);
+    LLVMContext& globctx = module->getContext();
+    CastInst* array_addr_cast =
+      new BitCastInst(array_addr,
+		      PointerType::get(IntegerType::get(globctx, 8), 0),
+		      "arv", insert_before);
+    static ConstantInt* zero_8bit =
+      ConstantInt::get(globctx, APInt(8, 0));
+    static ConstantInt* array_align =
+      ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
+    static ConstantInt* zero_1bit =
+      ConstantInt::get(globctx, APInt(1, 0));
+    ConstantInt* array_bytes =
+      ConstantInt::get(globctx, APInt(64, num_elts*sizeof(uint64_t)));
+    std::vector<Value*> func_args;
+    func_args.push_back(array_addr_cast);
+    func_args.push_back(zero_8bit);
+    func_args.push_back(array_bytes);
+    func_args.push_back(array_align);
+    func_args.push_back(zero_1bit);
+    callinst_create(memset_intrinsic, func_args, insert_before);
+  }
+
   // Insert code at the end of a basic block.
   void BytesFlops::insert_end_bb_code (Module* module, StringRef function_name,
                                        int& must_clear,
                                        BasicBlock::iterator& insert_before) {
+    // Keep track of how the basic block terminated.
+    Instruction& inst = *insert_before;
+    unsigned int opcode = inst.getOpcode();   // Terminator instruction's opcode
+    LLVMContext& globctx = module->getContext();
+    int bb_end_type;
+    switch (opcode) {
+      case Instruction::IndirectBr:
+      case Instruction::Switch:
+        bb_end_type = BF_END_BB_DYNAMIC;
+        increment_global_array(insert_before, terminator_var,
+                               ConstantInt::get(globctx, APInt(64, bb_end_type)),
+                               one);
+        break;
+
+      case Instruction::Br:
+        if (dyn_cast<BranchInst>(&inst)->isConditional())
+          bb_end_type = BF_END_BB_DYNAMIC;
+        else
+          bb_end_type = BF_END_BB_STATIC;
+        increment_global_array(insert_before, terminator_var,
+                               ConstantInt::get(globctx, APInt(64, bb_end_type)),
+                               one);
+        break;
+
+      default:
+        break;
+    }
+    increment_global_array(insert_before, terminator_var,
+                           ConstantInt::get(globctx, APInt(64, BF_END_BB_ANY)),
+                           one);
+
     // Determine if we're really at the end of a basic block or if
     // we're simply at a call instruction.
-    Instruction& inst = *insert_before;
     ConstantInt* end_of_bb_type;
-    unsigned int opcode = inst.getOpcode();   // Terminator instruction's opcode
     switch (opcode) {
       case Instruction::IndirectBr:
       case Instruction::Switch:
@@ -380,6 +438,7 @@ namespace bytesflops_pass {
         func_args.push_back(zero_1bit);
         callinst_create(memset_intrinsic, func_args, insert_before);
       }
+      insert_zero_array_code(module, terminator_var, BF_END_BB_NUM, insert_before);
       must_clear = 0;
     }
 
