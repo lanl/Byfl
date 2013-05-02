@@ -83,29 +83,20 @@ namespace bytesflops_pass {
     // Inject external declarations for bf_accumulate_bb_tallies(),
     // bf_reset_bb_tallies(), and bf_report_bb_tallies().
     if (InstrumentEveryBB) {
-      vector<Type*> int_arg;
-      int_arg.push_back(IntegerType::get(globctx, 32));
-      FunctionType* void_func_result =
-        FunctionType::get(Type::getVoidTy(module.getContext()), int_arg, false);
-      accum_bb_tallies =
-        Function::Create(void_func_result, GlobalValue::ExternalLinkage,
-                         "_ZN10bytesflops24bf_accumulate_bb_talliesE8bb_end_t",
-                         &module);
-      accum_bb_tallies->setCallingConv(CallingConv::C);
+      accum_bb_tallies = declare_thunk(&module, "_ZN10bytesflops24bf_accumulate_bb_talliesEv");
       reset_bb_tallies = declare_thunk(&module, "_ZN10bytesflops19bf_reset_bb_talliesEv");
       report_bb_tallies = declare_thunk(&module, "_ZN10bytesflops20bf_report_bb_talliesEv");
     }
 
     // Inject an external declaration for bf_assoc_counters_with_func().
     if (TallyByFunction) {
-      vector<Type*> string_and_enum_arg;
-      string_and_enum_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
-      string_and_enum_arg.push_back(IntegerType::get(globctx, 32));
+      vector<Type*> single_string_arg;
+      single_string_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
       FunctionType* void_func_result =
-        FunctionType::get(Type::getVoidTy(globctx), string_and_enum_arg, false);
+        FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
       assoc_counts_with_func =
         Function::Create(void_func_result, GlobalValue::ExternalLinkage,
-                         "_ZN10bytesflops27bf_assoc_counters_with_funcEPKc8bb_end_t",
+                         "_ZN10bytesflops27bf_assoc_counters_with_funcEPKc",
                          &module);
       assoc_counts_with_func->setCallingConv(CallingConv::C);
     }

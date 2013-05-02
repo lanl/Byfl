@@ -61,8 +61,6 @@ public:
   uint64_t fp_bits;                   // Number of bits consumed or produced by all FP operations
   uint64_t ops;                       // Number of operations of any type performed
   uint64_t op_bits;                   // Number of bits consumed or produced by any operation
-  uint64_t cond_brs;                  // Number of conditional branches performed
-  uint64_t b_blocks;                  // Number of basic blocks executed
 
   // Initialize all of the counters.
   ByteFlopCounters (uint64_t* initial_mem_insts=NULL,
@@ -75,9 +73,7 @@ public:
                     uint64_t initial_flops=0,
                     uint64_t initial_fp_bits=0,
                     uint64_t initial_ops=0,
-                    uint64_t initial_op_bits=0,
-                    uint64_t initial_cbrs=0,
-                    uint64_t initial_b_blocks=0) {
+                    uint64_t initial_op_bits=0) {
     // Initialize mem_insts only if -bf-types was specified.
     if (bf_types) {
       if (initial_mem_insts == NULL)
@@ -113,8 +109,6 @@ public:
     fp_bits  = initial_fp_bits;
     ops      = initial_ops;
     op_bits  = initial_op_bits;
-    cond_brs = initial_cbrs;
-    b_blocks = initial_b_blocks;
   }
 
   // Accumulate new values into our counters.
@@ -128,9 +122,7 @@ public:
                    uint64_t more_flops,
                    uint64_t more_fp_bits,
                    uint64_t more_ops,
-                   uint64_t more_op_bits,
-                   uint64_t more_cbrs,
-                   uint64_t more_b_blocks) {
+                   uint64_t more_op_bits) {
     // Accumulate mem_insts only if -bf-types was specified.
     if (bf_types)
       for (size_t i = 0; i < NUM_MEM_INSTS; i++)
@@ -152,8 +144,6 @@ public:
     fp_bits   += more_fp_bits;
     ops       += more_ops;
     op_bits   += more_op_bits;
-    cond_brs  += more_cbrs;
-    b_blocks  += more_b_blocks;
   }
 
   // Accumulate another counter's values into our counters.
@@ -179,8 +169,6 @@ public:
     fp_bits   += other->fp_bits;
     ops       += other->ops;
     op_bits   += other->op_bits;
-    cond_brs  += other->cond_brs;
-    b_blocks  += other->b_blocks;
   }
 
   // Return the difference of our counters and another set of counters.
@@ -211,9 +199,7 @@ public:
                                                    flops - other->flops,
                                                    fp_bits - other->fp_bits,
                                                    ops - other->ops,
-                                                   op_bits - other->op_bits,
-                                                   cond_brs - other->cond_brs,
-                                                   b_blocks - other->b_blocks);
+                                                   op_bits - other->op_bits);
     return byflc;
   }
 
@@ -240,8 +226,6 @@ public:
     fp_bits   = 0;
     ops       = 0;
     op_bits   = 0;
-    cond_brs  = 0;
-    b_blocks  = 0;
   }
 };
 
@@ -571,11 +555,10 @@ static bool suppress_output (void)
 }
 
 
-// Accumulate the current counter variables (bf_*_count) into the
-// current basic block's counters.  At the end of the basic block,
-// also transfer the current basic block's counters to the global
-// counters.
-void bf_accumulate_bb_tallies (bb_end_t end_of_basic_block)
+// At the end of a basic block, accumulate the current counter
+// variables (bf_*_count) into the current basic block's counters and
+// into the global counters.
+void bf_accumulate_bb_tallies (void)
 {
   // Add the current values to the per-BB totals.
   ByteFlopCounters* current_bb = bb_totals().back();
@@ -589,21 +572,15 @@ void bf_accumulate_bb_tallies (bb_end_t end_of_basic_block)
                          bf_flop_count,
                          bf_fp_bits_count,
                          bf_op_count,
-                         bf_op_bits_count,
-                         uint64_t(end_of_basic_block == BB_END_COND),
-                         uint64_t(end_of_basic_block != BB_NOT_END));
-  // At the end of the basic block, transfer all values to the global
-  // counters and, if defined, a user-specified set of counters.
-  if (end_of_basic_block != BB_NOT_END) {
-    global_totals.accumulate(current_bb);
-    const char* partition = bf_string_to_symbol(bf_categorize_counters());
-    if (partition != NULL) {
-      counter_iterator sm_iter = user_defined_totals().find(partition);
-      if (sm_iter == per_func_totals().end())
-        user_defined_totals()[partition] = new ByteFlopCounters(*current_bb);
-      else
-        user_defined_totals()[partition]->accumulate(current_bb);
-    }
+                         bf_op_bits_count);
+  global_totals.accumulate(current_bb);
+  const char* partition = bf_string_to_symbol(bf_categorize_counters());
+  if (partition != NULL) {
+    counter_iterator sm_iter = user_defined_totals().find(partition);
+    if (sm_iter == per_func_totals().end())
+      user_defined_totals()[partition] = new ByteFlopCounters(*current_bb);
+    else
+      user_defined_totals()[partition]->accumulate(current_bb);
   }
 }
 
@@ -664,7 +641,7 @@ void bf_report_bb_tallies (void)
 
 
 // Associate the current counter values with a given function.
-void bf_assoc_counters_with_func (const char* funcname, bb_end_t end_of_basic_block)
+void bf_assoc_counters_with_func (const char* funcname)
 {
   // Ensure that per_func_totals contains an ByteFlopCounters entry
   // for funcname, then add the current counters to that entry.
@@ -686,9 +663,7 @@ void bf_assoc_counters_with_func (const char* funcname, bb_end_t end_of_basic_bl
                            bf_flop_count,
                            bf_fp_bits_count,
                            bf_op_count,
-                           bf_op_bits_count,
-                           uint64_t(end_of_basic_block == BB_END_COND),
-                           uint64_t(end_of_basic_block != BB_NOT_END));
+                           bf_op_bits_count);
   else {
     // Accumulate the current counter values into those associated
     // with an existing function name.
@@ -703,9 +678,7 @@ void bf_assoc_counters_with_func (const char* funcname, bb_end_t end_of_basic_bl
                               bf_flop_count,
                               bf_fp_bits_count,
                               bf_op_count,
-                              bf_op_bits_count,
-                              uint64_t(end_of_basic_block == BB_END_COND),
-                              uint64_t(end_of_basic_block != BB_NOT_END));
+                              bf_op_bits_count);
   }
 }
 
@@ -788,7 +761,7 @@ private:
         *bfout << ' '
                << setw(HDR_COL_WIDTH) << bf_tally_unique_addresses(funcname_c);
       *bfout << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->cond_brs << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
              << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
              << funcname_c << '\n';
     }
@@ -849,16 +822,12 @@ private:
       if (bf_unique_bytes && !partition)
         global_unique_bytes = bf_tally_unique_addresses();
 
-    // Report the dynamic basic-block count.
+    // Prepare the tag to use for output, and indicate that we want to
+    // use separators in numerical output.
     string tag(bf_output_prefix + "BYFL_SUMMARY");
-    bfout->imbue(std::locale(""));
     if (partition)
       tag += '(' + string(partition) + ')';
-    *bfout << tag << ": " << separator << '\n';
-    if (counter_totals.b_blocks > 0)
-      *bfout << tag << ": " << setw(25) << counter_totals.b_blocks << " basic blocks\n"
-             << tag << ": " << setw(25) << counter_totals.cond_brs << " conditional or indirect branches\n"
-             << tag << ": " << separator << '\n';
+    bfout->imbue(std::locale(""));
 
     // Report the raw measurements in terms of bytes and operations.
     *bfout << tag << ": " << setw(25) << global_bytes << " bytes ("
@@ -999,18 +968,18 @@ private:
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_bytes*8 / (double)global_mem_ops
              << " bits loaded/stored per memory op\n";
-    if (counter_totals.cond_brs > 0) {
+    if (term_dynamic > 0) {
       if (counter_totals.flops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)counter_totals.flops / (double)counter_totals.cond_brs
+               << (double)counter_totals.flops / (double)term_dynamic
                << " flops per conditional/indirect branch\n";
       if (counter_totals.ops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)counter_totals.ops / (double)counter_totals.cond_brs
+               << (double)counter_totals.ops / (double)term_dynamic
                << " integer ops per conditional/indirect branch\n";
       if (num_vec_ops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)num_vec_ops / (double)counter_totals.cond_brs
+               << (double)num_vec_ops / (double)term_dynamic
                << " vector ops per conditional/indirect branch\n";
     }
     if (num_vec_ops > 0) {
@@ -1085,10 +1054,10 @@ public:
     // If we're not instrumented on the basic-block level, then we
     // need to accumulate the current values of all of our counters
     // into the global totals.
-    if (global_totals.b_blocks == 0)
+    if (!bf_every_bb)
       global_totals.accumulate(bf_mem_insts_count,
                                bf_inst_mix_histo,
-       bf_terminator_count,
+                               bf_terminator_count,
                                bf_load_count,
                                bf_store_count,
                                bf_load_ins_count,
@@ -1096,24 +1065,17 @@ public:
                                bf_flop_count,
                                bf_fp_bits_count,
                                bf_op_count,
-                               bf_op_bits_count,
-                               0,
-                               0);
+                               bf_op_bits_count);
 
     // If the global counter totals are empty, this means that we were
     // tallying per-function data and resetting the global counts
     // after each tally.  We therefore reconstruct the lost global
     // counts from the per-function tallies.
-    if (global_totals.b_blocks == 0) {
+    if (global_totals.terminators[BF_END_BB_ANY] == 0)
       for (counter_iterator sm_iter = per_func_totals().begin();
            sm_iter != per_func_totals().end();
            sm_iter++)
         global_totals.accumulate(sm_iter->second);
-
-      // The above was not a per-BB accumulate.
-      global_totals.b_blocks = 0;
-      global_totals.cond_brs = 0;
-    }
 
     // Report user-defined counter totals, if any.
     vector<const char*>* all_tag_names = user_defined_totals().sorted_keys(compare_char_stars);

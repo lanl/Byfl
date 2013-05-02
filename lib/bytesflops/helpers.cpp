@@ -270,16 +270,16 @@ namespace bytesflops_pass {
 
   // Insert code to set every element of a given array to zero.
   void BytesFlops::insert_zero_array_code(Module* module,
-					  GlobalVariable* array_to_zero,
-					  uint64_t num_elts,
-					  BasicBlock::iterator& insert_before) {
+                                          GlobalVariable* array_to_zero,
+                                          uint64_t num_elts,
+                                          BasicBlock::iterator& insert_before) {
     LoadInst* array_addr = new LoadInst(array_to_zero, "ar", false, insert_before);
     array_addr->setAlignment(8);
     LLVMContext& globctx = module->getContext();
     CastInst* array_addr_cast =
       new BitCastInst(array_addr,
-		      PointerType::get(IntegerType::get(globctx, 8), 0),
-		      "arv", insert_before);
+                      PointerType::get(IntegerType::get(globctx, 8), 0),
+                      "arv", insert_before);
     static ConstantInt* zero_8bit =
       ConstantInt::get(globctx, APInt(8, 0));
     static ConstantInt* array_align =
@@ -316,8 +316,10 @@ namespace bytesflops_pass {
         break;
 
       case Instruction::Br:
-        if (dyn_cast<BranchInst>(&inst)->isConditional())
+        if (dyn_cast<BranchInst>(&inst)->isConditional()) {
           bb_end_type = BF_END_BB_DYNAMIC;
+          static_cond_brs++;
+        }
         else
           bb_end_type = BF_END_BB_STATIC;
         increment_global_array(insert_before, terminator_var,
@@ -332,29 +334,10 @@ namespace bytesflops_pass {
                            ConstantInt::get(globctx, APInt(64, BF_END_BB_ANY)),
                            one);
 
-    // Determine if we're really at the end of a basic block or if
-    // we're simply at a call instruction.
-    ConstantInt* end_of_bb_type;
-    switch (opcode) {
-      case Instruction::IndirectBr:
-      case Instruction::Switch:
-        end_of_bb_type = cond_end_bb;
-        break;
-
-      case Instruction::Br:
-        end_of_bb_type = dyn_cast<BranchInst>(&inst)->isConditional() ? cond_end_bb : uncond_end_bb;
-        break;
-
-      default:
-        end_of_bb_type = uncond_end_bb;
-        break;
-    }
-    static_cond_brs++;
-
     // If we're instrumenting every basic block, insert calls to
     // bf_accumulate_bb_tallies() and bf_report_bb_tallies().
     if (InstrumentEveryBB) {
-      callinst_create(accum_bb_tallies, end_of_bb_type, insert_before);
+      callinst_create(accum_bb_tallies, insert_before);
       callinst_create(report_bb_tallies, insert_before);
     }
 
@@ -363,7 +346,6 @@ namespace bytesflops_pass {
     if (TallyByFunction) {
       vector<Value*> arg_list;
       arg_list.push_back(map_func_name_to_arg(module, function_name));
-      arg_list.push_back(end_of_bb_type);
       callinst_create(assoc_counts_with_func, arg_list, insert_before);
     }
 
