@@ -71,7 +71,7 @@ sub execute_command (@)
 # where they are or moves them to the current directory.
 sub remove_files (@)
 {
-    my @deletable = @_;
+    my @deletable = map {-e $_ ? $_ : ()} @_;
     if ($save_temps eq "no") {
         # Remove intermediate files.
         print STDERR "rm -f @deletable\n" if $verbosity > 0;
