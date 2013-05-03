@@ -232,7 +232,7 @@ namespace bytesflops_pass {
         must_clear |= CLEAR_OPS;
         increment_global_variable(insert_before, op_bits_var, num_bits);
         must_clear |= CLEAR_OP_BITS;
-        static_ops++;
+        static_int_ops++;
       }
 
       // If the user requested a characterization of vector
@@ -311,7 +311,7 @@ namespace bytesflops_pass {
         increment_global_variable(insert_before, op_bits_var,
                                   ConstantInt::get(bbctx, APInt(64, arg_op_bits)));
         must_clear |= CLEAR_OP_BITS;
-        static_ops++;
+        static_int_ops++;
       }
   }
 
@@ -321,12 +321,16 @@ namespace bytesflops_pass {
   void BytesFlops::instrument_entire_function(Module* module,
                                               Function& function,
                                               StringRef function_name) {
+    // Tally the number of basic blocks that the function contains.
+    static_bblocks += function.size();
+
     // Iterate over each basic block in turn.
     for (Function::iterator func_iter = function.begin();
          func_iter != function.end();
          func_iter++) {
       // Perform per-basic-block variable initialization.
       BasicBlock& bb = *func_iter;
+      static_insts += bb.size();
       LLVMContext& bbctx = bb.getContext();
       DataLayout& target_data = getAnalysis<DataLayout>();
       BasicBlock::iterator terminator_inst = bb.end();
@@ -354,8 +358,10 @@ namespace bytesflops_pass {
 
         // Ignore various function calls non grata.
         Instruction& inst = *iter;
-        if (ignorable_call(&inst))
+        if (ignorable_call(&inst)) {
+          static_insts--;
           continue;
+        }
 
         // Snag the current opcode for further interrogation.
         unsigned int opcode = iter->getOpcode();

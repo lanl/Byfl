@@ -249,6 +249,15 @@ namespace bytesflops_pass {
       // bf_categorize_counters().
       return false;
 
+    // Reset all of our static counters.
+    static_loads = 0;
+    static_stores = 0;
+    static_flops = 0;
+    static_int_ops = 0;
+    static_cond_brs = 0;
+    static_insts = 0;
+    static_bblocks = 0;
+
     // Instrument "interesting" instructions in every basic block.
     Module* module = function.getParent();
     instrument_entire_function(module, function, function_name);
@@ -262,11 +271,11 @@ namespace bytesflops_pass {
     outfile << module->getModuleIdentifier() << ": "
             << static_loads << " loads, "
             << static_stores << " stores, "
-            << static_flops << " flins";
-    outfile << ", " << static_ops << " binops";
-    if (InstrumentEveryBB)
-      outfile << ", " << static_cond_brs << " cond_brs";
-    outfile << '\n';
+            << static_flops << " flops, "
+	    << static_int_ops << " intops, "
+	    << static_cond_brs << " cond_brs, "
+	    << static_insts << " total_insts, "
+	    << static_bblocks << " bblocks\n";
   }
 
 }  // namespace bytesflops_pass

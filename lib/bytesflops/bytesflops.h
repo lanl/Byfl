@@ -126,8 +126,10 @@ namespace bytesflops_pass {
     uint64_t static_loads;   // Number of static load instructions
     uint64_t static_stores;  // Number of static store instructions
     uint64_t static_flops;   // Number of static floating-point instructions
-    uint64_t static_ops;     // Number of static binary-operation instructions
+    uint64_t static_int_ops;   // Number of static integer-operation instructions
     uint64_t static_cond_brs;  // Number of static conditional or indirect branch instructions
+    uint64_t static_insts;     // Number of static instructions across all basic blocks
+    uint64_t static_bblocks;   // Number of static basic blocks
     Function* init_if_necessary;  // Pointer to bf_initialize_if_necessary()
     Function* accum_bb_tallies;   // Pointer to bf_accumulate_bb_tallies()
     Function* report_bb_tallies;  // Pointer to bf_report_bb_tallies()
@@ -292,13 +294,7 @@ namespace bytesflops_pass {
 
   public:
     static char ID;
-    BytesFlops() : FunctionPass(ID) {
-      static_loads = 0;
-      static_stores = 0;
-      static_flops = 0;
-      static_ops = 0;
-      static_cond_brs = 0;
-    }
+    BytesFlops() : FunctionPass(ID) { }
 
     // Initialize the BytesFlops pass.
     virtual bool doInitialization(Module& module);
