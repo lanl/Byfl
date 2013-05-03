@@ -807,7 +807,6 @@ private:
     }
   }
 
-
   // Report the total counter values across all basic blocks.
   void report_totals (const char* partition, ByteFlopCounters& counter_totals) {
     uint64_t global_bytes = counter_totals.loads + counter_totals.stores;
@@ -830,6 +829,7 @@ private:
     bfout->imbue(std::locale(""));
 
     // Report the raw measurements in terms of bytes and operations.
+    *bfout << tag << ": " << separator << '\n';
     *bfout << tag << ": " << setw(25) << global_bytes << " bytes ("
            << counter_totals.loads << " loaded + "
            << counter_totals.stores << " stored)\n";
@@ -1029,7 +1029,8 @@ private:
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_bytes / (double)global_unique_bytes
              << " bytes per unique byte\n";
-    *bfout << tag << ": " << separator << '\n';
+    if (!partition)
+      *bfout << tag << ": " << separator << '\n';
   }
 
 public:

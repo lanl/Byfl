@@ -181,22 +181,20 @@ namespace bytesflops_pass {
     }
 
     // Inject an external declaration for llvm.memset.p0i8.i64().
-    if (TallyTypes || TallyInstMix) {
-      memset_intrinsic = module.getFunction("llvm.memset.p0i8.i64");
-      if (memset_intrinsic == NULL) {
-        vector<Type*> all_function_args;
-        all_function_args.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
-        all_function_args.push_back(IntegerType::get(globctx, 8));
-        all_function_args.push_back(IntegerType::get(globctx, 64));
-        all_function_args.push_back(IntegerType::get(globctx, 32));
-        all_function_args.push_back(IntegerType::get(globctx, 1));
-        FunctionType* void_func_result =
-          FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
-        memset_intrinsic =
-          Function::Create(void_func_result, GlobalValue::ExternalLinkage,
-                           "llvm.memset.p0i8.i64", &module);
-        memset_intrinsic->setCallingConv(CallingConv::C);
-      }
+    memset_intrinsic = module.getFunction("llvm.memset.p0i8.i64");
+    if (memset_intrinsic == NULL) {
+      vector<Type*> all_function_args;
+      all_function_args.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
+      all_function_args.push_back(IntegerType::get(globctx, 8));
+      all_function_args.push_back(IntegerType::get(globctx, 64));
+      all_function_args.push_back(IntegerType::get(globctx, 32));
+      all_function_args.push_back(IntegerType::get(globctx, 1));
+      FunctionType* void_func_result =
+	FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+      memset_intrinsic =
+	Function::Create(void_func_result, GlobalValue::ExternalLinkage,
+			 "llvm.memset.p0i8.i64", &module);
+      memset_intrinsic->setCallingConv(CallingConv::C);
     }
 
     // Simplify ReuseDist.getBits() into rd_bits.
