@@ -119,6 +119,7 @@ namespace bytesflops_pass {
     GlobalVariable* mem_insts_var;              // Global reference to bf_mem_insts, a set of 64-bit memory instruction counters
     GlobalVariable* inst_mix_histo_var;         // Global reference to bf_inst_mix_histo, an array representing histogram of specific instruction counts.
     GlobalVariable* terminator_var;             // Global reference to bf_terminator_count, an array of terminator tallies
+    GlobalVariable* mem_intrinsics_var;         // Global reference to bf_mem_intrin_count, tallies of memory intrinsics
     GlobalVariable* flop_var;  // Global reference to bf_flop_count, a 64-bit flop counter
     GlobalVariable* fp_bits_var;  // Global reference to bf_fp_bits_count, a 64-bit FP-bit counter
     GlobalVariable* op_var;    // Global reference to bf_op_count, a 64-bit operation counter

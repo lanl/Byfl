@@ -187,6 +187,27 @@ namespace bytesflops_pass {
       return;
     StringRef callee_name = func->getName();
 
+    // Tally calls to the LLVM memory intrinsics (llvm.mem{set,cpy,move}.*).
+    if (isa<MemIntrinsic>(inst)) {
+      LLVMContext& globctx = module->getContext();
+      if (MemSetInst* memsetfunc = dyn_cast<MemSetInst>(inst)) {
+	// Handle llvm.memset.* by incrementing the memset tally and
+	// byte count.
+	ConstantInt* callVal = ConstantInt::get(globctx, APInt(64, BF_MEMSET_CALLS));
+	increment_global_array(insert_before, mem_intrinsics_var, callVal, one);
+	ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMSET_BYTES));
+	increment_global_array(insert_before, mem_intrinsics_var, byteVal, memsetfunc->getLength());
+      }
+      else if (MemTransferInst* memxferfunc = dyn_cast<MemTransferInst>(inst)) {
+	// Handle llvm.memcpy.* and llvm.memmove.* by incrementing the
+	// memxfer tally and byte count.
+	ConstantInt* callVal = ConstantInt::get(globctx, APInt(64, BF_MEMXFER_CALLS));
+	increment_global_array(insert_before, mem_intrinsics_var, callVal, one);
+	ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMXFER_BYTES));
+	increment_global_array(insert_before, mem_intrinsics_var, byteVal, memxferfunc->getLength());
+      }
+    }
+
     // Tally the callee (with a distinguishing "+" in front of its
     // name) in order to keep track of calls to uninstrumented
     // functions.

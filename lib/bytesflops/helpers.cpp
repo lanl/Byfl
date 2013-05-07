@@ -421,6 +421,7 @@ namespace bytesflops_pass {
         callinst_create(memset_intrinsic, func_args, insert_before);
       }
       insert_zero_array_code(module, terminator_var, BF_END_BB_NUM, insert_before);
+      insert_zero_array_code(module, mem_intrinsics_var, BF_NUM_MEM_INTRIN, insert_before);
       must_clear = 0;
     }
 

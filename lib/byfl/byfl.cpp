@@ -53,6 +53,7 @@ public:
   uint64_t mem_insts[NUM_MEM_INSTS];  // Number of memory instructions by type
   uint64_t inst_mix_histo[NUM_OPCODES];   // Histogram of instruction mix
   uint64_t terminators[BF_END_BB_NUM];    // Tally of basic-block terminator types
+  uint64_t mem_intrinsics[BF_NUM_MEM_INTRIN];  // Tallies of data movement performed by memory intrinsics
   uint64_t loads;                     // Number of bytes loaded
   uint64_t stores;                    // Number of bytes stored
   uint64_t load_ins;                  // Number of load instructions executed
@@ -66,6 +67,7 @@ public:
   ByteFlopCounters (uint64_t* initial_mem_insts=NULL,
                     uint64_t* initial_inst_mix_histo=NULL,
                     uint64_t* initial_terminators=NULL,
+                    uint64_t* initial_mem_intrinsics=NULL,
                     uint64_t initial_loads=0,
                     uint64_t initial_stores=0,
                     uint64_t initial_load_ins=0,
@@ -101,6 +103,12 @@ public:
     else
       for (size_t i = 0; i < BF_END_BB_NUM; i++)
         terminators[i] = initial_terminators[i];
+    if (initial_mem_intrinsics == NULL)
+      for (size_t i = 0; i < BF_NUM_MEM_INTRIN; i++)
+        mem_intrinsics[i] = 0;
+    else
+      for (size_t i = 0; i < BF_NUM_MEM_INTRIN; i++)
+        mem_intrinsics[i] = initial_mem_intrinsics[i];
     loads    = initial_loads;
     stores   = initial_stores;
     load_ins = initial_load_ins;
@@ -115,6 +123,7 @@ public:
   void accumulate (uint64_t* more_mem_insts,
                    uint64_t* more_inst_mix_histo,
                    uint64_t* more_terminators,
+                   uint64_t* more_mem_intrinsics,
                    uint64_t more_loads,
                    uint64_t more_stores,
                    uint64_t more_load_ins,
@@ -136,6 +145,8 @@ public:
     // Unconditionally accumulate everything else.
     for (size_t i = 0; i < BF_END_BB_NUM; i++)
       terminators[i] += more_terminators[i];
+    for (size_t i = 0; i < BF_NUM_MEM_INTRIN; i++)
+      mem_intrinsics[i] += more_mem_intrinsics[i];
     loads     += more_loads;
     stores    += more_stores;
     load_ins  += more_load_ins;
@@ -161,6 +172,8 @@ public:
     // Unconditionally accumulate everything else.
     for (size_t i = 0; i < BF_END_BB_NUM; i++)
       terminators[i] += other->terminators[i];
+    for (size_t i = 0; i < BF_NUM_MEM_INTRIN; i++)
+      mem_intrinsics[i] += other->mem_intrinsics[i];
     loads     += other->loads;
     stores    += other->stores;
     load_ins  += other->load_ins;
@@ -189,9 +202,13 @@ public:
     uint64_t delta_terminators[BF_END_BB_NUM];
     for (size_t i = 0; i < BF_END_BB_NUM; i++)
       delta_terminators[i] = terminators[i] - other->terminators[i];
+    uint64_t delta_mem_intrinsics[BF_NUM_MEM_INTRIN];
+    for (size_t i = 0; i < BF_NUM_MEM_INTRIN; i++)
+      delta_mem_intrinsics[i] = mem_intrinsics[i] - other->mem_intrinsics[i];
     ByteFlopCounters *byflc = new ByteFlopCounters(delta_mem_insts,
                                                    delta_inst_mix_histo,
                                                    delta_terminators,
+                                                   delta_mem_intrinsics,
                                                    loads - other->loads,
                                                    stores - other->stores,
                                                    load_ins - other->load_ins,
@@ -218,6 +235,8 @@ public:
     // Unconditionally reset everything else.
     for (size_t i = 0; i < BF_END_BB_NUM; i++)
       terminators[i] = 0;
+    for (size_t i = 0; i < BF_NUM_MEM_INTRIN; i++)
+      mem_intrinsics[i] = 0;
     loads     = 0;
     stores    = 0;
     load_ins  = 0;
@@ -235,6 +254,7 @@ uint64_t  bf_store_count      = 0;    // Tally of the number of bytes stored
 uint64_t* bf_mem_insts_count  = NULL; // Tally of memory instructions by type
 uint64_t* bf_inst_mix_histo   = NULL; // Tally of instruction mix (as histogram)
 uint64_t* bf_terminator_count = NULL; // Tally of terminators by type
+uint64_t* bf_mem_intrin_count = NULL; // Tally of memory intrinsic calls and data movement
 uint64_t  bf_load_ins_count   = 0;    // Tally of the number of load instructions performed
 uint64_t  bf_store_ins_count  = 0;    // Tally of the number of store instructions performed
 uint64_t  bf_flop_count       = 0;    // Tally of the number of FP operations performed
@@ -431,12 +451,15 @@ void initialize_byfl (void) {
   }
   if (bf_tally_inst_mix) {
     bf_inst_mix_histo = new uint64_t[NUM_OPCODES];
-    for(unsigned int i = 0; i < NUM_OPCODES; ++i)
+    for (unsigned int i = 0; i < NUM_OPCODES; i++)
       bf_inst_mix_histo[i] = 0;
   }
   bf_terminator_count = new uint64_t[BF_END_BB_NUM];
-  for(unsigned int i = 0; i < BF_END_BB_NUM; ++i)
+  for (unsigned int i = 0; i < BF_END_BB_NUM; i++)
     bf_terminator_count[i] = 0;
+  bf_mem_intrin_count = new uint64_t[BF_NUM_MEM_INTRIN];
+  for (unsigned int i = 0; i < BF_NUM_MEM_INTRIN; i++)
+    bf_mem_intrin_count[i] = 0;
   bf_push_basic_block();
 }
 
@@ -565,6 +588,7 @@ void bf_accumulate_bb_tallies (void)
   current_bb->accumulate(bf_mem_insts_count,
                          bf_inst_mix_histo,
                          bf_terminator_count,
+                         bf_mem_intrin_count,
                          bf_load_count,
                          bf_store_count,
                          bf_load_ins_count,
@@ -656,6 +680,7 @@ void bf_assoc_counters_with_func (const char* funcname)
       new ByteFlopCounters(bf_mem_insts_count,
                            bf_inst_mix_histo,
                            bf_terminator_count,
+                           bf_mem_intrin_count,
                            bf_load_count,
                            bf_store_count,
                            bf_load_ins_count,
@@ -671,6 +696,7 @@ void bf_assoc_counters_with_func (const char* funcname)
     func_counters->accumulate(bf_mem_insts_count,
                               bf_inst_mix_histo,
                               bf_terminator_count,
+                              bf_mem_intrin_count,
                               bf_load_count,
                               bf_store_count,
                               bf_load_ins_count,
@@ -901,6 +927,26 @@ private:
     *bfout << tag << ": " << setw(25) << counter_totals.op_bits << " integer op bits\n";
     *bfout << tag << ": " << separator << '\n';
 
+    // Report the amount of memory that passed through
+    // llvm.mem{set,cpy,move}.*.
+    if (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] > 0)
+      *bfout << tag << ": " << setw(25)
+             << counter_totals.mem_intrinsics[BF_MEMSET_BYTES]
+             << " bytes stored by "
+             << counter_totals.mem_intrinsics[BF_MEMSET_CALLS] << ' '
+             << (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] == 1 ? "call" : "calls")
+             << " to memset()\n";
+    if (counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] > 0)
+      *bfout << tag << ": " << setw(25)
+             << counter_totals.mem_intrinsics[BF_MEMXFER_BYTES]
+             << " bytes loaded and stored by "
+             << counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] << ' '
+             << (counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] == 1 ? "call" : "calls")
+             << " to memcpy() or memmove()\n";
+    if (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] > 0
+        || counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] > 0)
+      *bfout << tag << ": " << separator << '\n';
+
     // Report vector-operation measurements.
     uint64_t num_vec_ops=0, total_vec_elts, total_vec_bits;
     if (bf_vectors) {
@@ -1059,6 +1105,7 @@ public:
       global_totals.accumulate(bf_mem_insts_count,
                                bf_inst_mix_histo,
                                bf_terminator_count,
+                               bf_mem_intrin_count,
                                bf_load_count,
                                bf_store_count,
                                bf_load_ins_count,

@@ -57,6 +57,14 @@ enum {
   BF_END_BB_NUM
 };
 
+enum {
+  BF_MEMSET_CALLS,     // Calls to llvm.memset.*
+  BF_MEMSET_BYTES,     // Bytes stored by llvm.memset.*
+  BF_MEMXFER_CALLS,    // Calls to either llvm.memcpy.* or llvm.memmove.*
+  BF_MEMXFER_BYTES,    // Bytes loaded and stored by llvm.mem{cpy,move}.*
+  BF_NUM_MEM_INTRIN
+};
+
 // Map a memory-access type to an index into bf_mem_insts_count[].
 static inline uint64_t
 mem_type_to_index(uint64_t memop,
