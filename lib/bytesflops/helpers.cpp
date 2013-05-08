@@ -262,8 +262,11 @@ namespace bytesflops_pass {
   }
 
   // Declare an external variable.
-  GlobalVariable* BytesFlops::declare_global_var(Module& module, Type* var_type, StringRef var_name) {
-    return new GlobalVariable(module, var_type, false,
+  GlobalVariable* BytesFlops::declare_global_var(Module& module,
+                                                 Type* var_type,
+                                                 StringRef var_name,
+                                                 bool is_const) {
+    return new GlobalVariable(module, var_type, is_const,
                               GlobalVariable::ExternalLinkage, 0, var_name, 0,
                               GlobalVariable::NotThreadLocal);
   }

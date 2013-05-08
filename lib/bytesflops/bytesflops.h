@@ -209,13 +209,14 @@ namespace bytesflops_pass {
     Constant* map_func_name_to_arg (Module* module, StringRef funcname);
 
     // Declare an external variable.
-    GlobalVariable* declare_global_var(Module& module, Type* var_type, StringRef var_name);
+    GlobalVariable* declare_global_var(Module& module, Type* var_type,
+                                       StringRef var_name, bool is_const=false);
 
     // Insert code to set every element of a given array to zero.
     void insert_zero_array_code(Module* module,
-				GlobalVariable* array_to_zero,
-				uint64_t num_elts,
-				BasicBlock::iterator& insert_before);
+                                GlobalVariable* array_to_zero,
+                                uint64_t num_elts,
+                                BasicBlock::iterator& insert_before);
 
     // Insert code at the end of a basic block.
     void insert_end_bb_code (Module* module, StringRef function_name,

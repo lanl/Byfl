@@ -17,10 +17,10 @@ namespace bytesflops_pass {
     IntegerType* i64type = Type::getInt64Ty(globctx);
     PointerType* i64ptrtype = Type::getInt64PtrTy(globctx);
 
-    mem_insts_var      = declare_global_var(module, i64ptrtype, "bf_mem_insts_count");
-    inst_mix_histo_var = declare_global_var(module, i64ptrtype, "bf_inst_mix_histo");
-    terminator_var     = declare_global_var(module, i64ptrtype, "bf_terminator_count");
-    mem_intrinsics_var = declare_global_var(module, i64ptrtype, "bf_mem_intrin_count");
+    mem_insts_var      = declare_global_var(module, i64ptrtype, "bf_mem_insts_count", true);
+    inst_mix_histo_var = declare_global_var(module, i64ptrtype, "bf_inst_mix_histo", true);
+    terminator_var     = declare_global_var(module, i64ptrtype, "bf_terminator_count", true);
+    mem_intrinsics_var = declare_global_var(module, i64ptrtype, "bf_mem_intrin_count", true);
     load_var       = declare_global_var(module, i64type, "bf_load_count");
     store_var      = declare_global_var(module, i64type, "bf_store_count");
     load_inst_var  = declare_global_var(module, i64type, "bf_load_ins_count");
