@@ -183,22 +183,23 @@ namespace bytesflops_pass {
   }
 
   // Return true if and only if the given instruction should be
-  // tallied as an operation.
-  bool BytesFlops::is_any_operation(const Instruction& inst,
-                                    const unsigned int opcode,
-                                    const Type* instType) {
-    // Treat a variety of instructions as "operations".
-    if (inst.isBinaryOp(opcode))
-      // Binary operator (e.g., add)
+  // treated as a do-nothing operation.
+  bool BytesFlops::is_no_op(const Instruction& inst,
+			    const unsigned int opcode,
+			    const Type* instType) {
+    // Reject certain instructions that we expect to turn into no-ops
+    // during code generation.
+    if (ignorable_call(&inst))
       return true;
-    if (isa<CastInst>(inst) && !isa<BitCastInst>(inst))
-      // Cast (e.g., sitofp) but not a bit cast (e.g., bitcast)
+    if (isa<PHINode>(inst))
       return true;
-    if (isa<CmpInst>(inst))
-      // Comparison (e.g., icmp)
+    if (isa<BitCastInst>(inst))
+      return true;
+    if (isa<LandingPadInst>(inst))
+      // I *think* this becomes a no-op, right?
       return true;
 
-    // None of the above
+    // Everything else is considered an operation.
     return false;
   }
 
@@ -462,7 +463,7 @@ namespace bytesflops_pass {
   }
 
   // Given a Call instruction, return true if we can safely ignore it.
-  bool BytesFlops::ignorable_call (Instruction* inst) {
+  bool BytesFlops::ignorable_call (const Instruction* inst) {
     // Ignore debug intrinsics (llvm.dbg.*).
     if (isa<DbgInfoIntrinsic>(*inst))
       return true;

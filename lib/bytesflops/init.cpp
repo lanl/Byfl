@@ -252,9 +252,8 @@ namespace bytesflops_pass {
     static_loads = 0;
     static_stores = 0;
     static_flops = 0;
-    static_int_ops = 0;
+    static_ops = 0;
     static_cond_brs = 0;
-    static_insts = 0;
     static_bblocks = 0;
 
     // Instrument "interesting" instructions in every basic block.
@@ -271,9 +270,8 @@ namespace bytesflops_pass {
             << static_loads << " loads, "
             << static_stores << " stores, "
             << static_flops << " flops, "
-	    << static_int_ops << " intops, "
 	    << static_cond_brs << " cond_brs, "
-	    << static_insts << " total_insts, "
+	    << static_ops << " total_ops, "
 	    << static_bblocks << " bblocks\n";
   }
 

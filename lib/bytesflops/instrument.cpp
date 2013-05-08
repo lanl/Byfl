@@ -191,20 +191,20 @@ namespace bytesflops_pass {
     if (isa<MemIntrinsic>(inst)) {
       LLVMContext& globctx = module->getContext();
       if (MemSetInst* memsetfunc = dyn_cast<MemSetInst>(inst)) {
-	// Handle llvm.memset.* by incrementing the memset tally and
-	// byte count.
-	ConstantInt* callVal = ConstantInt::get(globctx, APInt(64, BF_MEMSET_CALLS));
-	increment_global_array(insert_before, mem_intrinsics_var, callVal, one);
-	ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMSET_BYTES));
-	increment_global_array(insert_before, mem_intrinsics_var, byteVal, memsetfunc->getLength());
+        // Handle llvm.memset.* by incrementing the memset tally and
+        // byte count.
+        ConstantInt* callVal = ConstantInt::get(globctx, APInt(64, BF_MEMSET_CALLS));
+        increment_global_array(insert_before, mem_intrinsics_var, callVal, one);
+        ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMSET_BYTES));
+        increment_global_array(insert_before, mem_intrinsics_var, byteVal, memsetfunc->getLength());
       }
       else if (MemTransferInst* memxferfunc = dyn_cast<MemTransferInst>(inst)) {
-	// Handle llvm.memcpy.* and llvm.memmove.* by incrementing the
-	// memxfer tally and byte count.
-	ConstantInt* callVal = ConstantInt::get(globctx, APInt(64, BF_MEMXFER_CALLS));
-	increment_global_array(insert_before, mem_intrinsics_var, callVal, one);
-	ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMXFER_BYTES));
-	increment_global_array(insert_before, mem_intrinsics_var, byteVal, memxferfunc->getLength());
+        // Handle llvm.memcpy.* and llvm.memmove.* by incrementing the
+        // memxfer tally and byte count.
+        ConstantInt* callVal = ConstantInt::get(globctx, APInt(64, BF_MEMXFER_CALLS));
+        increment_global_array(insert_before, mem_intrinsics_var, callVal, one);
+        ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMXFER_BYTES));
+        increment_global_array(insert_before, mem_intrinsics_var, byteVal, memxferfunc->getLength());
       }
     }
 
@@ -218,6 +218,89 @@ namespace bytesflops_pass {
     }
   }
 
+  // Instrument all instructions except no-ops.
+  void BytesFlops::instrument_all(Module* module,
+                                  StringRef function_name,
+                                  Instruction& inst,
+                                  LLVMContext& bbctx,
+                                  BasicBlock::iterator& insert_before,
+                                  int& must_clear) {
+    // Ignore operations that are likely to be discarded during code generation.
+    const Type* instType = inst.getType();    // Type of this instruction
+    unsigned int opcode = inst.getOpcode();   // Current instruction's opcode
+    if (is_no_op(inst, opcode, instType))
+      return;
+
+    // Process all other instructions.
+    if (isa<GetElementPtrInst>(inst)) {
+      // LLVM's getelementptr instruction requires special handling.
+      // Given the C declaration "int *a", the getelementptr
+      // representation of a[3] is likely to turn into a+12 (a single
+      // addition), while the getelementptr representation of a[i] is
+      // likely to turn into a+4*i (an addition plus a
+      // multiplication).  We therefore count variable arguments as
+      // two ops and constants as one op.
+      uint64_t arg_ops = 0;      // Expected number of operations
+      uint64_t arg_op_bits = 0;  // Expected number of bits used
+      User::const_op_iterator arg_iter = inst.op_begin();
+      for (arg_iter++; arg_iter != inst.op_end(); arg_iter++) {
+        Value* arg = dyn_cast<Value>(*arg_iter);
+        unsigned int this_arg_bits = arg->getType()->getPrimitiveSizeInBits();
+        switch (arg->getValueID()) {
+          // All of the following constant cases were copied
+          // and pasted from LLVM's Value.h.
+          case Value::ConstantExprVal:
+          case Value::ConstantAggregateZeroVal:
+          case Value::ConstantDataArrayVal:
+          case Value::ConstantDataVectorVal:
+          case Value::ConstantIntVal:
+          case Value::ConstantFPVal:
+          case Value::ConstantArrayVal:
+          case Value::ConstantStructVal:
+          case Value::ConstantVectorVal:
+          case Value::ConstantPointerNullVal:
+            arg_ops++;
+            arg_op_bits += this_arg_bits*3;  // a = b + c
+            break;
+
+            // Non-constant cases count as a multiply and an add.
+          default:
+            arg_ops += 2;
+            arg_op_bits += this_arg_bits*6;  // a = b * c; d = a + f
+            break;
+        }
+      }
+      increment_global_variable(insert_before, op_var,
+                                ConstantInt::get(bbctx, APInt(64, arg_ops)));
+      must_clear |= CLEAR_OPS;
+      increment_global_variable(insert_before, op_bits_var,
+                                ConstantInt::get(bbctx, APInt(64, arg_op_bits)));
+      must_clear |= CLEAR_OP_BITS;
+      static_ops += arg_ops;
+    }
+    else {
+      // We're not a getelementptr instruction.  Determine the number
+      // of elements and number of bits on which this instruction
+      // operates.
+      ConstantInt* num_elts;    // Number of operations that this instruction performs
+      ConstantInt* num_bits;    // Number of bits that this instruction produces
+      num_elts = get_vector_length(bbctx, instType, one);
+      num_bits = ConstantInt::get(bbctx, APInt(64, instruction_operand_bits(inst)));
+
+      // Increment the operation counter and the operation bit counter.
+      increment_global_variable(insert_before, op_var, num_elts);
+      must_clear |= CLEAR_OPS;
+      if (!isa<LoadInst>(inst) && !isa<StoreInst>(inst)) {
+        // Count loads and stores as zero op bits to clarify reports
+        // of bits per op bit: we don't want memory bits contributing
+        // to both the numerator and the denominator.
+        increment_global_variable(insert_before, op_bits_var, num_bits);
+        must_clear |= CLEAR_OP_BITS;
+      }
+      static_ops += instType->isVectorTy() ? dyn_cast<VectorType>(instType)->getNumElements() : 1;
+    }
+  }
+
   // Instrument miscellaneous instructions.
   void BytesFlops::instrument_other(Module* module,
                                     StringRef function_name,
@@ -227,113 +310,51 @@ namespace bytesflops_pass {
                                     int& must_clear) {
     const Type* instType = inst.getType();    // Type of this instruction
     unsigned int opcode = inst.getOpcode();   // Current instruction's opcode
-    if (is_any_operation(inst, opcode, instType)) {
+    bool tally_fp = is_fp_operation(inst, opcode, instType);  // true=floating-point; false=integer
+
+    // Increment the flop counter and floating-point bit counter for
+    // any binary instruction with a floating-point type.
+    if (tally_fp) {
       ConstantInt* num_elts;    // Number of operations that this instruction performs
       ConstantInt* num_bits;    // Number of bits that this instruction produces
-      bool tally_fp = is_fp_operation(inst, opcode, instType);
 
-      // Initialize variables needed by at least one of the FP
-      // counter and the all-operation counter.
       num_elts = get_vector_length(bbctx, instType, one);
       num_bits = ConstantInt::get(bbctx, APInt(64, instruction_operand_bits(inst)));
-
-      if (tally_fp) {
-        // Increment the flop counter and floating-point bit counter
-        // for any binary instruction with a floating-point type.
-        increment_global_variable(insert_before, flop_var, num_elts);
-        must_clear |= CLEAR_FLOPS;
-        increment_global_variable(insert_before, fp_bits_var, num_bits);
-        must_clear |= CLEAR_FP_BITS;
-        static_flops++;
-      }
-      else {
-        // Increment the operation counter and the operation bit
-        // counter for non-floating point operations.
-        increment_global_variable(insert_before, op_var, num_elts);
-        must_clear |= CLEAR_OPS;
-        increment_global_variable(insert_before, op_bits_var, num_bits);
-        must_clear |= CLEAR_OP_BITS;
-        static_int_ops++;
-      }
-
-      // If the user requested a characterization of vector
-      // operations, see if we have a vector operation and
-      // if so, bin it.
-      if (TallyVectors)
-        do {
-          // Determine if this is a vector operation and one
-          // that we're interested in.
-          const VectorType *vt = dyn_cast<VectorType>(instType);
-          if (vt == NULL)
-            // This isn't a vector operation.
-            break;
-          if (opcode == Instruction::ExtractElement
-              || opcode == Instruction::InsertElement
-              || opcode == Instruction::ExtractValue
-              || opcode == Instruction::InsertValue)
-            // Ignore mixed scalar/vector operations.
-            break;
-
-          // Tally this vector operation.
-          vector<Value*> arg_list;
-          uint64_t elt_count = vt->getNumElements();
-          uint64_t total_bits = instType->getPrimitiveSizeInBits();
-          arg_list.push_back(map_func_name_to_arg(module, function_name));
-          arg_list.push_back(get_vector_length(bbctx, vt, one));
-          arg_list.push_back(ConstantInt::get(bbctx, APInt(64, total_bits/elt_count)));
-          arg_list.push_back(ConstantInt::get(bbctx, APInt(8, 1)));
-          callinst_create(tally_vector, arg_list, insert_before);
-        }
-        while (0);
+      increment_global_variable(insert_before, flop_var, num_elts);
+      must_clear |= CLEAR_FLOPS;
+      increment_global_variable(insert_before, fp_bits_var, num_bits);
+      must_clear |= CLEAR_FP_BITS;
+      static_flops++;
     }
-    else
-      if (isa<GetElementPtrInst>(inst)) {
-        // LLVM's getelementptr instruction requires special
-        // handling.  Given the C declaration "int *a", the
-        // getelementptr representation of a[3] is likely to
-        // turn into a+12 (a single addition), while the
-        // getelementptr representation of a[i] is likely to
-        // turn into a+4*i (an addition plus a multiplication).
-        // We therefore count variable arguments as two ops and
-        // constants as one op.
-        uint64_t arg_ops = 0;      // Expected number of operations
-        uint64_t arg_op_bits = 0;  // Expected number of bits used
-        User::const_op_iterator arg_iter = inst.op_begin();
-        for (arg_iter++; arg_iter != inst.op_end(); arg_iter++) {
-          Value* arg = dyn_cast<Value>(*arg_iter);
-          unsigned int this_arg_bits = arg->getType()->getPrimitiveSizeInBits();
-          switch (arg->getValueID()) {
-            // All of the following constant cases were copied
-            // and pasted from LLVM's Value.h.
-            case Value::ConstantExprVal:
-            case Value::ConstantAggregateZeroVal:
-            case Value::ConstantDataArrayVal:
-            case Value::ConstantDataVectorVal:
-            case Value::ConstantIntVal:
-            case Value::ConstantFPVal:
-            case Value::ConstantArrayVal:
-            case Value::ConstantStructVal:
-            case Value::ConstantVectorVal:
-            case Value::ConstantPointerNullVal:
-              arg_ops++;
-              arg_op_bits += this_arg_bits*3;  // a = b + c
-              break;
 
-              // Non-constant cases count as a multiply and an add.
-            default:
-              arg_ops += 2;
-              arg_op_bits += this_arg_bits*6;  // a = b * c; d = a + f
-              break;
-          }
-        }
-        increment_global_variable(insert_before, op_var,
-                                  ConstantInt::get(bbctx, APInt(64, arg_ops)));
-        must_clear |= CLEAR_OPS;
-        increment_global_variable(insert_before, op_bits_var,
-                                  ConstantInt::get(bbctx, APInt(64, arg_op_bits)));
-        must_clear |= CLEAR_OP_BITS;
-        static_int_ops++;
+    // If the user requested a characterization of vector operations,
+    // see if we have a vector operation and if so, bin it.
+    if (TallyVectors)
+      do {
+        // Determine if this is a vector operation and one
+        // that we're interested in.
+        const VectorType *vt = dyn_cast<VectorType>(instType);
+        if (vt == NULL)
+          // This isn't a vector operation.
+          break;
+        if (opcode == Instruction::ExtractElement
+            || opcode == Instruction::InsertElement
+            || opcode == Instruction::ExtractValue
+            || opcode == Instruction::InsertValue)
+          // Ignore mixed scalar/vector operations.
+          break;
+
+        // Tally this vector operation.
+        vector<Value*> arg_list;
+        uint64_t elt_count = vt->getNumElements();
+        uint64_t total_bits = instType->getPrimitiveSizeInBits();
+        arg_list.push_back(map_func_name_to_arg(module, function_name));
+        arg_list.push_back(get_vector_length(bbctx, vt, one));
+        arg_list.push_back(ConstantInt::get(bbctx, APInt(64, total_bits/elt_count)));
+        arg_list.push_back(ConstantInt::get(bbctx, APInt(8, 1)));
+        callinst_create(tally_vector, arg_list, insert_before);
       }
+      while (0);
   }
 
   // Do most of the instrumentation work: Walk each instruction in
@@ -351,7 +372,6 @@ namespace bytesflops_pass {
          func_iter++) {
       // Perform per-basic-block variable initialization.
       BasicBlock& bb = *func_iter;
-      static_insts += bb.size();
       LLVMContext& bbctx = bb.getContext();
       DataLayout& target_data = getAnalysis<DataLayout>();
       BasicBlock::iterator terminator_inst = bb.end();
@@ -379,10 +399,8 @@ namespace bytesflops_pass {
 
         // Ignore various function calls non grata.
         Instruction& inst = *iter;
-        if (ignorable_call(&inst)) {
-          static_insts--;
+        if (ignorable_call(&inst))
           continue;
-        }
 
         // Snag the current opcode for further interrogation.
         unsigned int opcode = iter->getOpcode();
@@ -406,10 +424,10 @@ namespace bytesflops_pass {
             break;
 
           default:
-            instrument_other(module, function_name, inst, bbctx,
-                             terminator_inst, must_clear);
+            instrument_other(module, function_name, inst, bbctx, terminator_inst, must_clear);
             break;
         }
+        instrument_all(module, function_name, inst, bbctx, terminator_inst, must_clear);
       }
 
       // Add one last bit of code then release the mega-lock and elide

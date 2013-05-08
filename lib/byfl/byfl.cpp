@@ -61,7 +61,7 @@ public:
   uint64_t flops;                     // Number of floating-point operations performed
   uint64_t fp_bits;                   // Number of bits consumed or produced by all FP operations
   uint64_t ops;                       // Number of operations of any type performed
-  uint64_t op_bits;                   // Number of bits consumed or produced by any operation
+  uint64_t op_bits;                   // Number of bits consumed or produced by any operation except loads/stores
 
   // Initialize all of the counters.
   ByteFlopCounters (uint64_t* initial_mem_insts=NULL,
@@ -260,7 +260,7 @@ uint64_t  bf_store_ins_count  = 0;    // Tally of the number of store instructio
 uint64_t  bf_flop_count       = 0;    // Tally of the number of FP operations performed
 uint64_t  bf_fp_bits_count    = 0;    // Tally of the number of bits used by all FP operations
 uint64_t  bf_op_count         = 0;    // Tally of the number of operations performed
-uint64_t  bf_op_bits_count    = 0;    // Tally of the number of bits used by all operations
+uint64_t  bf_op_bits_count    = 0;    // Tally of the number of bits used by all operations except loads/stores
 
 // The following values represent more persistent counter and other state.
 static uint64_t num_merged = 0;    // Number of basic blocks merged so far
@@ -854,6 +854,15 @@ private:
       tag += '(' + string(partition) + ')';
     bfout->imbue(std::locale(""));
 
+    // For convenience, assign names to each of our terminator tallies.
+    const uint64_t term_static = counter_totals.terminators[BF_END_BB_STATIC];
+    const uint64_t term_dynamic = counter_totals.terminators[BF_END_BB_DYNAMIC];
+    const uint64_t term_any = counter_totals.terminators[BF_END_BB_ANY];
+
+    // Compute the number of integer operations performed by
+    // subtracting flops, memory ops, and branch ops from total ops.
+    const uint64_t global_int_ops = counter_totals.ops - counter_totals.flops - global_mem_ops - term_any;
+
     // Report the raw measurements in terms of bytes and operations.
     *bfout << tag << ": " << separator << '\n';
     *bfout << tag << ": " << setw(25) << global_bytes << " bytes ("
@@ -862,17 +871,17 @@ private:
     if (bf_unique_bytes && !partition)
       *bfout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
     *bfout << tag << ": " << setw(25) << counter_totals.flops << " flops\n";
-    *bfout << tag << ": " << setw(25) << counter_totals.ops << " integer ops\n";
+    *bfout << tag << ": " << setw(25) << global_int_ops << " integer ops\n";
     *bfout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
            << counter_totals.load_ins << " loads + "
            << counter_totals.store_ins << " stores)\n";
-    const uint64_t term_static = counter_totals.terminators[BF_END_BB_STATIC];
-    const uint64_t term_dynamic = counter_totals.terminators[BF_END_BB_DYNAMIC];
-    const uint64_t term_any = counter_totals.terminators[BF_END_BB_ANY];
     *bfout << tag << ": " << setw(25) << term_any << " branch ops ("
            << term_static << " unconditional and direct + "
            << term_dynamic << " conditional or indirect + "
            << term_any - term_static - term_dynamic << " other)\n";
+    *bfout << tag << ": " << setw(25) << counter_totals.ops << " TOTAL OPS\n";
+
+    // Output reuse distance if measured.
     if (reuse_unique > 0) {
       uint64_t median_value;
       uint64_t mad_value;
@@ -924,7 +933,7 @@ private:
     if (bf_unique_bytes && !partition)
       *bfout << tag << ": " << setw(25) << global_unique_bytes*8 << " unique bits\n";
     *bfout << tag << ": " << setw(25) << counter_totals.fp_bits << " flop bits\n";
-    *bfout << tag << ": " << setw(25) << counter_totals.op_bits << " integer op bits\n";
+    *bfout << tag << ": " << setw(25) << counter_totals.op_bits << " op bits (excluding memory ops)\n";
     *bfout << tag << ": " << separator << '\n';
 
     // Report the amount of memory that passed through
@@ -954,7 +963,7 @@ private:
         bf_get_vector_statistics(partition, &num_vec_ops, &total_vec_elts, &total_vec_bits);
       else
         bf_get_vector_statistics(&num_vec_ops, &total_vec_elts, &total_vec_bits);
-      *bfout << tag << ": " << setw(25) << num_vec_ops << " vector operations\n";
+      *bfout << tag << ": " << setw(25) << num_vec_ops << " vector operations (FP & int)\n";
       if (num_vec_ops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)total_vec_elts / (double)num_vec_ops
@@ -967,6 +976,7 @@ private:
 
 
     // Pretty-print the histogram of instructions executed.
+    uint64_t total_insts = 0;
     if (bf_tally_inst_mix) {
       // Sort the histogram by decreasing opcode tally.
       extern const char* opcode2name[];
@@ -983,7 +993,6 @@ private:
       sort(sorted_inst_mix.begin(), sorted_inst_mix.end(), compare_name_tallies);
 
       // Output the sorted results.
-      uint64_t total_insts = 0;
       for (vector<name_tally>::iterator ntiter = sorted_inst_mix.begin();
            ntiter != sorted_inst_mix.end();
            ntiter++) {
@@ -1009,7 +1018,7 @@ private:
     if (counter_totals.load_ins > 0)
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)counter_totals.ops / (double)counter_totals.load_ins
-             << " integer ops per load instruction\n";
+             << " ops per load instruction\n";
     if (global_mem_ops > 0)
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_bytes*8 / (double)global_mem_ops
@@ -1022,22 +1031,26 @@ private:
       if (counter_totals.ops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)counter_totals.ops / (double)term_dynamic
-               << " integer ops per conditional/indirect branch\n";
+               << " ops per conditional/indirect branch\n";
       if (num_vec_ops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)num_vec_ops / (double)term_dynamic
-               << " vector ops per conditional/indirect branch\n";
+               << " vector ops (FP & int) per conditional/indirect branch\n";
     }
     if (num_vec_ops > 0) {
       if (counter_totals.flops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)num_vec_ops / (double)counter_totals.flops
-               << " vector operations (FP & int) per flop\n";
+               << " vector ops (FP & int) per flop\n";
       if (counter_totals.ops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)num_vec_ops / (double)counter_totals.ops
-               << " vector operations per integer op\n";
+               << " vector ops (FP & int) per op\n";
     }
+    if (total_insts > 0)
+      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+             << (double)counter_totals.ops / (double)total_insts
+             << " ops per instruction\n";
     *bfout << tag << ": " << separator << '\n';
     if (counter_totals.flops > 0) {
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
@@ -1050,10 +1063,10 @@ private:
     if (counter_totals.ops > 0)
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_bytes / (double)counter_totals.ops
-             << " bytes per integer op\n"
+             << " bytes per op\n"
              << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_bytes*8.0 / (double)counter_totals.op_bits
-             << " bits per integer op bit\n";
+             << " bits per (non-memory) op bit\n";
     if (bf_unique_bytes && (counter_totals.flops > 0 || counter_totals.ops > 0)) {
       *bfout << tag << ": " << separator << '\n';
       if (counter_totals.flops > 0)
@@ -1066,10 +1079,10 @@ private:
       if (counter_totals.ops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)global_unique_bytes / (double)counter_totals.ops
-               << " unique bytes per integer op\n"
+               << " unique bytes per op\n"
                << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
-               << " unique bits per integer op bit\n";
+               << " unique bits per (non-memory) op bit\n";
     }
     if (bf_unique_bytes && !partition)
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)

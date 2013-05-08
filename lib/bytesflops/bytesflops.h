@@ -127,9 +127,8 @@ namespace bytesflops_pass {
     uint64_t static_loads;   // Number of static load instructions
     uint64_t static_stores;  // Number of static store instructions
     uint64_t static_flops;   // Number of static floating-point instructions
-    uint64_t static_int_ops;   // Number of static integer-operation instructions
+    uint64_t static_ops;     // Number of static instructions of any type (except no-ops)
     uint64_t static_cond_brs;  // Number of static conditional or indirect branch instructions
-    uint64_t static_insts;     // Number of static instructions across all basic blocks
     uint64_t static_bblocks;   // Number of static basic blocks
     Function* init_if_necessary;  // Pointer to bf_initialize_if_necessary()
     Function* accum_bb_tallies;   // Pointer to bf_accumulate_bb_tallies()
@@ -187,10 +186,10 @@ namespace bytesflops_pass {
     ConstantInt* get_vector_length(LLVMContext& bbctx, const Type* dataType,
                                    ConstantInt* scalarValue);
 
+
     // Return true if and only if the given instruction should be
-    // tallied as an operation.
-    bool is_any_operation(const Instruction& inst, const unsigned int opcode,
-                          const Type* instType);
+    // treated as a do-nothing operation.
+    bool is_no_op(const Instruction& inst, const unsigned int opcode, const Type* instType);
 
     // Return true if and only if the given instruction should be
     // tallied as a floating-point operation.
@@ -238,7 +237,7 @@ namespace bytesflops_pass {
                          BasicBlock* insert_before);
 
     // Given a Call instruction, return true if we can safely ignore it.
-    bool ignorable_call (Instruction* inst);
+    bool ignorable_call (const Instruction* inst);
 
     // Instrument Load and Store instructions.
     void instrument_load_store(Module* module,
@@ -255,6 +254,14 @@ namespace bytesflops_pass {
                          Instruction* inst,
                          BasicBlock::iterator& insert_before,
                          int& must_clear);
+
+    // Instrument all instructions.
+    void instrument_all(Module* module,
+			StringRef function_name,
+			Instruction& iter,
+			LLVMContext& bbctx,
+			BasicBlock::iterator& insert_before,
+			int& must_clear);
 
     // Instrument miscellaneous instructions.
     void instrument_other(Module* module,
