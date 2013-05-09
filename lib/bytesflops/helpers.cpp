@@ -185,8 +185,8 @@ namespace bytesflops_pass {
   // Return true if and only if the given instruction should be
   // treated as a do-nothing operation.
   bool BytesFlops::is_no_op(const Instruction& inst,
-			    const unsigned int opcode,
-			    const Type* instType) {
+                            const unsigned int opcode,
+                            const Type* instType) {
     // Reject certain instructions that we expect to turn into no-ops
     // during code generation.
     if (ignorable_call(&inst))
@@ -208,7 +208,52 @@ namespace bytesflops_pass {
   bool BytesFlops::is_fp_operation(const Instruction& inst,
                                    const unsigned int opcode,
                                    const Type* instType) {
-    return inst.isBinaryOp(opcode) && instType->isFPOrFPVectorTy();
+    // Handle a few opcodes up front, without even looking at the
+    // instruction type.
+    switch (opcode) {
+      // We don't consider these to be floating-point operations, even
+      // if LLVM does.
+      case Instruction::BitCast:
+      case Instruction::ExtractElement:
+      case Instruction::InsertElement:
+      case Instruction::ShuffleVector:
+      case Instruction::ExtractValue:
+      case Instruction::InsertValue:
+        return false;
+        break;
+
+      // We consider these to be floating-point operations.
+      case Instruction::FPToUI:
+      case Instruction::FPToSI:
+      case Instruction::UIToFP:
+      case Instruction::SIToFP:
+      case Instruction::FPTrunc:
+      case Instruction::FPExt:
+      case Instruction::FCmp:
+      case Instruction::FAdd:
+      case Instruction::FSub:
+      case Instruction::FMul:
+      case Instruction::FDiv:
+      case Instruction::FRem:
+        return true;
+        break;
+
+      default:
+        break;
+    }
+
+    // Find the elemental type of instType and test that for being a
+    // floating-point type.
+    const Type* eltType = instType;
+    while (eltType->isVectorTy())
+      eltType = eltType->getVectorElementType();
+    if (!eltType->isFloatingPointTy())
+      return false;
+
+    // We don't expect ever to get here.
+    errs() << "bytesflops: Encountered " << inst << '\n';
+    report_fatal_error("Internal error: Found unexpected FP instruction");
+    return true;
   }
 
   // Return the total number of bits consumed and produced by a
