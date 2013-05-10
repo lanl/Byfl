@@ -74,6 +74,34 @@ namespace bytesflops_pass {
     // Assign a value to bf_max_reuse_dist.
     create_global_constant(module, "bf_max_reuse_distance", uint64_t(MaxReuseDist));
 
+    // Create a global string that stores all of our command-line options.
+    ifstream cmdline("/proc/self/cmdline");   // Full command line passed to opt
+    stringstream bf_cmdline;  // Reconstructed command line with -bf-* options only
+    if (cmdline.is_open()) {
+      // Read the command line into a buffer.
+      const size_t maxcmdlinelen = 65536;
+      char cmdline_chars[maxcmdlinelen];
+      cmdline.read(cmdline_chars, maxcmdlinelen);
+      cmdline.close();
+
+      // Parse the command line.  Each argument is terminated by a
+      // null character, and the command line as a whole is terminated
+      // by two null characters.
+      char* arg = cmdline_chars;
+      while (1) {
+        size_t arglen = strlen(arg);
+        if (arglen == 0)
+          break;
+        if (!strncmp(arg, "-bf", 3))
+          bf_cmdline << ' ' << arg;
+        arg += arglen + 1;
+      }
+    }
+    const char *bf_cmdline_str = bf_cmdline.str().c_str();
+    if (bf_cmdline_str[0] == ' ')
+      bf_cmdline_str++;
+    create_global_constant(module, "bf_option_string", bf_cmdline_str);
+
     // Inject external declarations for
     // bf_initialize_if_necessary(), bf_push_basic_block(), and
     // bf_pop_basic_block().
@@ -191,10 +219,10 @@ namespace bytesflops_pass {
       all_function_args.push_back(IntegerType::get(globctx, 32));
       all_function_args.push_back(IntegerType::get(globctx, 1));
       FunctionType* void_func_result =
-	FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+        FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       memset_intrinsic =
-	Function::Create(void_func_result, GlobalValue::ExternalLinkage,
-			 "llvm.memset.p0i8.i64", &module);
+        Function::Create(void_func_result, GlobalValue::ExternalLinkage,
+                         "llvm.memset.p0i8.i64", &module);
       memset_intrinsic->setCallingConv(CallingConv::C);
     }
 
@@ -270,9 +298,9 @@ namespace bytesflops_pass {
             << static_loads << " loads, "
             << static_stores << " stores, "
             << static_flops << " flops, "
-	    << static_cond_brs << " cond_brs, "
-	    << static_ops << " total_ops, "
-	    << static_bblocks << " bblocks\n";
+            << static_cond_brs << " cond_brs, "
+            << static_ops << " total_ops, "
+            << static_bblocks << " bblocks\n";
   }
 
 }  // namespace bytesflops_pass

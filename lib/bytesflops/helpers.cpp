@@ -127,9 +127,9 @@ namespace bytesflops_pass {
   }
 
   // Mark a variable as "used" (not eligible for dead-code elimination).
-  void BytesFlops::mark_as_used(Module& module, GlobalVariable* protected_var) {
+  void BytesFlops::mark_as_used(Module& module, Constant* protected_var) {
     LLVMContext& globctx = module.getContext();
-    PointerType* ptr8 = PointerType::get(IntegerType::get(globctx, 8), 0);
+    PointerType* ptr8 = Type::getInt8PtrTy(globctx);
     ArrayType* ptr8_array = ArrayType::get(ptr8, 1);
 
     GlobalVariable* llvm_used =
@@ -145,7 +145,7 @@ namespace bytesflops_pass {
   // Create and initialize a global uint64_t constant in the
   // instrumented code.
   GlobalVariable* BytesFlops::create_global_constant(Module& module,
-                                                     const char *name,
+                                                     const char* name,
                                                      uint64_t value) {
     LLVMContext& globctx = module.getContext();
     IntegerType* i64type = Type::getInt64Ty(globctx);
@@ -160,7 +160,7 @@ namespace bytesflops_pass {
   // Create and initialize a global bool constant in the instrumented
   // code.
   GlobalVariable* BytesFlops::create_global_constant(Module& module,
-                                                     const char *name,
+                                                     const char* name,
                                                      bool value) {
     LLVMContext& globctx = module.getContext();
     IntegerType* booltype = Type::getInt1Ty(globctx);
@@ -168,6 +168,35 @@ namespace bytesflops_pass {
     GlobalVariable* new_constant =
       new GlobalVariable(module, booltype, true, GlobalValue::LinkOnceODRLinkage,
                          const_value, name);
+    mark_as_used(module, new_constant);
+    return new_constant;
+  }
+
+  // Create and initialize a global char* constant in the instrumented
+  // code.
+  GlobalVariable* BytesFlops::create_global_constant(Module& module,
+                                                     const char* name,
+                                                     const char* value) {
+    // First, create a _local_ array of characters.
+    LLVMContext& globctx = module.getContext();
+    size_t num_bytes = strlen(value) + 1;   // Number of characters including the trailing '\0'
+    ArrayType* array_type = ArrayType::get(Type::getInt8Ty(globctx), num_bytes);
+    Constant *local_string = ConstantDataArray::getString(globctx, value, true);
+    GlobalVariable* string_contents =
+      new GlobalVariable(module, array_type, true, GlobalValue::PrivateLinkage,
+                         local_string, string(name)+string(".data"));
+    string_contents->setAlignment(8);
+
+    // Next, create a global pointer to the local array of characters.
+    std::vector<Constant*> getelementptr_indexes;
+    getelementptr_indexes.push_back(zero);
+    getelementptr_indexes.push_back(zero);
+    Constant* array_pointer =
+      ConstantExpr::getGetElementPtr(string_contents, getelementptr_indexes);
+    PointerType* pointer_type = PointerType::get(Type::getInt8Ty(globctx), 0);
+    GlobalVariable* new_constant =
+      new GlobalVariable(module, pointer_type, true,
+                         GlobalValue::LinkOnceODRLinkage, array_pointer, name);
     mark_as_used(module, new_constant);
     return new_constant;
   }

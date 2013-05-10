@@ -46,6 +46,7 @@ extern uint8_t  bf_call_stack;       // 1=maintain a function call stack
 extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
 extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
 extern uint8_t  bf_tally_inst_mix;   // 1=maintain instruction mix histogram
+extern const char* bf_option_string; // -bf-* command-line options
 
 // Encapsulate of all of our counters into a single structure.
 class ByteFlopCounters {
@@ -567,6 +568,16 @@ static bool suppress_output (void)
       }
     }
 
+    // Output some informational messages.
+    bfout->imbue(locale(""));
+    ios_base::fmtflags bfout_flags = bfout->flags();
+    *bfout << "BYFL_INFO: Byfl command line: " << bf_option_string << '\n'
+           << "BYFL_INFO: Number formatting: "
+           << fixed << setw(12) << setprecision(5)
+           << 11111.22222 << '\n';
+    bfout->flags(bfout_flags);
+    bfout->imbue(locale());
+
     // Warn the user if he defined bf_categorize_counters() but didn't
     // compile with -bf-every-bb.
     if (bf_categorize_counters != bf_categorize_counters_original && !bf_every_bb)
@@ -852,7 +863,7 @@ private:
     string tag(bf_output_prefix + "BYFL_SUMMARY");
     if (partition)
       tag += '(' + string(partition) + ')';
-    bfout->imbue(std::locale(""));
+    bfout->imbue(locale(""));
 
     // For convenience, assign names to each of our terminator tallies.
     const uint64_t term_static = counter_totals.terminators[BF_END_BB_STATIC];

@@ -18,6 +18,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include <fstream>
+#include <sstream>
 #include <vector>
 #include <set>
 #include "byfl-common.h"
@@ -43,7 +44,7 @@ namespace bytesflops_pass {
   extern cl::opt<bool> TrackUniqueBytes;
 
   // Define a command-line option for tallying load/store operations
-  // based on various data types (note this also implies --bf-all-ops).
+  // based on various data types.
   extern cl::opt<bool> TallyTypes;
 
   // Define a command-line option for tallying a histogram of the
@@ -170,17 +171,22 @@ namespace bytesflops_pass {
                                 Value* increment);
 
     // Mark a variable as "used" (not eligible for dead-code elimination).
-    void mark_as_used(Module& module, GlobalVariable* protected_var);
+    void mark_as_used(Module& module, Constant* protected_var);
 
     // Create and initialize a global uint64_t constant in the
     // instrumented code.
-    GlobalVariable* create_global_constant(Module& module, const char *name,
+    GlobalVariable* create_global_constant(Module& module, const char* name,
                                            uint64_t value);
 
     // Create and initialize a global bool constant in the
     // instrumented code.
-    GlobalVariable* create_global_constant(Module& module, const char *name,
+    GlobalVariable* create_global_constant(Module& module, const char* name,
                                            bool value);
+
+    // Create and initialize a global char* constant in the
+    // instrumented code.
+    GlobalVariable* create_global_constant(Module& module, const char* name,
+                                           const char* value);
 
     // Return the number of elements in a given vector.
     ConstantInt* get_vector_length(LLVMContext& bbctx, const Type* dataType,
@@ -257,11 +263,11 @@ namespace bytesflops_pass {
 
     // Instrument all instructions.
     void instrument_all(Module* module,
-			StringRef function_name,
-			Instruction& iter,
-			LLVMContext& bbctx,
-			BasicBlock::iterator& insert_before,
-			int& must_clear);
+                        StringRef function_name,
+                        Instruction& iter,
+                        LLVMContext& bbctx,
+                        BasicBlock::iterator& insert_before,
+                        int& must_clear);
 
     // Instrument miscellaneous instructions.
     void instrument_other(Module* module,
