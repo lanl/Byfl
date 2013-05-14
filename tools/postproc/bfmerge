@@ -46,11 +46,11 @@ sub process_file ($)
 
         # Parse the input line.
         my $key = $info;
-        $key =~ s/(\s*[\d,]+(\.\d+)?)/sprintf '%%%d.%df', length($1), defined $2 ? length($2)-1 : 0/ge;
+        $key =~ s/(\s*\d[\d,]*(\.\d+)?)(?=\s)/sprintf '%%%d.%df', length($1), defined $2 ? length($2)-1 : 0/ge;
         $key =~ s/(?<=[+\w])\%(\d+)/' %' . ($1-1)/ge;
         $key = $tag . $key;
         my @data;
-        while ($info =~ /\b([\d,]+(\.\d+)?)\b/g) {
+        while ($info =~ /\b(\d[\d,]*(\.\d+)?)\b/g) {
             my $value = $1;
             $value =~ s/,//g;
             next if $value eq "";
@@ -80,17 +80,16 @@ sub printf_1000 ($$@)
         return;
     }
     my $i = 0;
-    while ($format =~ /\%(\d+)\.(\d+)f/g) {
+    while ($format =~ /\%(\d+)\.(\d+)f/go) {
         my $prec = $2;
         $args[$i] = $fmt->format_number($args[$i], $prec, 1);
         if ($prec == 0) {
-            $args[$i] =~ s/\..+$//;
+            $args[$i] =~ s/\..+$//o;
         }
         $i++;
     }
-    $format =~ s/\%(\d+)\.(\d+)f/\%${fmtwidth}.${fmtwidth}s/g;
-    while ($format =~ s/(\(.*)\%[^s]+s/$1\%s/) {
-    }
+    $format =~ s/\%(\d+)\.(\d+)f/\%${fmtwidth}.${fmtwidth}s/go;
+    1 while $format =~ s/(\(.*)\%[^s]+s/$1\%s/o;
     printf $format, @args;
 }
 
