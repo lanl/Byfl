@@ -167,7 +167,7 @@ foreach my $key (@byfl_keys) {
     foreach my $e (0 .. $numelts - 1) {
         my @data;
         foreach my $lst (0 .. $#datalists) {
-            push @data, Math::BigFloat->new($datalists[$lst]->[$e]);
+            push @data, $datalists[$lst]->[$e];
         }
         @data = sort {$a <=> $b} @data;
         push @data_by_pos, \@data;
@@ -182,7 +182,10 @@ foreach my $statistic (qw(sum min max median mad mean stdev)) {
     foreach my $key (@byfl_keys) {
         # Compute the given statistic across all the data.
         next if $key =~ /-{5}/o;
-        my @data_by_pos = @{$all_byfl_data{$key}};
+        my @data_by_pos;     # Current data, converted to bignums
+        foreach my $lst (@{$all_byfl_data{$key}}) {
+            push @data_by_pos, [map {Math::BigFloat->new($_)} @$lst];
+        }
         my $is_summary = substr($key, 0, 12) eq "BYFL_SUMMARY";
         my @data;    # Data after $statistic is applied to each list in @data_by_pos
         given ($statistic) {
