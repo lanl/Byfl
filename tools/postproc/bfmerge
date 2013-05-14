@@ -7,6 +7,9 @@
 #############################################
 
 use File::Basename;
+use File::Find;
+use File::Spec;
+use Math::BigFloat;
 use Number::Format;
 use Statistics::Basic qw(:all);
 use warnings;
@@ -15,8 +18,13 @@ use feature "switch";
 
 # Define some global variables.
 my $progname = basename $0;    # Name of this program
+my $verbosity = 1;             # 1=show progress; 0=be quiet
 my @byfl_keys;                 # BYFL lines sorted by order of appearance
 my %all_byfl_data;             # Map from a BYFL line to a list of data, one per input file/prefix
+my $fmtwidth = 25;             # Width of a formatted numeric field
+
+# Specify the amount of precision to use for big floats.
+Math::BigFloat->precision(-4);
 
 # Define a subroutine to process a single file, mapping each Byfl
 # output string to a list of data, one per input file/prefix.  Note
@@ -25,22 +33,24 @@ my %all_byfl_data;             # Map from a BYFL line to a list of data, one per
 sub process_file ($)
 {
     my $infile = $_[0];
+    print STDERR "${progname}: Processing $infile ... " if $verbosity > 0;
     open(INFILE, "<$infile") || die "${progname}: Failed to open $infile ($!)\n";
     while (my $oneline = <INFILE>) {
-	# Ignore non-Byfl data and BYFL_BB lines.
+        # Ignore non-Byfl data and BYFL_BB lines.
         next if $oneline !~ /^(.*)(BYFL\w+:\s)(.*)$/o;
         my ($prefix, $tag, $info) = ($1, $2, $3);
-	next if substr($tag, 0, 7) eq "BYFL_BB";
+        next if substr($tag, 0, 7) eq "BYFL_BB";
 
         # Parse the input line.
         my $key = $info;
         $key =~ s/(\s*[\d,]+(\.\d+)?)/sprintf '%%%d.%df', length($1), defined $2 ? length($2)-1 : 0/ge;
-	$key =~ s/(?<=[+\w])\%(\d+)/' %' . ($1-1)/ge;
-	$key = $tag . $key;
+        $key =~ s/(?<=[+\w])\%(\d+)/' %' . ($1-1)/ge;
+        $key = $tag . $key;
         my @data;
-        while ($info =~ /([\d,]+(\.\d+)?)/g) {
+        while ($info =~ /\b([\d,]+(\.\d+)?)\b/g) {
             my $value = $1;
             $value =~ s/,//g;
+	    next if $value eq "";
             push @data, $value + 0;
         }
 
@@ -52,16 +62,7 @@ sub process_file ($)
         push @{$all_byfl_data{$key}}, \@data;
     }
     close INFILE;
-}
-
-# Process all of our input files.
-if ($#ARGV == -1) {
-    process_file "-";
-}
-else {
-    foreach my $fname (@ARGV) {
-	process_file $fname;
-    }
+    print STDERR "done.\n" if $verbosity > 0;
 }
 
 # Define a subroutine that wraps printf with code to output
@@ -72,18 +73,75 @@ sub printf_1000 ($$@)
 {
     my ($ordinary, $format, @args) = @_;
     if ($ordinary) {
-	printf $format, @args;
-	return;
+        printf $format, @args;
+        return;
     }
     my $i = 0;
     while ($format =~ /\%(\d+)\.(\d+)f/g) {
-	$args[$i] = $fmt->format_number($args[$i], $2, 1);
-	$i++;
+        my $prec = $2;
+        $args[$i] = $fmt->format_number($args[$i], $prec, 1);
+        if ($prec == 0) {
+            $args[$i] =~ s/\..+$//;
+        }
+        $i++;
     }
-    $format =~ s/\%(\d+)\.(\d+)f/sprintf '%%%d.%ds', ($1+$2+($2>0)), ($1+$2+($2>0))/ge;
+    $format =~ s/\%(\d+)\.(\d+)f/\%${fmtwidth}.${fmtwidth}s/g;
     while ($format =~ s/(\(.*)\%[^s]+s/$1\%s/) {
     }
     printf $format, @args;
+}
+
+# Number::Format doesn't play nicely with bignums.  In particular, its
+# round() method hard-wires a comparison with MAX_INT -- which it
+# hard-wires to 2**53 -- and aborts with an unhelpful error message if
+# that number is exceeded.  The nasty hack we use here is to redefine
+# Number::Format's round() method with the MAX_INT comparison elided
+# and with a few explicit Math::BigFloat->new() calls thrown in to
+# force bignum types.  We should *not* have to do this.
+no warnings;
+package Number::Format;
+*round = sub {
+    my ($self, $number, $precision) = _get_self @_;
+    $precision = $self->{decimal_digits} unless defined $precision;
+    $precision = 2 unless defined $precision;
+    $number    = 0 unless defined $number;
+
+    my $sign       = $number <=> 0;
+    my $multiplier = (Math::BigFloat->new(10) ** $precision);
+    my $result     = abs($number);
+    my $product    = $result * $multiplier;
+
+#    croak "round() overflow. Try smaller precision or use Math::BigFloat"
+#        if $product > MAX_INT;
+
+    # We need to add 1e-14 to avoid some rounding errors due to the
+    # way floating point numbers work - see string-eq test in t/round.t
+    $result = Math::BigFloat->new(int($product + .5 + 1e-14)) / $multiplier;
+    $result = -$result if $sign < 0;
+    return $result;
+};
+package main;
+use warnings;
+
+###########################################################################
+
+# Process all of our input files.  Recursively process directories of
+# input files.
+my @all_files;
+if ($#ARGV == -1) {
+    # If no filenames were specified, read all input from standard input.
+    push @all_files, "-";
+}
+else {
+    # Add each file -- and the recursive contents of each directory --
+    # specified on the command line.
+    find({
+        no_chdir => 1,
+        wanted => sub {push @all_files, $_ if -f $_}
+         }, @ARGV);
+}
+foreach my $fname (sort @all_files) {
+    process_file $fname;
 }
 
 # For convenience, transpose the data associated with each key from M
@@ -93,12 +151,12 @@ foreach my $key (@byfl_keys) {
     my $numelts = 1 + $#{$datalists[0]};
     my @data_by_pos;   # Each element is the data for one position across all input files.
     foreach my $e (0 .. $numelts - 1) {
-	my @data;
-	foreach my $lst (0 .. $#datalists) {
-	    push @data, $datalists[$lst]->[$e];
-	}
-	@data = sort {$a <=> $b} @data;
-	push @data_by_pos, \@data;
+        my @data;
+        foreach my $lst (0 .. $#datalists) {
+            push @data, Math::BigFloat->new($datalists[$lst]->[$e]);
+        }
+        @data = sort {$a <=> $b} @data;
+        push @data_by_pos, \@data;
     }
     $all_byfl_data{$key} = \@data_by_pos;
 }
@@ -108,42 +166,43 @@ foreach my $statistic (qw(sum min max median mad mean stdev)) {
     my $stat_str = sprintf '%-8.8s', "[" . uc($statistic) . "]";
     print "$stat_str BYFL_STATISTICS: ", "-" x 70, "\n";
     foreach my $key (@byfl_keys) {
-	# Compute the given statistic across all the data.
-	next if $key =~ /-{5}/o;
-	my @data_by_pos = @{$all_byfl_data{$key}};
-	my $is_summary = substr($key, 0, 12) eq "BYFL_SUMMARY";
-	my @data;    # Data after $statistic is applied to each list in @data_by_pos
-	given ($statistic) {
-	    when ("sum") {
-		# Compute the sum across all data.
-		foreach my $lst (@data_by_pos) {
-		    my $sum = 0;
-		    foreach my $val (@$lst) {
-			$sum += $val;
-		    }
-		    push @data, $sum;
-		}
-	    }
-	    when ("mad") {
-		# Compute the median absolute deviation across all data.
-		foreach my $lst (@data_by_pos) {
-		    my $median = median $lst;
-		    my @absdev;
-		    foreach my $val (@$lst) {
-			push @absdev, abs($val - $median);
-		    }
-		    push @data, median @absdev;
-		}
-	    }
-	    when ("min")    { @data = map {$_->[0]} @data_by_pos }
-	    when ("max")    { @data = map {$_->[$#_]} @data_by_pos }
-	    when ("median") { @data = map {median $_} @data_by_pos }
-	    when ("mean")   { @data = map {mean $_} @data_by_pos }
-	    when ("stdev")  { @data = map {stddev $_} @data_by_pos }
-	    default         { die "${progname}: Internal error (\U$statistic\E)" }
-	}
+        # Compute the given statistic across all the data.
+        next if $key =~ /-{5}/o;
+        my @data_by_pos = @{$all_byfl_data{$key}};
+        my $is_summary = substr($key, 0, 12) eq "BYFL_SUMMARY";
+        my @data;    # Data after $statistic is applied to each list in @data_by_pos
+        given ($statistic) {
+            when ("sum") {
+                # Compute the sum across all data.
+                foreach my $lst (@data_by_pos) {
+                    my $sum = Math::BigFloat->bzero();
+                    foreach my $val (@$lst) {
+                        $sum += $val;
+                    }
+                    push @data, $sum;
+                }
+            }
+            when ("mad") {
+                # Compute the median absolute deviation across all data.
+                foreach my $lst (@data_by_pos) {
+                    my @lstdata = @$lst;
+                    my $median = ($lstdata[$#lstdata/2] + $lstdata[$#lstdata - $#lstdata/2]) / 2.0;  # median function misbehaves here
+                    my @absdev;
+                    foreach my $val (@$lst) {
+                        push @absdev, abs($val - $median);
+                    }
+                    push @data, median @absdev;
+                }
+            }
+            when ("min")    { @data = map {$_->[0]} @data_by_pos }
+            when ("max")    { @data = map {$_->[$#_]} @data_by_pos }
+            when ("median") { @data = map {median $_} @data_by_pos }
+            when ("mean")   { @data = map {mean $_} @data_by_pos }
+            when ("stdev")  { @data = map {stddev $_} @data_by_pos }
+            default         { die "${progname}: Internal error (\U$statistic\E)" }
+        }
 
-	# Substitute the data into the template ($key) and output the result.
-	printf_1000 !$is_summary, "$stat_str $key\n", @data;
+        # Substitute the data into the template ($key) and output the result.
+        printf_1000 !$is_summary, "$stat_str $key\n", @data;
     }
 }
