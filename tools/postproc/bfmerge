@@ -9,6 +9,7 @@
 use File::Basename;
 use File::Find;
 use File::Spec;
+use Getopt::Long;
 use Math::BigFloat;
 use Number::Format;
 use Statistics::Basic qw(:all);
@@ -19,6 +20,7 @@ use feature "switch";
 # Define some global variables.
 my $progname = basename $0;    # Name of this program
 my $verbosity = 1;             # 1=show progress; 0=be quiet
+my $byfl_re;                   # Regular expression that each input line must match
 my @byfl_keys;                 # BYFL lines sorted by order of appearance
 my %all_byfl_data;             # Map from a BYFL line to a list of data, one per input file/prefix
 my $fmtwidth = 25;             # Width of a formatted numeric field
@@ -40,6 +42,7 @@ sub process_file ($)
         next if $oneline !~ /^(.*)(BYFL\w+:\s)(.*)$/o;
         my ($prefix, $tag, $info) = ($1, $2, $3);
         next if substr($tag, 0, 7) eq "BYFL_BB";
+        next if defined $byfl_re && $oneline !~ /$byfl_re/o;
 
         # Parse the input line.
         my $key = $info;
@@ -50,7 +53,7 @@ sub process_file ($)
         while ($info =~ /\b([\d,]+(\.\d+)?)\b/g) {
             my $value = $1;
             $value =~ s/,//g;
-	    next if $value eq "";
+            next if $value eq "";
             push @data, $value + 0;
         }
 
@@ -124,6 +127,17 @@ package main;
 use warnings;
 
 ###########################################################################
+
+# Parse the commmand line.
+my $usagestr = "Usage: ${0} [--parse=<regexp>] [<byfl_output>]...\n";
+my $wanthelp = 0;
+GetOptions("h|help"    => \$wanthelp,
+           "p|parse=s" => \$byfl_re)
+    || die $usagestr;
+if ($wanthelp) {
+    print $usagestr;
+    exit 0;
+}
 
 # Process all of our input files.  Recursively process directories of
 # input files.
