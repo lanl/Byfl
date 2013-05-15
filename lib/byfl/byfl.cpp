@@ -568,15 +568,8 @@ static bool suppress_output (void)
       }
     }
 
-    // Output some informational messages.
-    bfout->imbue(locale(""));
-    ios_base::fmtflags bfout_flags = bfout->flags();
-    *bfout << "BYFL_INFO: Byfl command line: " << bf_option_string << '\n'
-           << "BYFL_INFO: Number formatting: "
-           << fixed << setw(12) << setprecision(5)
-           << 11111.22222 << '\n';
-    bfout->flags(bfout_flags);
-    bfout->imbue(locale());
+    // Log the Byfl command line to help users reproduce their results.
+    *bfout << "BYFL_INFO: Byfl command line: " << bf_option_string << '\n';
 
     // Warn the user if he defined bf_categorize_counters() but didn't
     // compile with -bf-every-bb.
