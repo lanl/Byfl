@@ -29,7 +29,7 @@ install:: wrappers.mak $(addprefix $(PROJ_OBJ_DIR)/, $(GENERATED_SCRIPTS))
 
 clean-local::
 	-$(Verb) if [ -e wrappers.mak ] ; then $(MAKE) -f wrappers.mak clean ; fi
-	-$(Verb) $(RM) -f bf-gfortran bf-g++ bf-gcc
+	-$(Verb) $(RM) -f bf-gccgo bf-gfortran bf-g++ bf-gcc
 	-$(Verb) $(RM) -f $(GENERATED_SCRIPTS)
 	-$(Verb) $(RM) -f Makefile.PL wrappers.mak wrappers.mak.old
 	-$(Verb) $(RM) -rf lib

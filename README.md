@@ -101,7 +101,7 @@ Usage
 
 ### Basic usage
 
-Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc`, `bf-g++`, and `bf-gfortran` wrap, respectively, the GNU C, C++, and Fortran compilers.  `bf-mpicc`, `bf-mpicxx`, `bf-mpif90`, and `bf-mpif77` further wrap the similarly named [Open MPI](http://www.open-mpi.org/) and [MPICH](http://www.mpich.org/) wrapper scripts to use the Byfl compiler scripts instead of the default C, C++, and Fortran compilers.  Use any of these scripts as you would the underlying compiler.  When you run your code, Byfl will output a sequence of `BYFL`-prefixed lines to the standard output device:
+Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc`, `bf-g++`, `bf-gfortran`, and `bf-gccgo` wrap, respectively, the GNU C, C++, Fortran, and Go compilers.  `bf-mpicc`, `bf-mpicxx`, `bf-mpif90`, and `bf-mpif77` further wrap the similarly named [Open MPI](http://www.open-mpi.org/) and [MPICH](http://www.mpich.org/) wrapper scripts to use the Byfl compiler scripts instead of the default C, C++, and Fortran compilers.  Use any of these scripts as you would the underlying compiler.  When you run your code, Byfl will output a sequence of `BYFL`-prefixed lines to the standard output device:
 
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                     1,280 bytes (512 loaded + 768 stored)

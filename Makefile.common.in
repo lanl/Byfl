@@ -18,8 +18,9 @@ PROJ_OBJ_ROOT := $(subst //,/,@abs_top_builddir@)
 # Set the root directory of this project's install prefix
 PROJ_INSTALL_ROOT := @prefix@
 
-# The following come in handy when building the libbyfl.bca helper library
-# and when customizing the bf-gcc, bf-g++, and bf-gfortran wrapper scripts.
+# The following come in handy when building the libbyfl.bca helper
+# library and when customizing the bf-gcc, bf-g++, bf-gfortran, and
+# bf-gcc wrapper scripts.
 LLVMCXX = @LLVMCXX@
 LLVMCC_EMITIR_FLAG = @LLVMCC_EMITIR_FLAG@
 LLVMCC_OPTION = @LLVMCC_OPTION@

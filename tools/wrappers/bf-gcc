@@ -481,6 +481,7 @@ if (defined $build_type{"link"}) {
         push @llvm_ld_options, "-lstdc++";
     }
     push @llvm_ld_options, "-lgfortran" if $compiler eq "gfortran";
+    push @llvm_ld_options, ("-lgobegin", "-lgo") if $compiler eq "gccgo";
 
     # Construct a list of linker inputs.
     my @llvm_ld_inputs;    # Ordered list of .a and .o files.

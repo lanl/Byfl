@@ -23,7 +23,7 @@ ParseGccOpts - Parse GCC options into compiler and linker options
 =head1 DESCRIPTION
 
 This module is intended to be used internally by the Byfl wrapper
-scripts (bf-gcc, bf-g++, and bf-gfortran).
+scripts (bf-gcc, bf-g++, bf-gfortran, and bf-gccgo).
 
 =head1 AUTHOR
 
