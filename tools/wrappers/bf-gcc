@@ -456,8 +456,8 @@ if (defined $build_type{"link"}) {
             push @llvm_ld_options, "-$opt=$arg";
         }
         else {
-            push @llvm_ld_options, "-Xlinker=-$opt";
-            push @llvm_ld_options, "-Xlinker=$arg" if defined $arg;
+            push @llvm_ld_options, ("-Xlinker", "-$opt");
+            push @llvm_ld_options, ("-Xlinker", "$arg") if defined $arg;
         }
     }
 

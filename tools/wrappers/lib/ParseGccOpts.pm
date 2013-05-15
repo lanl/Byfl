@@ -151,11 +151,9 @@ sub parse_gcc_options (@)
                         "save-temps:s" => sub {
                             if ($_[1] eq "") {
                                 $for_compiler->($_[0], undef);
-                                $for_linker->($_[0], undef);
                             }
                             else {
                                 $for_compiler->($_[0], $_[1]);
-                                $for_linker->($_[0], $_[1]);
                             }
                         },
                         "O=s" => sub {
