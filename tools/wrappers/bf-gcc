@@ -360,7 +360,9 @@ if (defined $build_type{"compile"}) {
         $bcfile =~ s/\.s$/.bc/;
         my $opt_bcfile = $bcfile;
         $opt_bcfile =~ s/\.bc$/.opt.bc/;
-        my @deletable = ($sfile, $bcfile, $opt_bcfile);
+        my $byfl_bcfile = $bcfile;
+        $byfl_bcfile =~ s/\.bc$/.byfl.bc/;
+        my @deletable = ($sfile, $bcfile, $opt_bcfile, $byfl_bcfile);
 
         # Run the static analyzer if -bf-static was specified.
         execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
@@ -375,20 +377,21 @@ if (defined $build_type{"compile"}) {
         # run an optimization pass before Byfl instrumentation if
         # any optimizations are specified on the command line.
         my $infile = $sfile;
+        my $optlevel = $optimization_level;
         if ($optimization_level ne "0") {
             # Make a few modifications to the optimization level
             # specified on the command line for opt's benefit.
             # Specifically, replace "-Ofast" and any "-O<n>" for n>3
             # with "-O3".
-            my $optlevel = $optimization_level;
             $optlevel = "3" if $optlevel eq "fast" || ($optlevel =~ /^(\d+)$/ && $1 > 3);
             execute_command("opt", "-O$optlevel",
                             $infile, "-o", $opt_bcfile);
             $infile = $opt_bcfile;
         }
 
-        # Instrument with Byfl then optimize the result using the
-        # LLVM optimizer's standard compiler options.
+        # Instrument with Byfl then optimize the result using the LLVM
+        # optimizer at -O3 or higher (unless -Os or some other
+        # non-numeric optimization level is specified).
         if ($bf_disable eq "byfl") {
             # Disable the bytesflops plugin if so instructed.
             if ($optimization_level eq "0") {
@@ -403,8 +406,20 @@ if (defined $build_type{"compile"}) {
             # Normally, we run Byfl instrumentation.
             execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
                             "-bytesflops", @bf_options,
-                            "-std-compile-opts",
-                            $infile, "-o", $bcfile);
+                            $infile, "-o", $byfl_bcfile);
+            if ($optlevel =~ /^\d+$/) {
+                # Numeric optimization level -- round to -O3 or higher
+                # then run the bitcode through opt.
+                my $post_byfl_opt = $optlevel;
+                $post_byfl_opt = "3" if $post_byfl_opt < 3;
+                execute_command("opt", "-O$post_byfl_opt",
+                                $byfl_bcfile, "-o", $bcfile);
+            }
+            else {
+                # Non-numeric optimization level -- don't run opt.
+                print STDERR "mv $byfl_bcfile $bcfile\n" if $verbosity > 0;
+                rename($byfl_bcfile, $bcfile) || die "${progname}: $!\n";
+            }
         }
 
         # Embed the LLVM bitcode within a .o file.
