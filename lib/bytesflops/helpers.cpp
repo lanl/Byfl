@@ -244,27 +244,29 @@ namespace bytesflops_pass {
       // if LLVM does.
       case Instruction::BitCast:
       case Instruction::ExtractElement:
-      case Instruction::InsertElement:
-      case Instruction::ShuffleVector:
       case Instruction::ExtractValue:
+      case Instruction::InsertElement:
       case Instruction::InsertValue:
+      case Instruction::Invoke:
       case Instruction::PHI:
+      case Instruction::Select:
+      case Instruction::ShuffleVector:
         return false;
         break;
 
       // We consider these to be floating-point operations.
-      case Instruction::FPToUI:
-      case Instruction::FPToSI:
-      case Instruction::UIToFP:
-      case Instruction::SIToFP:
-      case Instruction::FPTrunc:
-      case Instruction::FPExt:
-      case Instruction::FCmp:
       case Instruction::FAdd:
-      case Instruction::FSub:
-      case Instruction::FMul:
+      case Instruction::FCmp:
       case Instruction::FDiv:
+      case Instruction::FMul:
+      case Instruction::FPExt:
+      case Instruction::FPToSI:
+      case Instruction::FPToUI:
+      case Instruction::FPTrunc:
       case Instruction::FRem:
+      case Instruction::FSub:
+      case Instruction::SIToFP:
+      case Instruction::UIToFP:
         return true;
         break;
 
