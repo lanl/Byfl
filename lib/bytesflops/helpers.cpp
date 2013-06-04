@@ -248,6 +248,7 @@ namespace bytesflops_pass {
       case Instruction::ShuffleVector:
       case Instruction::ExtractValue:
       case Instruction::InsertValue:
+      case Instruction::PHI:
         return false;
         break;
 
