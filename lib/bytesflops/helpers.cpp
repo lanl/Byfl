@@ -300,8 +300,29 @@ namespace bytesflops_pass {
     return total_bits;
   }
 
+  // Declare a function with external linkage and C calling conventions.
+  Function* BytesFlops::declare_extern_c(FunctionType *return_type,
+                                         StringRef func_name, Module *module)
+  {
+    // Don't declare the same function twice.
+    Function* func = module->getFunction(func_name);
+    if (!func) {
+      // Create a new function.
+      func = Function::Create(return_type, GlobalValue::ExternalLinkage,
+                              func_name, module);
+      func->setCallingConv(CallingConv::C);
+    }
+    return func;
+  }
+
   // Declare a function that takes no arguments and returns no value.
   Function* BytesFlops::declare_thunk(Module* module, const char* thunk_name) {
+    // Don't declare the same function twice.
+    Function* oldfunc = module->getFunction(thunk_name);
+    if (oldfunc)
+      return oldfunc;
+
+    // Declare a new function.
     vector<Type*> no_args;
     FunctionType* void_func_result =
       FunctionType::get(Type::getVoidTy(module->getContext()), no_args, false);
@@ -344,9 +365,14 @@ namespace bytesflops_pass {
                                                  Type* var_type,
                                                  StringRef var_name,
                                                  bool is_const) {
-    return new GlobalVariable(module, var_type, is_const,
-                              GlobalVariable::ExternalLinkage, 0, var_name, 0,
-                              GlobalVariable::NotThreadLocal);
+    // Don't declare the same variable twice in a single module.
+    GlobalVariable* oldvar = module.getGlobalVariable(var_name);
+    if (oldvar)
+      return oldvar;
+    else
+      return new GlobalVariable(module, var_type, is_const,
+                                GlobalVariable::ExternalLinkage, 0,
+                                var_name, 0, GlobalVariable::NotThreadLocal);
   }
 
   // Insert code to set every element of a given array to zero.
@@ -558,4 +584,5 @@ namespace bytesflops_pass {
     // Pay attention to everything else.
     return false;
   }
+
 } // namespace bytesflops_pass

@@ -124,10 +124,9 @@ namespace bytesflops_pass {
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
       assoc_counts_with_func =
-        Function::Create(void_func_result, GlobalValue::ExternalLinkage,
+        declare_extern_c(void_func_result,
                          "_ZN10bytesflops27bf_assoc_counters_with_funcEPKc",
                          &module);
-      assoc_counts_with_func->setCallingConv(CallingConv::C);
     }
 
     // Inject an external declarations for bf_increment_func_tally().
@@ -137,9 +136,9 @@ namespace bytesflops_pass {
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
       tally_function =
-        Function::Create(void_func_result, GlobalValue::ExternalLinkage,
-                         "_ZN10bytesflops18bf_incr_func_tallyEPKc", &module);
-      tally_function->setCallingConv(CallingConv::C);
+        declare_extern_c(void_func_result,
+                         "_ZN10bytesflops18bf_incr_func_tallyEPKc",
+                         &module);
     }
 
     // Inject external declarations for bf_push_function() and
@@ -151,9 +150,9 @@ namespace bytesflops_pass {
       FunctionType* void_str_func_result =
         FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
       push_function =
-        Function::Create(void_str_func_result, GlobalValue::ExternalLinkage,
-                         "_ZN10bytesflops16bf_push_functionEPKc", &module);
-      push_function->setCallingConv(CallingConv::C);
+        declare_extern_c(void_str_func_result,
+                         "_ZN10bytesflops16bf_push_functionEPKc",
+                         &module);
 
       // bf_pop_function()
       pop_function = declare_thunk(&module, "_ZN10bytesflops15bf_pop_functionEv");
@@ -170,10 +169,9 @@ namespace bytesflops_pass {
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       tally_vector =
-        Function::Create(void_func_result, GlobalValue::ExternalLinkage,
+        declare_extern_c(void_func_result,
                          "_ZN10bytesflops25bf_tally_vector_operationEPKcmmb",
                          &module);
-      tally_vector->setCallingConv(CallingConv::C);
     }
 
     // Inject external declarations for bf_assoc_addresses_with_prog()
@@ -187,10 +185,9 @@ namespace bytesflops_pass {
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       assoc_addrs_with_prog =
-        Function::Create(void_func_result, GlobalValue::ExternalLinkage,
+        declare_extern_c(void_func_result,
                          "_ZN10bytesflops28bf_assoc_addresses_with_progEmm",
                          &module);
-      assoc_addrs_with_prog->setCallingConv(CallingConv::C);
 
       // Declare bf_assoc_addresses_with_func() only if we were
       // asked to track unique addresses by function.
@@ -202,10 +199,9 @@ namespace bytesflops_pass {
         FunctionType* void_func_result =
           FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
         assoc_addrs_with_func =
-          Function::Create(void_func_result, GlobalValue::ExternalLinkage,
+          declare_extern_c(void_func_result,
                            "_ZN10bytesflops28bf_assoc_addresses_with_funcEPKcmm",
                            &module);
-        assoc_addrs_with_func->setCallingConv(CallingConv::C);
       }
     }
 
@@ -221,9 +217,9 @@ namespace bytesflops_pass {
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       memset_intrinsic =
-        Function::Create(void_func_result, GlobalValue::ExternalLinkage,
-                         "llvm.memset.p0i8.i64", &module);
-      memset_intrinsic->setCallingConv(CallingConv::C);
+        declare_extern_c(void_func_result,
+                         "llvm.memset.p0i8.i64",
+                         &module);
     }
 
     // Simplify ReuseDist.getBits() into rd_bits.
@@ -239,10 +235,9 @@ namespace bytesflops_pass {
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       reuse_dist_prog =
-        Function::Create(void_func_result, GlobalValue::ExternalLinkage,
+        declare_extern_c(void_func_result,
                          "_ZN10bytesflops24bf_reuse_dist_addrs_progEmm",
                          &module);
-      reuse_dist_prog->setCallingConv(CallingConv::C);
     }
 
     // Inject external declarations for bf_acquire_mega_lock() and
@@ -302,5 +297,31 @@ namespace bytesflops_pass {
             << static_ops << " total_ops, "
             << static_bblocks << " bblocks\n";
   }
+
+  // Make the BytesFlops pass run automatically when loaded via Clang.
+  // This technique comes from "Run an LLVM Pass Automatically with
+  // Clang" (http://homes.cs.washington.edu/~asampson/blog/clangpass.html).
+  //
+  // We want our pass to run as late as possible.  Unfortunately,
+  // EP_OptimizerLast is leading to segmentation faults so we use
+  // EP_ScalarOptimizerLate instead.  However, that doesn't run when
+  // optimizations are disabled so we additionally have to register
+  // our pass to run with EP_EnabledOnOptLevel0.  Run-time checks of
+  // the optimization level ensure that the pass executes exactly
+  // once.
+  static void registerByflPass_O0(const PassManagerBuilder& pass_mgr_builder,
+                                  PassManagerBase& pass_mgr) {
+    if (pass_mgr_builder.OptLevel == 0)
+      pass_mgr.add(new BytesFlops());
+  }
+  static RegisterStandardPasses
+  RegisterByflPass_O0(PassManagerBuilder::EP_EnabledOnOptLevel0, registerByflPass_O0);
+  static void registerByflPass_opt(const PassManagerBuilder& pass_mgr_builder,
+                                  PassManagerBase& pass_mgr) {
+    if (pass_mgr_builder.OptLevel > 0)
+      pass_mgr.add(new BytesFlops());
+  }
+  static RegisterStandardPasses
+  RegisterByflPass_opt(PassManagerBuilder::EP_ScalarOptimizerLate, registerByflPass_opt);
 
 }  // namespace bytesflops_pass

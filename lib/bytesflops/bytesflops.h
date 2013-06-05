@@ -15,8 +15,11 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
+#include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -206,6 +209,11 @@ namespace bytesflops_pass {
     // given instruction.  The result is are a bit unintuitive for
     // certain types of instructions so use with caution.
     uint64_t instruction_operand_bits(const Instruction& inst);
+
+
+    // Declare a function with external linkage and C calling conventions.
+    Function* declare_extern_c(FunctionType *return_type,
+			       StringRef func_name, Module *module);
 
     // Declare a function that takes no arguments and returns no value.
     Function* declare_thunk(Module* module, const char* thunk_name);
