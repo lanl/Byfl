@@ -358,10 +358,24 @@ Under the covers, the Byfl wrapper scripts are using GCC to compile code to GCC 
 
     $ gcc -g -fplugin=/usr/local/lib/dragonegg.so -fplugin-arg-dragonegg-emit-ir -O3 -Wall -Wextra -S myprog.c
     $ opt -O3 myprog.s -o myprog.opt.bc
-    $ opt -load /usr/local/lib/bytesflops.so -bytesflops -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -std-compile-opts myprog.opt.bc -o myprog.bc
+    $ opt -load /usr/local/lib/bytesflops.so -bytesflops -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb myprog.opt.bc -o myprog.inst.bc
+    $ opt -O3 myprog.inst.bc -o myprog.bc
     $ clang myprog.bc -o myprog -L/usr/lib/gcc/x86_64-linux-gnu/4.7/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../x86_64-linux-gnu/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../../lib/ -L/lib/x86_64-linux-gnu/ -L/lib/../lib/ -L/usr/lib/x86_64-linux-gnu/ -L/usr/lib/../lib/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../ -L/lib/ -L/usr/lib/ -L/usr/local/lib -Wl,--allow-multiple-definition -lm /usr/local/lib/libbyfl.bc -lstdc++ -lm
 
-This approach can be useful for instrumenting code in languages other than C, C++, and Fortran.  For example, code compiled with any of the other [GCC frontends](http://gcc.gnu.org/frontends.html) can be instrumented as above.  Also, recent versions of the [Glasgow Haskell Compiler](http://www.haskell.org/ghc/) can compile directly to LLVM bitcode.
+The `bf-inst` script makes these steps slightly simpler:
+
+    $ gcc -g -fplugin=/usr/local/lib/dragonegg.so -fplugin-arg-dragonegg-emit-ir -O3 -Wall -Wextra -S myprog.c
+    $ opt -O3 myprog.s -o myprog.bc
+    $ bf-inst `-bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb` myprog.bc
+    $ clang myprog.bc -o myprog -L/usr/lib/gcc/x86_64-linux-gnu/4.7/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../x86_64-linux-gnu/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../../lib/ -L/lib/x86_64-linux-gnu/ -L/lib/../lib/ -L/usr/lib/x86_64-linux-gnu/ -L/usr/lib/../lib/ -L/usr/lib/gcc/x86_64-linux-gnu/4.7/../../../ -L/lib/ -L/usr/lib/ -L/usr/local/lib -Wl,--allow-multiple-definition /usr/local/lib/libbyfl.bc -lstdc++ -lm
+
+If GCC and DragonEgg are not required, Byfl instrumentation is even easier to apply manually:
+
+    $ clang -O3 -c -emit-llvm myprog.c -o myprog.bc
+    $ bf-inst `-bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb` myprog.bc
+    $ clang myprog-bc -o myprog /usr/local/lib/libbyfl.bc -lstdc++ -lm
+
+This basic approach can be useful for instrumenting code in languages other than C, C++, and Fortran.  For example, code compiled with any of the other [GCC frontends](http://gcc.gnu.org/frontends.html) can be instrumented as above.  Also, recent versions of the [Glasgow Haskell Compiler](http://www.haskell.org/ghc/) can compile directly to LLVM bitcode.
 
 ### Postprocessing Byfl output
 

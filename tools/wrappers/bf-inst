@@ -1,0 +1,357 @@
+#! /usr/bin/env perl
+
+#####################################################
+# Instrument a set of LLVM bitcode files using Byfl #
+# By Scott Pakin <pakin@lanl.gov>                   #
+#####################################################
+
+use Cwd qw(abs_path getcwd);
+use File::Basename;
+use File::Copy;
+use File::Temp qw(tempfile);
+use Getopt::Long qw(GetOptionsFromArray);
+use warnings;
+use strict;
+
+# Store the name of this script.
+my $progname = basename $0;
+
+# Specify the Byfl installation location.
+my $byfl_libdir = '@PROJ_libdir@';
+
+# Let the user increase this script's verbosity.
+my $verbosity = 0;
+
+# Optimization level to apply *after* Byfl instrumentation.
+my $opt_level = "3";
+
+# Take Byfl options from the BF_OPTS environment variable.  After
+# processing the command line, this may also include non-Byfl options
+# to pass to the opt command.
+my @bf_options = split(" ", $ENV{"BF_OPTS"} || "");
+
+# Define a function that optionally prints, then executes a system
+# command, aborting on failure.  If the first argument is "NO FAIL",
+# then return an error code rather than aborting.
+sub execute_command (@)
+{
+    my $die_on_fail = 1;
+    if ($_[0] eq "NO FAIL") {
+        $die_on_fail = 0;
+        shift;
+    }
+    my @command = @_;
+    if ($verbosity > 0) {
+        print STDERR join(" ", map {/\s/ ? "'$_'" : $_} @command), "\n";
+    }
+    return $? >> 8 if system(@command) == 0 || !$die_on_fail;
+    die "${progname}: Aborting\n";
+}
+
+# Report whether a file is binary bitcode ("bc"), ASCII bitcode
+# ("ll"), or not bitcode at all ("unknown").
+sub bitcode_type ($)
+{
+    # First, for speed, simply trust the filename.
+    my $fname = $_[0];
+    return "bc" if substr($fname, -3) eq ".bc";
+    return "ll" if substr($fname, -3) eq ".ll";
+
+    # Second, test for binary bitcode.
+    open(BITCODE, "<", $fname) || die "${progname}: open(\"$fname\") failed ($!)\n";
+    my $magic = "";
+    read BITCODE, $magic, 2;
+    close BITCODE;
+    return "bc" if substr($magic, 0, 1) eq "B" && substr($magic, 1, 1) eq "C";
+
+    # Third, test for ASCII bitcode.
+    open(BITCODE, "<", $fname) || die "${progname}: open(\"$fname\") failed ($!)\n";
+    my $maxlines = 100;    # Read up to this many lines.
+    my $bctype;
+    while (my $oneline = <BITCODE> && $maxlines > 0) {
+        if ($oneline =~ /^\s*;\s+ModuleID\s*=/o
+            || $oneline =~ /^\s*target\s+(datalayout|triple)\s*=/) {
+            $bctype = "ll";
+            last;
+        }
+    }
+    close BITCODE;
+    return $bctype if defined $bctype;
+    return "unknown";
+}
+
+# Apply Byfl instrumentation to a bitcode file, possibly in place.
+sub apply_byfl ($$)
+{
+    my ($infile, $outfile) = @_;
+
+    # Define a function to create a new temporary file.
+    my (@temphandles, @tempfiles);
+    my $newtemp = sub {
+        my ($th, $tname) = tempfile("bf-inst-XXXXXX",
+                                    SUFFIX => ".bc",
+                                    UNLINK => 1);
+        push @temphandles, $th;
+        push @tempfiles, $tname;
+        return $tname;
+    };
+
+    # Ensure the input file is not already instrumented.
+    my $intype = bitcode_type $infile;
+    die "${progname}: $infile does not appear to contain LLVM bitcode\n" if $intype eq "unknown";
+    my $bcfile;
+    if ($intype eq "ll") {
+        # ASCII bitcode -- convert to binary for more convenient
+        # symbol-table processing.
+        $bcfile = $newtemp->();
+        execute_command("llvm-as", $infile, "-o", $bcfile);
+    }
+    else {
+        # Binary bitcode -- use as is.
+        $bcfile = $infile;
+    }
+    my $already_instrumented = 0;
+    open(NM, "llvm-nm $bcfile|") || die "${progname}: open failed ($!)\n";
+    while (my $oneline = <NM>) {
+        if ($oneline =~ /\bbf_flop_count\b/o) {
+            $already_instrumented = 1;
+            last;
+        }
+    }
+    close NM || die;
+    if ($already_instrumented) {
+        # Nothing to do except perhaps to copy input to output.
+        warn "${progname}: $infile has already been instrumented\n" if $verbosity > 0;
+        if ($infile ne $outfile) {
+            print STDERR "cp $infile $outfile\n" if $verbosity > 0;
+            copy($infile, $outfile);
+        }
+
+        # Clean up our temporary files.
+        foreach my $i (0 .. $#temphandles) {
+            print STDERR "rm $tempfiles[$i]\n" if $verbosity > 0;
+            close $temphandles[$i];
+        }
+        return;
+    }
+
+    # Instrument the input file.
+    execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
+                    "-bytesflops", @bf_options,
+                    $infile, "-o", $newtemp->());
+
+    # Optimize the resulting bitcode.
+    if ($opt_level ne "0") {
+        $newtemp->();
+        execute_command("opt", "-O$opt_level",
+                        $tempfiles[$#tempfiles-1],"-o", $tempfiles[$#tempfiles]);
+    }
+
+    # Rename the result to the target filename, convering from binary
+    # to ASCII if necessary.
+    if ($intype eq "ll") {
+        # Have binary; want ASCII
+        execute_command("llvm-dis", $tempfiles[$#tempfiles], "-o", $outfile);
+    }
+    else {
+        # Have binary; want binary
+        print STDERR "mv $tempfiles[$#tempfiles] $outfile\n" if $verbosity > 0;
+        move($tempfiles[$#tempfiles], $outfile);
+    }
+
+    # Clean up our temporary files.
+    foreach my $i (0 .. $#temphandles) {
+        print STDERR "rm $tempfiles[$i]\n" if $verbosity > 0;
+        close $temphandles[$i];
+    }
+}
+
+# Given an ar archive, apply Byfl instrumentation to each file it contains.
+sub apply_byfl_to_archive ($$)
+{
+    # Create a temporary directory to work within.
+    my ($infile, $outfile) = map {abs_path($_)} @_;
+    my $cwd = getcwd();
+    my $tdir = File::Temp->newdir("bf-inst-XXXXXX",
+				  CLEANUP => 1);
+    print STDERR "mkdir $tdir\n" if $verbosity > 0;
+    print STDERR "cd $tdir\n" if $verbosity > 0;
+    chdir $tdir or die "${progname}: chdir($tdir) failed ($!)\n";
+
+    # Extract the archive's contents into the temporary directory.
+    my $vflag = $verbosity > 0 ? "v" : "";
+    execute_command("ar", "x$vflag", $infile);
+
+    # Apply Byfl to each file in turn.
+    foreach my $ofile (glob "*") {
+	apply_byfl $ofile, $ofile;
+    }
+
+    # Replace the archive's contents with the instrumented files.
+    execute_command("ar", "r$vflag", $outfile, glob "*");
+
+    # Let File::Temp remove the temporary directory.
+    print STDERR "cd $cwd\n" if $verbosity > 0;
+    chdir $cwd or die "${progname}: chdir($cwd) failed ($!)\n";
+    print STDERR "rm -r $tdir\n" if $verbosity > 0;
+}
+
+###########################################################################
+
+# Parse the command line.
+my @constructed_ARGV = (@bf_options, @ARGV);
+my $outfile;
+my $want_clang_args = 0;
+Getopt::Long::Configure("pass_through", "no_ignore_case", "auto_help",
+			"bundling", "bundling_override");
+GetOptionsFromArray(\@constructed_ARGV,
+                    "o=s"             => \$outfile,
+                    "O=s"             => \$opt_level,
+		    "bf-clang-args"   => \$want_clang_args,
+                    "bf-verbose+"     => \$verbosity,
+                    "bf-libdir=s"     => \$byfl_libdir)
+    || die "${progname}: Failed to parse the command line\n";
+my @infiles = grep {!/^-/} @constructed_ARGV;
+@bf_options = grep {/^-/} @constructed_ARGV;
+@bf_options = map {s/^--?/-/; $_} @bf_options;
+@bf_options = grep {!/^-bf-(verbose|libdir)/} @bf_options;
+@bf_options = grep {!/^-(o|O.)$/} @bf_options;
+if (defined $outfile && $#infiles > 0) {
+    die "${progname}: -o is allowed only when a single input file is specified\n";
+}
+
+# If -bf-clang-args was specified, output @bf_options in a form
+# suitable for passing to clang or clang++.
+if ($want_clang_args) {
+    print "-Xclang -load -Xclang $byfl_libdir/bytesflops.so ";
+    print join(" ", map {"-mllvm $_"} @bf_options), "\n";
+    exit 0;
+}
+
+# Apply Byfl in turn to each file specified.
+foreach my $in (@infiles) {
+    my $out = defined $outfile ? $outfile : $in;
+    if (substr($in, -2) eq ".a") {
+	# Process an ar archive.
+	apply_byfl_to_archive($in, $out);
+    }
+    else {
+	# Process any other file type.
+	apply_byfl($in, $out);
+    }
+}
+
+###########################################################################
+
+__END__
+
+=head1 NAME
+
+bf-inst - Insert Byfl instrumentation into an LLVM bitcode file
+
+=head1 SYNOPSIS
+
+bf-inst
+[B<-o> I<bitcode_file>]
+[B<-O>I<opt_level>]
+[B<--bf-verbose>]
+[B<--bf-clang-args>]
+[B<--bf-libdir>=I<directory>]
+[I<Byfl options>]
+I<bitcode_file>
+
+bf-inst
+B<--help>
+
+=head1 DESCRIPTION
+
+B<bf-inst> uses Byfl to instrument a given LLVM bitcode file with
+tallies of how many times various operations were executed.  It serves
+as a lower-level interface to Byfl instrumentation than that which is
+provided by B<bf-gcc> and related Byfl compiler wrapper scripts in
+that B<bf-inst> expects the user already to have produced LLVM bitcode
+from program source code.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--help>
+
+Display B<bf-inst> usage information.
+
+=item B<-o> I<bitcode_file>
+
+Specify the name of the bitcode file to generate.  If not specified,
+the input file is overwritten.
+
+=item B<-O>I<opt_level>
+
+Designate the optimization level at which B<opt> should optimize the
+bitcode I<after> Byfl instrumentation has been applied.
+
+=item B<--bf-verbose>
+
+Display all of the file operations that B<bf-inst> performs.
+
+=item B<--bf-libdir>=I<directory>
+
+Name the full path to the directory in which F<bytesflops.so> resides.
+
+=item B<--bf-clang-args>
+
+Instead of instrumenting any bitcode, display a command-line fragment
+that can be passed to B<clang> or B<clang++> to instruct those
+programs to invoke Byfl themselves.
+
+=back
+
+B<bf-inst> passes any additional options, such as B<-bf-by-func>, to
+LLVM's B<opt> program.  The Byfl F<README> file is currently the only
+place to find documentation for Byfl-specific options.
+
+The command line ends with a list of bitcode files.  These may be in
+binary (F<.bc>) or ASCII (F<.ll>) format and can even be renamed
+(e.g., to F<.o> in case an existing F<Makefile> is retrofitted to emit
+bitcode without altering output filenames).  In addition, B<bf-inst>
+automatically instruments the contents of B<ar> (F<.a>) archives.
+
+=head1 EXAMPLES
+
+B<bf-inst> is intended to be used on existing bitcode files as an
+explicit part of the build process:
+
+    $ clang -O2 -emit-llvm -c myfile.c -o myfile.bc
+    $ bf-inst -bf-verbose -bf-types -bf-by-func myfile.bc
+    $ clang++ -o myfile myfile.bc /usr/local/lib/libbyfl.bc
+
+Note that Byfl is written in C++ so Byfl-instrumented codes must be
+linked either with B<clang++> or with the B<-lstdc++> flag to
+B<clang>.
+
+An alternative way to use B<bf-inst> is 
+
+    $ clang -O2 `bf-inst -bf-clang-args -bf-types -bf-by-func` \
+        -o myfile myfile.c /usr/local/lib/libbyfl.a -lstdc++ -lm
+
+This has the advantage of being easier to integrate into an existing
+build system but the disadvantage that Byfl instrumentation is
+performed in the middle of LLVM's set of optimization passes instead
+of after all optimizations have been performed.  Furthermore, it
+sacrifices the post-instrumentation optimization pass.
+
+Note that the B<clang> command links to F<libbyfl.a> instead of
+F<libbyfl.bc>.  This is to avoid instrumenting the Byfl run-time
+library using Byfl, which is likely to produce circular dependencies.
+If B<bf-inst> is used only during compilation but not linking then
+F<libbyfl.bc> should work, as well (and support link-time optimization
+when used at optimization level B<-O4>).
+
+=head1 AUTHOR
+
+Scott Pakin, I<pakin@lanl.gov>
+
+=head1 SEE ALSO
+
+ar(1), bf-gcc(1), clang(1), opt(1),
+the Byfl README file (L<https://github.com/losalamos/Byfl/blob/master/README.md>)
