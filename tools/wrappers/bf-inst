@@ -22,6 +22,9 @@ my $byfl_libdir = '@PROJ_libdir@';
 # Let the user increase this script's verbosity.
 my $verbosity = 0;
 
+# Let the user request static analysis in addition to instrumentation.
+my $static_analysis = 0;
+
 # Optimization level to apply *after* Byfl instrumentation.
 my $opt_level = "3";
 
@@ -135,6 +138,11 @@ sub apply_byfl ($$)
         return;
     }
 
+    # Run the static analyzer if -bf-static was specified.
+    execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
+                    "-bytesflops", @bf_options,
+                    "-analyze", $infile) if $static_analysis;
+
     # Instrument the input file.
     execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
                     "-bytesflops", @bf_options,
@@ -173,7 +181,7 @@ sub apply_byfl_to_archive ($$)
     my ($infile, $outfile) = map {abs_path($_)} @_;
     my $cwd = getcwd();
     my $tdir = File::Temp->newdir("bf-inst-XXXXXX",
-				  CLEANUP => 1);
+                                  CLEANUP => 1);
     print STDERR "mkdir $tdir\n" if $verbosity > 0;
     print STDERR "cd $tdir\n" if $verbosity > 0;
     chdir $tdir or die "${progname}: chdir($tdir) failed ($!)\n";
@@ -184,7 +192,7 @@ sub apply_byfl_to_archive ($$)
 
     # Apply Byfl to each file in turn.
     foreach my $ofile (glob "*") {
-	apply_byfl $ofile, $ofile;
+        apply_byfl $ofile, $ofile;
     }
 
     # Replace the archive's contents with the instrumented files.
@@ -203,12 +211,13 @@ my @constructed_ARGV = (@bf_options, @ARGV);
 my $outfile;
 my $want_clang_args = 0;
 Getopt::Long::Configure("pass_through", "no_ignore_case", "auto_help",
-			"bundling", "bundling_override");
+                        "bundling", "bundling_override");
 GetOptionsFromArray(\@constructed_ARGV,
                     "o=s"             => \$outfile,
                     "O=s"             => \$opt_level,
-		    "bf-clang-args"   => \$want_clang_args,
+                    "bf-clang-args"   => \$want_clang_args,
                     "bf-verbose+"     => \$verbosity,
+                    "bf-static"       => \$static_analysis,
                     "bf-libdir=s"     => \$byfl_libdir)
     || die "${progname}: Failed to parse the command line\n";
 my @infiles = grep {!/^-/} @constructed_ARGV;
@@ -232,12 +241,12 @@ if ($want_clang_args) {
 foreach my $in (@infiles) {
     my $out = defined $outfile ? $outfile : $in;
     if (substr($in, -2) eq ".a") {
-	# Process an ar archive.
-	apply_byfl_to_archive($in, $out);
+        # Process an ar archive.
+        apply_byfl_to_archive($in, $out);
     }
     else {
-	# Process any other file type.
-	apply_byfl($in, $out);
+        # Process any other file type.
+        apply_byfl($in, $out);
     }
 }
 
@@ -329,7 +338,7 @@ Note that Byfl is written in C++ so Byfl-instrumented codes must be
 linked either with B<clang++> or with the B<-lstdc++> flag to
 B<clang>.
 
-An alternative way to use B<bf-inst> is 
+An alternative way to use B<bf-inst> is
 
     $ clang -O2 `bf-inst -bf-clang-args -bf-types -bf-by-func` \
         -o myfile myfile.c /usr/local/lib/libbyfl.a -lstdc++ -lm
