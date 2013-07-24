@@ -691,7 +691,7 @@ TableGen.Flags= -I $(call SYSPATH, $(PROJ_SRC_DIR)) \
 LLVMTableGen  = $(LLVM_TBLGEN) $(TableGen.Flags)
 
 Archive       = $(AR) $(AR.Flags)
-LArchive      = $(LLVMToolDir)/llvm-ar rcsf
+LArchive      = $(LLVMToolDir)/llvm-ar rcs
 ifdef RANLIB
 Ranlib        = $(RANLIB)
 else
