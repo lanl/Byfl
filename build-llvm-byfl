@@ -89,61 +89,79 @@ fi
 exec 4>&${zproc[1]}
 
 # Define a function to update a progress bar during command execution
-# given an expected number of lines of output and a command to run.
+# given a symbolic tag for the run, the expected number of lines of
+# output, and a command to run.
 function run_with_progress () {
+    # Parse our arguments.
+    tag="$1"
+    shift
     maxlines="$1"
     shift
+
+    # Run the command either with or without the GUI.  Abort on error.
+    logfile="$builddir/build-logs/$tag.log"
     if [ "$gui" = yes ] ; then
 	# Estimate the number of lines of output we'll see.
 	echo 0 1>&4
-	"$@" | \
+	"$@" 2>&1 | \
+	    tee $logfile | \
 	    stdbuf -oL awk '{printf "%d\n", 100*NR/MAXLN; print > "/dev/stderr"}' MAXLN=$maxlines | \
 	    stdbuf -oL uniq 1>&4
 	echo 100 1>&4
     else
 	"$@"
     fi
+    if [ "${PIPESTATUS[0]}" != 0 ] ; then
+	echo "${0}: Execution of \"$@\" failed (${PIPESTATUS[0]})" 1>&2
+	false
+	exit 1
+    fi
 }
 
 # Abort on error.
+set -o pipefail
 set -e
 
 # Switch to our build directory
 test -e "$builddir" || mkdir "$builddir"
 cd "$builddir"
 
+# Create a subdirectory for logging the script's operation.
+rm -rf build-logs
+mkdir build-logs
+
 # Download LLVM, Clang, DragonEgg, and Byfl.
 if [ "$download" = yes ] ; then
     # Delete old files before downloading the new ones.
     echo "# Removing old versions of LLVM, Clang, DragonEgg, and Byfl from $builddir" 1>&4
-    run_with_progress 64000 rm -rfv byfl dragonegg llvm
+    run_with_progress cleanup 50000 rm -rfv byfl dragonegg llvm
 
     # Download LLVM trunk.
     echo "# Downloading LLVM into $builddir" 1>&4
-    run_with_progress 11000 svn checkout http://llvm.org/svn/llvm-project/llvm/trunk llvm
+    run_with_progress llvm-dl 12000 svn checkout http://llvm.org/svn/llvm-project/llvm/trunk llvm
     cd llvm
     llvm_revision=`svn info | awk '/^Revision: / {print $2}'`
     cd ..
 
     # Download Clang.
     echo "# Downloading Clang revision $llvm_revision into $builddir" 1>&4
-    run_with_progress 8300 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/trunk llvm/tools/clang
+    run_with_progress clang-dl 9100 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/trunk llvm/tools/clang
 
     # Download the Clang run-time system.
     echo "# Downloading Clang RT revision $llvm_revision into $builddir" 1>&4
-    run_with_progress 1100 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/compiler-rt/trunk llvm/projects/compiler-rt
+    run_with_progress rts-dl 1300 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/compiler-rt/trunk llvm/projects/compiler-rt
 
     # Download DragonEgg.
     echo "# Downloading DragonEgg revision $llvm_revision into $builddir" 1>&4
-    run_with_progress 400 svn checkout http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg
+    run_with_progress dregg-dl 400 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg
 
     # Download Byfl.
     echo "# Downloading Byfl into $builddir" 1>&4
-    run_with_progress 7 git clone https://github.com/losalamos/Byfl.git byfl
+    run_with_progress byfl-dl 1 git clone https://github.com/losalamos/Byfl.git byfl
 
     # Say what we did.
     echo "Downloaded LLVM, Clang, DragonEgg, and Byfl into $builddir."
-    if [ "$gui" = yes ] ; then
+    if [ "$gui" = yes -a "$compile" = no ] ; then
 	kill $zenity_pid
 	zenity --info --title="Finished downloading" --text="Downloaded LLVM, Clang, DragonEgg,\nand Byfl into $builddir."
     fi
@@ -154,25 +172,25 @@ if [ "$compile" = yes ] ; then
     # Configure LLVM and Clang.
     echo "# Configuring LLVM and Clang" 1>&4
     cd llvm
-    run_with_progress 700 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC=gcc CXX=g++ REQUIRES_RTTI=1
+    run_with_progress llvm-config 640 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC=gcc CXX=g++ REQUIRES_RTTI=1
 
     # Build LLVM and Clang.
     echo "# Compiling LLVM and Clang" 1>&4
-    run_with_progress 2800 make -j$numprocs
+    run_with_progress llvm-build 3300 make -j$numprocs
 
     # Install LLVM and Clang.
     echo "# Installing LLVM and Clang into $installdir" 1>&4
-    run_with_progress 800 make install
+    run_with_progress llvm-inst 730 make install
 
     # Build DragonEgg.
     export PATH=$installdir/bin:$PATH
     cd ../dragonegg
     echo "# Compiling DragonEgg" 1>&4
-    run_with_progress 100 make -j$numprocs
+    run_with_progress dregg-build 37 make -j$numprocs
 
     # Install DragonEgg.
     echo "# Installing DragonEgg into $installdir" 1>&4
-    run_with_progress 1 cp -v dragonegg.so $installdir/lib
+    run_with_progress dregg-inst 1 cp -v dragonegg.so $installdir/lib
 
     # Configure Byfl.
     echo "# Configuring Byfl" 1>&4
@@ -180,15 +198,15 @@ if [ "$compile" = yes ] ; then
     (echo $builddir_llvm ; echo $builddir_llvm) | ./AutoRegen.sh
     test -e ../build || mkdir ../build
     cd ../build
-    run_with_progress 400 ../configure --disable-assertions --enable-optimized --enable-debug-runtime --enable-debug-symbols DRAGONEGG="$installdir/lib/dragonegg.so" CXX=g++ CXXFLAGS="-g -O2 -std=c++0x" --with-llvmsrc="$builddir/llvm" --with-llvmobj="$builddir/llvm" --prefix="$installdir"
+    run_with_progress byfl-config 330 ../configure --disable-assertions --enable-optimized --enable-debug-runtime --enable-debug-symbols DRAGONEGG="$installdir/lib/dragonegg.so" CXX=g++ CXXFLAGS="-g -O2 -std=c++0x" --with-llvmsrc="$builddir/llvm" --with-llvmobj="$builddir/llvm" --prefix="$installdir"
 
     # Build Byfl.
     echo "# Compiling Byfl" 1>&4
-    run_with_progress 50 make -j$numprocs
+    run_with_progress byfl-build 49 make -j$numprocs
 
     # Install Byfl.
     echo "# Installing Byfl into $installdir" 1>&4
-    run_with_progress 50 make install
+    run_with_progress byfl-inst 43 make install
 
     # Test the installation
     echo "# Testing the Byfl installation" 1>&4
@@ -205,7 +223,7 @@ int main (void) {
 CFILE
     export PERLLIB=${byflperllib}:$PERLLIB
     bf-gcc $cfile -o $exefile
-    run_with_progress 15 $exefile
+    run_with_progress byfl-test 21 $exefile
     rm -f $cfile $exefile
 
     # Say what we did.
