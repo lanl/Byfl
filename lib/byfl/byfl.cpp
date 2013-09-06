@@ -6,22 +6,7 @@
  *    Pat McCormick <pat@lanl.gov>
  */
 
-#include <iostream>
-#include <fstream>
-#include <cassert>
-#include <iomanip>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <algorithm>
-#include <stdio.h>
-#include <string.h>
-#include <locale>
-#include <wordexp.h>
-
-#include "byfl-common.h"
-#include "cachemap.h"
-#include "opcode2name.h"
+#include "byfl.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
@@ -36,17 +21,6 @@ typedef enum {
   BB_END_COND=2       // Basic block terminated with a conditional branch.
 } bb_end_t;
 
-
-// The following constants are defined by the instrumented code.
-extern uint64_t bf_bb_merge;         // Number of basic blocks to merge to compress the output
-extern uint8_t  bf_every_bb;         // 1=tally and output per-basic-block data
-extern uint8_t  bf_types;            // 1=count loads/stores per type
-extern uint8_t  bf_per_func;         // 1=tally and output per-function data
-extern uint8_t  bf_call_stack;       // 1=maintain a function call stack
-extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
-extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
-extern uint8_t  bf_tally_inst_mix;   // 1=maintain instruction mix histogram
-extern const char* bf_option_string; // -bf-* command-line options
 
 // Encapsulate of all of our counters into a single structure.
 class ByteFlopCounters {
@@ -306,14 +280,6 @@ extern "C" {
 
 namespace bytesflops {
 
-// The following constants are defined by the instrumented code.
-extern const char* bf_string_to_symbol (const char *nonunique);
-extern void bf_report_vector_operations (size_t call_stack_depth);
-extern void bf_get_vector_statistics(uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
-extern void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
-extern void bf_get_reuse_distance (vector<uint64_t>** hist, uint64_t* unique_addrs);
-extern void bf_get_median_reuse_distance (uint64_t* median_value, uint64_t* mad_value);
-
 const char* bf_func_and_parents; // Top of the complete_call_stack stack
 string bf_output_prefix;         // String to output before "BYFL" on every line
 ostream* bfout;                  // Stream to which to send standard output
@@ -430,17 +396,6 @@ public:
 } check_construction;
 
 
-extern void initialize_byfl(void);
-extern void initialize_reuse(void);
-extern void initialize_symtable(void);
-extern void initialize_threading(void);
-extern void initialize_ubytes(void);
-extern void initialize_vectors(void);
-extern void bf_push_basic_block (void);
-extern uint64_t bf_tally_unique_addresses (void);
-extern uint64_t bf_tally_unique_addresses (const char* funcname);
-
-
 // Initialize some of our variables at first use.
 void initialize_byfl (void) {
   call_stack = new CallStack();
@@ -478,6 +433,7 @@ void bf_initialize_if_necessary (void)
     initialize_symtable();
     initialize_threading();
     initialize_ubytes();
+    initialize_tallybytes();
     initialize_vectors();
     initialized = true;
   }
@@ -789,7 +745,8 @@ private:
              << setw(HDR_COL_WIDTH) << func_counters->op_bits;
       if (bf_unique_bytes)
         *bfout << ' '
-               << setw(HDR_COL_WIDTH) << bf_tally_unique_addresses(funcname_c);
+               << setw(HDR_COL_WIDTH)
+               << (bf_tally_bytes ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c));
       *bfout << ' '
              << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
              << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
@@ -849,7 +806,7 @@ private:
       global_unique_bytes = reuse_unique;
     else
       if (bf_unique_bytes && !partition)
-        global_unique_bytes = bf_tally_unique_addresses();
+        global_unique_bytes = bf_tally_bytes ? bf_tally_unique_addresses_tb() : bf_tally_unique_addresses();
 
     // Prepare the tag to use for output, and indicate that we want to
     // use separators in numerical output.
@@ -978,12 +935,10 @@ private:
       *bfout << tag << ": " << separator << '\n';
     }
 
-
     // Pretty-print the histogram of instructions executed.
     uint64_t total_insts = 0;
     if (bf_tally_inst_mix) {
       // Sort the histogram by decreasing opcode tally.
-      extern const char* opcode2name[];
       vector<name_tally> sorted_inst_mix;
       size_t maxopnamelen = 0;
       for (uint64_t i = 0; i < NUM_OPCODES; i++)
@@ -1011,6 +966,36 @@ private:
              << "TOTAL" << " instructions executed\n"
              << right
              << tag << ": " << separator << '\n';
+    }
+
+    // Output quantiles of working-set sizes.
+    if (bf_tally_bytes) {
+      // Produce a histogram that tallies each byte-access count.
+      vector<bf_addr_tally_t> access_counts;
+      uint64_t total_bytes = 0;
+      bf_get_address_tally_hist (access_counts, &total_bytes);
+
+      // Output every nth quantile.
+      const double pct_change = 0.05;   // Minimum percentage-point change to output
+      uint64_t running_total_bytes = 0;     // Running total of tally (# of addresses)
+      uint64_t running_total_accesses = 0;  // Running total of byte-access count times tally.
+      double hit_rate = 0.0;            // Quotient of the preceding two values
+      *bfout << tag << ": " << setw(25) << 0 << " addresses represent "
+             << fixed << setw(5) << setprecision(1) << hit_rate*100.0 << "% of memory accesses\n";
+      for (vector<bf_addr_tally_t>::iterator counts_iter = access_counts.begin();
+           counts_iter != access_counts.end();
+           counts_iter++) {
+        running_total_bytes += counts_iter->second;
+        running_total_accesses += uint64_t(counts_iter->first) * uint64_t(counts_iter->second);
+        double new_hit_rate = double(running_total_accesses) / double(global_bytes);
+        if (new_hit_rate - hit_rate > pct_change || running_total_accesses == global_bytes) {
+          hit_rate = new_hit_rate;
+          *bfout << tag << ": "
+                 << setw(25) << running_total_bytes << " addresses represent "
+                 << fixed << setw(5) << setprecision(1) << hit_rate*100.0 << "% of memory accesses\n";
+        }
+      }
+      *bfout << tag << ": " << separator << '\n';
     }
 
     // Report a bunch of derived measurements.

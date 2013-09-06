@@ -30,7 +30,12 @@ namespace bytesflops_pass {
   // Define a command-line option for keeping track of unique bytes
   cl::opt<bool>
   TrackUniqueBytes("bf-unique-bytes", cl::init(false), cl::NotHidden,
-                   cl::desc("Additionally tally unique bytes accessed"));
+                   cl::desc("Tally unique bytes accessed"));
+
+  // Define a command-line option for keeping track of unique bytes
+  cl::opt<bool>
+  TallyBytes("bf-byte-counts", cl::init(false), cl::NotHidden,
+	     cl::desc("Tally the number of times each byte address is accessed"));
 
   // Define a command-line option for tallying load/store operations
   // based on various data types (note this also implies --bf-all-ops).

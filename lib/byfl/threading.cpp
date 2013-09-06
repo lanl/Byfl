@@ -5,8 +5,7 @@
  * By Scott Pakin <pakin@lanl.gov>
  */
 
-#include <iostream>
-#include <pthread.h>
+#include "byfl.h"
 
 namespace bytesflops {}
 using namespace bytesflops;

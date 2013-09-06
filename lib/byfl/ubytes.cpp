@@ -5,12 +5,7 @@
  * By Scott Pakin <pakin@lanl.gov>
  */
 
-#include <iostream>
-#include <iomanip>
-#include <inttypes.h>
-#include <string.h>
-#include <unordered_map>
-#include "cachemap.h"
+#include "byfl.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
@@ -97,14 +92,7 @@ typedef CachedUnorderedMap<const char*, page_to_bits_t*> func_to_page_t;
 static page_to_bits_t* global_unique_bytes = NULL;
 static func_to_page_t* function_unique_bytes = NULL;
 
-extern uint8_t bf_per_func;   // 1=Tally and output per-function data
-extern uint8_t bf_call_stack; // 1=Maintain a function call stack
-
 namespace bytesflops {
-
-extern const char* bf_func_and_parents;   // Name of the current function and its parents
-extern const char* bf_string_to_symbol (const char *nonunique);  // Map a nonunique string to a unique string
-
 
 // Initialize some of our variables at first use.
 void initialize_ubytes (void)

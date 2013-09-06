@@ -5,13 +5,7 @@
  * By Scott Pakin <pakin@lanl.gov>
  */
 
-#include <iostream>
-#include <iomanip>
-#include <bitset>
-#include <inttypes.h>
-#include <string.h>
-#include <unordered_map>
-#include "cachemap.h"
+#include "byfl.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
@@ -79,17 +73,8 @@ static name_to_vector_t* function_vector_usage = NULL;
 static name_to_vector_t* user_defined_vector_usage = NULL;
 
 
-extern uint8_t bf_per_func;   // 1=Tally and output per-function data
-extern uint8_t bf_call_stack; // 1=Maintain a function call stack
-
 namespace bytesflops {
 
-extern const char* bf_func_and_parents;   // Name of the current function and its parents
-extern const char* bf_string_to_symbol (const char *nonunique);  // Map a nonunique string to a unique string
-extern "C" {
-  extern const char* bf_categorize_counters (void);   // Return a category in which to partition data.
-}
-extern string bf_output_prefix;
 extern ostream* bfout;
 
 

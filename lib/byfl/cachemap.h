@@ -8,9 +8,7 @@
 #ifndef _CACHEMAP_H_
 #define _CACHEMAP_H_
 
-#include <unordered_map>
-#include <vector>
-#include <string.h>
+#include "byfl.h"
 
 using namespace std;
 
