@@ -35,7 +35,7 @@ extern uint8_t  bf_every_bb;         // 1=tally and output per-basic-block data
 extern uint64_t bf_max_reuse_distance;  // Maximum reuse distance to consider */
 extern const char* bf_option_string; // -bf-* command-line options
 extern uint8_t  bf_per_func;         // 1=tally and output per-function data
-extern uint8_t  bf_tally_bytes;      // 1=tally and output per-byte tallies
+extern uint8_t  bf_mem_footprint;    // 1=keep track of how many times each byte of memory is accessed
 extern uint8_t  bf_tally_inst_mix;   // 1=maintain instruction mix histogram
 extern uint8_t  bf_types;            // 1=count loads/stores per type
 extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes

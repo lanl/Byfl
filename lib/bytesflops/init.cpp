@@ -68,8 +68,8 @@ namespace bytesflops_pass {
     // Assign a value to bf_unique_bytes.
     create_global_constant(module, "bf_unique_bytes", bool(TrackUniqueBytes));
 
-    // Assign a value to bf_tally_bytes.
-    create_global_constant(module, "bf_tally_bytes", bool(TallyBytes));
+    // Assign a value to bf_mem_footprint.
+    create_global_constant(module, "bf_mem_footprint", bool(FindMemFootprint));
 
     // Assign a value to bf_vectors.
     create_global_constant(module, "bf_vectors", bool(TallyVectors));
@@ -195,7 +195,7 @@ namespace bytesflops_pass {
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       assoc_addrs_with_prog =
         declare_extern_c(void_func_result,
-			 TallyBytes
+			 FindMemFootprint
 			 ? "_ZN10bytesflops31bf_assoc_addresses_with_prog_tbEmm"
                          : "_ZN10bytesflops28bf_assoc_addresses_with_progEmm",
                          &module);
@@ -211,7 +211,7 @@ namespace bytesflops_pass {
           FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
         assoc_addrs_with_func =
           declare_extern_c(void_func_result,
-			   TallyBytes
+			   FindMemFootprint
 			   ? "_ZN10bytesflops31bf_assoc_addresses_with_func_tbEPKcmm"
 			   : "_ZN10bytesflops28bf_assoc_addresses_with_funcEPKcmm",
                            &module);

@@ -161,71 +161,64 @@ The Byfl wrapper scripts accept a number of options to provide more information 
 <dt><code>-bf-unique-bytes</code></dt>
 <dd>Keep track of <em>unique</em> memory locations accessed.  For example, if a program accesses 8 bytes at address <code>A</code>, then at <code>B</code>, thenat <code>A</code> again, Byfl will report this as 24 bytes but only 16 unique bytes.</dd>
 
-<dt><code>-bf-reuse-dist</code></dt>
-<dd>Output the program's median reuse distance and the median absolute deviation of that.  Reuse distance is a measure of memory locality: the number of unique memory locations accessed  between successive accesses to the same location.  The median of this therefore represents the cache size (given a perfect, byte-accessible cache) for which 50% of memory accesses will hit in the cache.  (Unique bytes, described above, represents the 100% mark.)  Larger values imply the application is putting more pressure on the memory system.</dd>
-
-<dt><code>-bf-max-rdist</code></dt>
-<dd>Reduce <code>-bf-reuse-dist</code>'s memory requirements by periodically pruning reuse distances above the given length.  This option should be used with care because setting the maximum distance below the true distance may produce nonsensical results (e.g., infinite reuse distances).</dd>
+<dt><code>-bf-mem-footprint</code></dt>
+<dd>Output the program's memory footprint in terms of the amount of memory needed to represent various fractions of the total number of memory accesses.</dd>
 </dl>
 
-Almost all of the options listed above incur a cost in execution time and memory footprint.  `-bf-unique-bytes` is very slow and very memory-hungry: It performs a hash-table lookup and a bit-vector write -- and multiple of those if used with `-bf-by-func` -- for every byte read or written by the program.  `-bf-reuse-dist` is very, _very_ slow and very, _very_ memory-hungry: It reads and writes a hash table and inserts and deletes splay-tree nodes for every byte read or written by the program.  While Byfl slows down applications by less than 2x when specifying no options, it would not be unusual to observe a 5000x slowdown when specifying `-bf-reuse-dist`.
+Almost all of the options listed above incur a cost in execution time and memory footprint.  `-bf-unique-bytes` is very slow and very memory-hungry: It performs a hash-table lookup and a bit-vector write -- and multiple of those if used with `-bf-by-func` -- for every byte read or written by the program.  `-bf-mem-footprint` both very slow and very memory-hungry: It updates a 32-bit counter (accessed via a hash-table lookup) for every byte read or written by the program, implying that it requires 4x the memory of the uninstrumented code.
 
 The following represents some sample output from a code instrumented with Byfl and most of the preceding options:
 
+    BYFL_INFO: Byfl command line: -bf-inst-mix -bf-by-func -bf-vectors -bf-unique-bytes -bf-every-bb -bf-types -bf-mem-footprint
     BYFL_BB_HEADER:             LD_bytes             ST_bytes               LD_ops               ST_ops                Flops              FP_bits              Int_ops          Int_op_bits
-    BYFL_BB:                           0                    0                    0                    0                    0                    0                    0                    0
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    BYFL_BB:                           0                   16                    0                    2                    0                    0                   20                 2065
-    600
-    BYFL_BB:                         512                  256                    2                    1                   32                 6144                    3                  192
+    BYFL_BB:                           0                    0                    0                    0                    0                    0                    4                  192
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
+    BYFL_BB:                         512                  256                    2                    1                   32                 6144                  102                10656
     BYFL_FUNC_HEADER:             LD_bytes             ST_bytes               LD_ops               ST_ops                Flops              FP_bits              Int_ops          Int_op_bits           Uniq_bytes             Cond_brs          Invocations Function
-    BYFL_FUNC:                         512                  768                    2                   65                   32                 6144                  643                66272                  768                   32                    1 main
+    BYFL_FUNC:                         512                  768                    2                   65                   96                12288                  746                94880                  768                   32                    1 main
     BYFL_CALLEE_HEADER:   Invocations Byfl Function
-    BYFL_CALLEE:                    3 No   llvm.lifetime.end
-    BYFL_CALLEE:                    3 No   llvm.lifetime.start
     BYFL_CALLEE:                    1 No   __printf_chk
     BYFL_VECTOR_HEADER:             Elements             Elt_bits Type                Tally Function
     BYFL_VECTOR:                          32                   64 FP                      1 main
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                        34 basic blocks
-    BYFL_SUMMARY:                        32 conditional or indirect branches
-    BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                     1,280 bytes (512 loaded + 768 stored)
     BYFL_SUMMARY:                       768 unique bytes
-    BYFL_SUMMARY:                        32 flops
-    BYFL_SUMMARY:                       643 integer ops
+    BYFL_SUMMARY:                        96 flops
+    BYFL_SUMMARY:                       549 integer ops
     BYFL_SUMMARY:                        67 memory ops (2 loads + 65 stores)
-    BYFL_SUMMARY:                       511 median reuse distance (+/- 128)
+    BYFL_SUMMARY:                        34 branch ops (1 unconditional and direct + 32 conditional or indirect + 1 other)
+    BYFL_SUMMARY:                       746 TOTAL OPS
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                         2 loads of vectors of 64-bit floating-point values
     BYFL_SUMMARY:                        64 stores of 64-bit floating-point values
@@ -233,51 +226,55 @@ The following represents some sample output from a code instrumented with Byfl a
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                    10,240 bits (4,096 loaded + 6,144 stored)
     BYFL_SUMMARY:                     6,144 unique bits
-    BYFL_SUMMARY:                     6,144 flop bits
-    BYFL_SUMMARY:                    66,272 integer op bits
+    BYFL_SUMMARY:                    12,288 flop bits
+    BYFL_SUMMARY:                    94,880 op bits (excluding memory ops)
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                         1 vector operations
+    BYFL_SUMMARY:                         1 vector operations (FP & int)
     BYFL_SUMMARY:                   32.0000 elements per vector
     BYFL_SUMMARY:                   64.0000 bits per element
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                       235 Call           instructions executed
-    BYFL_SUMMARY:                        96 Trunc          instructions executed
     BYFL_SUMMARY:                        96 Add            instructions executed
     BYFL_SUMMARY:                        67 BitCast        instructions executed
-    BYFL_SUMMARY:                        67 PtrToInt       instructions executed
     BYFL_SUMMARY:                        65 Store          instructions executed
-    BYFL_SUMMARY:                        64 Mul            instructions executed
-    BYFL_SUMMARY:                        64 GetElementPtr  instructions executed
     BYFL_SUMMARY:                        64 SIToFP         instructions executed
+    BYFL_SUMMARY:                        64 Trunc          instructions executed
+    BYFL_SUMMARY:                        64 GetElementPtr  instructions executed
     BYFL_SUMMARY:                        64 SRem           instructions executed
+    BYFL_SUMMARY:                        64 Mul            instructions executed
     BYFL_SUMMARY:                        33 Br             instructions executed
-    BYFL_SUMMARY:                        32 PHI            instructions executed
     BYFL_SUMMARY:                        32 ICmp           instructions executed
     BYFL_SUMMARY:                        32 Shl            instructions executed
+    BYFL_SUMMARY:                        32 PHI            instructions executed
     BYFL_SUMMARY:                         3 Alloca         instructions executed
-    BYFL_SUMMARY:                         2 ExtractElement instructions executed
+    BYFL_SUMMARY:                         2 Call           instructions executed
     BYFL_SUMMARY:                         2 Load           instructions executed
+    BYFL_SUMMARY:                         2 ExtractElement instructions executed
     BYFL_SUMMARY:                         1 Ret            instructions executed
     BYFL_SUMMARY:                         1 FMul           instructions executed
+    BYFL_SUMMARY:                       688 TOTAL          instructions executed
+    BYFL_SUMMARY: -----------------------------------------------------------------
+    BYFL_SUMMARY:                       512 bytes cover  80.0% of memory accesses
+    BYFL_SUMMARY:                       768 bytes cover 100.0% of memory accesses
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                    0.6667 bytes loaded per byte stored
-    BYFL_SUMMARY:                  321.5000 integer ops per load instruction
+    BYFL_SUMMARY:                  373.0000 ops per load instruction
     BYFL_SUMMARY:                  152.8358 bits loaded/stored per memory op
-    BYFL_SUMMARY:                    1.0000 flops per conditional/indirect branch
-    BYFL_SUMMARY:                   20.0938 ops per conditional/indirect branch
-    BYFL_SUMMARY:                    0.0312 vector ops per conditional/indirect branch
-    BYFL_SUMMARY:                    0.0312 vector operations (FP & int) per flop
-    BYFL_SUMMARY:                    0.0016 vector operations per integer op
+    BYFL_SUMMARY:                    3.0000 flops per conditional/indirect branch
+    BYFL_SUMMARY:                   23.3125 ops per conditional/indirect branch
+    BYFL_SUMMARY:                    0.0312 vector ops (FP & int) per conditional/indirect branch
+    BYFL_SUMMARY:                    0.0104 vector ops (FP & int) per flop
+    BYFL_SUMMARY:                    0.0013 vector ops (FP & int) per op
+    BYFL_SUMMARY:                    1.0843 ops per instruction
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                   40.0000 bytes per flop
-    BYFL_SUMMARY:                    1.6667 bits per flop bit
-    BYFL_SUMMARY:                    1.9907 bytes per integer op
-    BYFL_SUMMARY:                    0.1545 bits per integer op bit
+    BYFL_SUMMARY:                   13.3333 bytes per flop
+    BYFL_SUMMARY:                    0.8333 bits per flop bit
+    BYFL_SUMMARY:                    1.7158 bytes per op
+    BYFL_SUMMARY:                    0.1079 bits per (non-memory) op bit
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                   24.0000 unique bytes per flop
-    BYFL_SUMMARY:                    1.0000 unique bits per flop bit
-    BYFL_SUMMARY:                    1.1944 unique bytes per integer op
-    BYFL_SUMMARY:                    0.0927 unique bits per integer op bit
+    BYFL_SUMMARY:                    8.0000 unique bytes per flop
+    BYFL_SUMMARY:                    0.5000 unique bits per flop bit
+    BYFL_SUMMARY:                    1.0295 unique bytes per op
+    BYFL_SUMMARY:                    0.0648 unique bits per (non-memory) op bit
     BYFL_SUMMARY:                    1.6667 bytes per unique byte
     BYFL_SUMMARY: -----------------------------------------------------------------
 

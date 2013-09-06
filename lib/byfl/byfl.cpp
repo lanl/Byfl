@@ -746,7 +746,7 @@ private:
       if (bf_unique_bytes)
         *bfout << ' '
                << setw(HDR_COL_WIDTH)
-               << (bf_tally_bytes ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c));
+               << (bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c));
       *bfout << ' '
              << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
              << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
@@ -806,7 +806,7 @@ private:
       global_unique_bytes = reuse_unique;
     else
       if (bf_unique_bytes && !partition)
-        global_unique_bytes = bf_tally_bytes ? bf_tally_unique_addresses_tb() : bf_tally_unique_addresses();
+        global_unique_bytes = bf_mem_footprint ? bf_tally_unique_addresses_tb() : bf_tally_unique_addresses();
 
     // Prepare the tag to use for output, and indicate that we want to
     // use separators in numerical output.
@@ -969,7 +969,7 @@ private:
     }
 
     // Output quantiles of working-set sizes.
-    if (bf_tally_bytes) {
+    if (bf_mem_footprint) {
       // Produce a histogram that tallies each byte-access count.
       vector<bf_addr_tally_t> access_counts;
       uint64_t total_bytes = 0;
@@ -980,8 +980,6 @@ private:
       uint64_t running_total_bytes = 0;     // Running total of tally (# of addresses)
       uint64_t running_total_accesses = 0;  // Running total of byte-access count times tally.
       double hit_rate = 0.0;            // Quotient of the preceding two values
-      *bfout << tag << ": " << setw(25) << 0 << " addresses represent "
-             << fixed << setw(5) << setprecision(1) << hit_rate*100.0 << "% of memory accesses\n";
       for (vector<bf_addr_tally_t>::iterator counts_iter = access_counts.begin();
            counts_iter != access_counts.end();
            counts_iter++) {
@@ -991,7 +989,7 @@ private:
         if (new_hit_rate - hit_rate > pct_change || running_total_accesses == global_bytes) {
           hit_rate = new_hit_rate;
           *bfout << tag << ": "
-                 << setw(25) << running_total_bytes << " addresses represent "
+                 << setw(25) << running_total_bytes << " bytes cover "
                  << fixed << setw(5) << setprecision(1) << hit_rate*100.0 << "% of memory accesses\n";
         }
       }

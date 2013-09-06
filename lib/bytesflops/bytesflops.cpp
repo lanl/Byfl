@@ -34,8 +34,8 @@ namespace bytesflops_pass {
 
   // Define a command-line option for keeping track of unique bytes
   cl::opt<bool>
-  TallyBytes("bf-byte-counts", cl::init(false), cl::NotHidden,
-	     cl::desc("Tally the number of times each byte address is accessed"));
+  FindMemFootprint("bf-mem-footprint", cl::init(false), cl::NotHidden,
+		   cl::desc("Tabulate the minimum amount of memory needed for various cache hit rates"));
 
   // Define a command-line option for tallying load/store operations
   // based on various data types (note this also implies --bf-all-ops).
