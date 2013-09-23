@@ -74,7 +74,10 @@ namespace bytesflops_pass {
     // Assign a value to bf_max_reuse_dist.
     create_global_constant(module, "bf_max_reuse_distance", uint64_t(MaxReuseDist));
 
-    // Create a global string that stores all of our command-line options.
+    // Assign a value to bf_run_number
+    create_global_constant(module, "bf_run_number", uint64_t(RunNumber));
+
+    // Create a global string that stores all of our compilation command-line options.
     ifstream cmdline("/proc/self/cmdline");   // Full command line passed to opt
     string bf_cmdline("[failed to read /proc/cpuinfo]");  // Reconstructed command line with -bf-* options only
     if (cmdline.is_open()) {

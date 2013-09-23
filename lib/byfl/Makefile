@@ -17,10 +17,10 @@ LEVEL=../..
 #
 LIBRARYNAME = byfl
 BYTECODE_LIBRARY = 1
-SOURCES = byfl.cpp reuse-dist.cpp symtable.cpp threading.cpp ubytes.cpp vectors.cpp
+SOURCES = byfl.cpp byfl-db.cpp byfl-binary.cpp reuse-dist.cpp symtable.cpp threading.cpp ubytes.cpp vectors.cpp
 BUILT_SOURCES = opcode2name.cpp opcode2name.h
 EXTRA_DIST = cachemap.h opcode2name
-CPPFLAGS += -I$(PROJ_SRC_ROOT)/lib/include
+CPPFLAGS += -I$(PROJ_SRC_ROOT)/lib/include -fexceptions 
 
 #
 # Specify how to create opcode2name.cpp and opcode2name.h

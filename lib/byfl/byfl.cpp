@@ -18,16 +18,24 @@
 #include <string.h>
 #include <locale>
 #include <wordexp.h>
+#include <sys/time.h>
+#include <inttypes.h>
 
 #include "byfl-common.h"
 #include "cachemap.h"
 #include "opcode2name.h"
+#include "byfl-binary.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
 using namespace std;
 
 const unsigned int HDR_COL_WIDTH = 20;
+
+#define STR_EXPAND(tok) #tok
+#define STR(tok) STR_EXPAND(tok)
+#define FUNCTION_FORMAT_STR "%" STR(MAX_FUNCTION_NAMELEN) "s"
+#define REPORT_DERIVED(OUTSTRM, TAG, MEASURE, TEXTSTR) if (MEASURE >= 0) *OUTSTRM << TAG << ": " << fixed << setw(25) << setprecision(4) << MEASURE << TEXTSTR
 
 // Define the different ways a basic block can terminate.
 typedef enum {
@@ -47,6 +55,9 @@ extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
 extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
 extern uint8_t  bf_tally_inst_mix;   // 1=maintain instruction mix histogram
 extern const char* bf_option_string; // -bf-* command-line options
+extern uint64_t bf_run_number;         // Unique number of the run
+extern uint64_t bf_utc_sec;         // seconds since the epoch
+extern uint64_t bf_utc_usec;         // usec portion of time
 
 // Encapsulate of all of our counters into a single structure.
 class ByteFlopCounters {
@@ -316,8 +327,19 @@ extern void bf_get_median_reuse_distance (uint64_t* median_value, uint64_t* mad_
 
 const char* bf_func_and_parents; // Top of the complete_call_stack stack
 string bf_output_prefix;         // String to output before "BYFL" on every line
+string bf_binary_output_filename;       // Name for binary output file
+string bf_output_id;            // unique identifier for this output (eg. rank, nodename, etc.)
 ostream* bfout;                  // Stream to which to send standard output
-
+ofstream* bfbinout = NULL;                  // Stream to which to send binary output
+bool use_bf_db = false;
+char* bf_db_location;
+char* bf_db_name;
+char* bf_db_user;
+char* bf_db_password;
+int bbid = 0; // unique basic block id
+uint64_t utc_sec = 0;
+uint64_t utc_usec = 0;
+char datetime_str[40];
 
 // Define a stack of tallies of all of our counters across <=
 // num_merged basic blocks.  This *ought* to be a top-level variable
@@ -430,6 +452,30 @@ public:
 } check_construction;
 
 
+int setTime() {
+  if (utc_sec != 0) return -1;
+  struct timeval now;
+  struct tm* ptm;
+  int rc;
+  char usec_str[10];
+  rc=gettimeofday(&now, NULL);
+  if(rc==0) {
+    utc_sec =  now.tv_sec;
+    utc_usec = now.tv_usec;
+    ptm = localtime(&now.tv_sec);
+    strftime(datetime_str, sizeof(datetime_str), "%F %T.", ptm);
+    sprintf (usec_str, "%03ld", utc_usec); 
+    strcat(datetime_str, usec_str);
+  } else {
+    printf("gettimeofday() failed, errno = %d\n", errno);
+    return -1;
+  }
+ 
+  printf("SET TIME: sec: %" PRIu64 ", usec: %" PRIu64 ", datetime: %s\n", utc_sec, utc_usec, datetime_str);
+
+  return 0;
+}
+
 extern void initialize_byfl(void);
 extern void initialize_reuse(void);
 extern void initialize_symtable(void);
@@ -439,6 +485,23 @@ extern void initialize_vectors(void);
 extern void bf_push_basic_block (void);
 extern uint64_t bf_tally_unique_addresses (void);
 extern uint64_t bf_tally_unique_addresses (const char* funcname);
+extern int get_db_vars(char** bf_db_location, char** bf_db_name, char** bf_db_user,
+      char** bf_db_password);
+extern int connect_database(char* lvalue, char* db, char* user, char* pvalue);
+extern void insert_loadstores(uint64_t sec, uint64_t usec, uint64_t lsid, uint64_t tally,
+   short memop, short memref, short memagg, short memsize, short memtype);
+extern void insert_basicblocks(uint64_t sec, uint64_t usec, uint64_t bbid, uint64_t num_merged,
+    uint64_t LD_bytes, uint64_t ST_bytes, uint64_t LD_ops, uint64_t ST_ops,
+    uint64_t Flops, uint64_t FP_bits, uint64_t Int_ops, uint64_t Int_op_bits);
+extern void insert_instmix(uint64_t sec, uint64_t usec, const char* inst_type, uint64_t tally);
+extern void insert_functions(bf_functions_table &bf_functions_tbl);
+extern void insert_callee(uint64_t sec, uint64_t usec, uint64_t Invocations, short Byfl,
+    const char* Function);
+extern void insert_runs(uint64_t sec, uint64_t usec, char* datetime,
+    string name, int64_t run_no, string output_id, const char* bf_options);
+extern void insert_derived(uint64_t sec, uint64_t usec, const derived_measurements &dm);
+extern void binout_derived(uint64_t sec, uint64_t usec, ofstream* outstrm, const derived_measurements &dm);
+extern void close_database();
 
 
 // Initialize some of our variables at first use.
@@ -479,6 +542,7 @@ void bf_initialize_if_necessary (void)
     initialize_threading();
     initialize_ubytes();
     initialize_vectors();
+    setTime();
     initialized = true;
   }
 }
@@ -537,8 +601,15 @@ static bool suppress_output (void)
   static enum {UNKNOWN, SUPPRESS, SHOW} output = UNKNOWN;
   if (output == UNKNOWN) {
     // First invocation -- we can begin outputting.
-    bfout = &cout;
     output = SHOW;
+
+    // check if we want output to go to stdout or not
+    char *bf_text_cout = getenv("BF_TEXT_STDOUT");
+    if (bf_text_cout) {
+      bfout = &cout;
+    } else {
+      bfout = NULL;
+    }
 
     // If the BF_PREFIX environment variable is set, expand it and
     // output it before each line of output.
@@ -568,13 +639,66 @@ static bool suppress_output (void)
       }
     }
 
+    
+
+    // If the BF_OUTPUT_BINARY environment variable is set,
+    // it indicates a file name for the binary output
+    char *binary_file = getenv("BF_OUTPUT_BINARY");
+    if (binary_file) {
+      cout << "Binary file is specified!\n";
+      // Perform shell expansion on BF_OUTPUT_BINARY.
+      wordexp_t expansion;
+      if (wordexp(binary_file, &expansion, 0)) {
+        cerr << "Failed to expand BF_OUTPUT_BINARY (\"" << binary_file << "\")\n";
+        exit(1);
+      }
+      for (size_t i = 0; i < expansion.we_wordc; i++)
+        bf_binary_output_filename += string(expansion.we_wordv[i]) + string(" ");
+      wordfree(&expansion);
+
+      if ((bf_binary_output_filename.size() >= 1 && bf_binary_output_filename[0] == '/')
+          || (bf_binary_output_filename.size() >= 2 && bf_binary_output_filename[0] == '.' && bf_binary_output_filename[1] == '/')) {
+        bf_binary_output_filename.resize(bf_binary_output_filename.size() - 1);  // Drop the trailing space character.
+        bfbinout = new ofstream(bf_binary_output_filename.c_str(), 
+          ios_base::out | ios_base::trunc | ios::binary);
+        if (bfbinout->fail()) {
+          cerr << "Failed to create binary output file " << bf_binary_output_filename << '\n';
+          exit(1);
+        }
+      }
+    }
+
+    // If the BF_MPI_RANK environment variable is set,
+    // it indicates a unique ID such has rank number or host name
+    char *output_id = getenv("BF_OUTPUT_ID");
+    if (output_id) {
+      // Perform shell expansion on BF_OUTPUT_ID.
+      wordexp_t expansion;
+      if (wordexp(output_id, &expansion, 0)) {
+        cerr << "Failed to expand BF_OUTPUT_ID (\"" << output_id << "\")\n";
+        exit(1);
+      }
+      for (size_t i = 0; i < expansion.we_wordc; i++)
+        bf_output_id += string(expansion.we_wordv[i]) + string(" ");
+      wordfree(&expansion);
+
+    }
+
+    if (get_db_vars(&bf_db_location, &bf_db_name, &bf_db_user, &bf_db_password)) {
+      if (connect_database(bf_db_location, bf_db_name, bf_db_user, bf_db_password)) {
+        use_bf_db = true;
+      } 
+    }
+
     // Log the Byfl command line to help users reproduce their results.
-    *bfout << "BYFL_INFO: Byfl command line: " << bf_option_string << '\n';
+    if (bfout) 
+      *bfout << "BYFL_INFO: Byfl command line: " << bf_option_string << '\n';
 
     // Warn the user if he defined bf_categorize_counters() but didn't
     // compile with -bf-every-bb.
     if (bf_categorize_counters != bf_categorize_counters_original && !bf_every_bb)
-      *bfout << "BYFL_WARNING: bf_categorize_counters() has no effect without -bf-every-bb.\n"
+      if (bfout)
+        *bfout << "BYFL_WARNING: bf_categorize_counters() has no effect without -bf-every-bb.\n"
              << "BYFL_WARNING: Consider using -bf-every-bb -bf-merge-bb="
              << uint64_t(-1) << ".\n";
   }
@@ -630,7 +754,8 @@ void bf_report_bb_tallies (void)
 
   // If this is our first invocation, output a basic-block header line.
   if (__builtin_expect(!showed_header, 0)) {
-    *bfout << bf_output_prefix
+    if (bfout)  {
+      *bfout << bf_output_prefix
            << "BYFL_BB_HEADER: "
            << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
            << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
@@ -640,7 +765,8 @@ void bf_report_bb_tallies (void)
            << setw(HDR_COL_WIDTH) << "FP_bits" << ' '
            << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
            << setw(HDR_COL_WIDTH) << "Int_op_bits";
-    *bfout << '\n';
+      *bfout << '\n';
+    }
     showed_header = true;
   }
 
@@ -650,17 +776,48 @@ void bf_report_bb_tallies (void)
     // Output the difference between the current counter values and
     // our previously saved values.
     ByteFlopCounters* counter_deltas = global_totals.difference(&prev_global_totals);
-    *bfout << bf_output_prefix
-           << "BYFL_BB:        "
-           << setw(HDR_COL_WIDTH) << counter_deltas->loads << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->stores << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->load_ins << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->store_ins << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->flops << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->fp_bits << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->ops << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->op_bits;
+    if (bfout) {
+      *bfout << bf_output_prefix
+      << "BYFL_BB:        "
+      << setw(HDR_COL_WIDTH) << counter_deltas->loads << ' '
+      << setw(HDR_COL_WIDTH) << counter_deltas->stores << ' '
+      << setw(HDR_COL_WIDTH) << counter_deltas->load_ins << ' '
+      << setw(HDR_COL_WIDTH) << counter_deltas->store_ins << ' '
+      << setw(HDR_COL_WIDTH) << counter_deltas->flops << ' '
+      << setw(HDR_COL_WIDTH) << counter_deltas->fp_bits << ' '
+      << setw(HDR_COL_WIDTH) << counter_deltas->ops << ' '
+      << setw(HDR_COL_WIDTH) << counter_deltas->op_bits;
     *bfout << '\n';
+    }
+
+    if (bfbinout) { 
+      bf_table_t table = BF_BASICBLOCKS;
+
+      // write out the type of table entry this is
+      bfbinout->write((char*)&table, sizeof(bf_table_t));
+
+      // write out the data for this basicblocks table entry
+      bf_basicblocks_table bftable = {utc_sec, utc_usec, bbid, num_merged, 
+        counter_deltas->loads, counter_deltas->stores, 
+        counter_deltas->load_ins, counter_deltas->store_ins,
+        counter_deltas->flops, counter_deltas->fp_bits, 
+        counter_deltas->ops, counter_deltas->op_bits};
+
+      bfbinout->write((char*)&bftable, sizeof(bf_basicblocks_table));
+    }
+
+    if (use_bf_db) {
+      insert_basicblocks(utc_sec, utc_usec, bbid, num_merged,
+        counter_deltas->loads, counter_deltas->stores, 
+        counter_deltas->load_ins, counter_deltas->store_ins,
+        counter_deltas->flops, counter_deltas->fp_bits, 
+        counter_deltas->ops, counter_deltas->op_bits);
+    }
+
+    if (use_bf_db || bfbinout) {
+      bbid++;
+    }
+
     num_merged = 0;
     prev_global_totals = global_totals;
     delete counter_deltas;
@@ -712,11 +869,61 @@ void bf_assoc_counters_with_func (const char* funcname)
   }
 }
 
+int copyName(const char* source, char* dest) 
+{
+//  printf("Calling copyName\n");
+
+  int srci = 0;
+  int desti = 0;
+  int len = 0;  
+
+  if (source[0] == '\0') {
+    //printf("first char null\n"); 
+    dest[0] = '\0'; 
+    return 0;
+  }
+
+  while (source[srci] == ' ') {
+    srci++; 
+    len++; 
+  }
+
+  for (;(source[srci] != ' ') && (source[srci] != '\0') && (desti < MAX_FUNCTION_NAMELEN); 
+      srci++, desti++, len++)
+  {
+    dest[desti] = source[srci];
+  }
+
+  dest[desti] = '\0';
+
+  if (source[srci] == '\0') {
+    //printf("last func\n"); 
+    return 0;
+  }
+  
+  if (source[srci] == ' ') {
+    //printf("not last func\n"); 
+    return len+1;
+  }
+
+  // keep reading through name if longer than max
+  if (desti == MAX_FUNCTION_NAMELEN) {
+    for (;(source[srci] != ' ') && (source[srci] != '\0'); srci++, len++); 
+  }
+
+  if (source[srci] == '\0') 
+    return 0;
+  else return len+1;
+
+}
+
 // At the end of the program, report what we measured.
 static class RunAtEndOfProgram {
 private:
-  string separator;    // Horizontal rule to output between sections
 
+    
+  string separator;    // Horizontal rule to output between sections
+    
   // Compare two strings.
   static bool compare_char_stars (const char* one, const char* two) {
     return strcmp(one, two) < 0;
@@ -743,76 +950,193 @@ private:
       return strcmp(one.first, two.first);
   }
 
+  void report_run_info (void) {
+
+    if (bfbinout) {
+      bf_table_t table = BF_RUNS;
+
+      // write out the type of table entry this is
+      bfbinout->write((char*)&table, sizeof(bf_table_t));
+
+      // write out the data for this basicblocks table entry
+      bf_runs_table bftable = {
+        utc_sec, utc_usec, "", "", bf_run_number, "", ""};
+
+      // copy over datetime string
+      strncpy(bftable.datetime, datetime_str, MAX_DATETIME_LEN);
+
+      // also need to copy over name, but haven't figured that out how we're getting that yet
+
+      // copy over output id
+      strncpy(bftable.output_id, bf_output_id.c_str(), MAX_OUTPUTID_LEN);
+
+      // copy over bf command options
+      strncpy(bftable.bf_options, bf_option_string, MAX_BFOPTIONS_LEN);
+
+      // write out the record for runs
+      bfbinout->write((char*)&bftable, sizeof(bf_runs_table));
+    }
+
+    string run_name = "";
+
+    if (use_bf_db) {
+      insert_runs(utc_sec, utc_usec, datetime_str, run_name, bf_run_number, bf_output_id, bf_option_string);
+    }
+  }
+
   // Report per-function counter totals.
   void report_by_function (void) {
     // Output a header line.
+    if (bfout) {
     *bfout << bf_output_prefix
-           << "BYFL_FUNC_HEADER: "
-           << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
-           << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
-           << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "Flops" << ' '
-           << setw(HDR_COL_WIDTH) << "FP_bits" << ' '
-           << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "Int_op_bits";
+      << "BYFL_FUNC_HEADER: "
+      << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
+      << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
+      << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
+      << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
+      << setw(HDR_COL_WIDTH) << "Flops" << ' '
+      << setw(HDR_COL_WIDTH) << "FP_bits" << ' '
+      << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
+      << setw(HDR_COL_WIDTH) << "Int_op_bits";
     if (bf_unique_bytes)
       *bfout << ' '
-             << setw(HDR_COL_WIDTH) << "Uniq_bytes";
+        << setw(HDR_COL_WIDTH) << "Uniq_bytes";
     *bfout << ' '
-           << setw(HDR_COL_WIDTH) << "Cond_brs" << ' '
-           << setw(HDR_COL_WIDTH) << "Invocations" << ' '
-           << "Function";
+      << setw(HDR_COL_WIDTH) << "Cond_brs" << ' '
+      << setw(HDR_COL_WIDTH) << "Invocations" << ' '
+      << "Function";
     if (bf_call_stack)
       for (size_t i=0; i<call_stack->max_depth-1; i++)
         *bfout << ' '
-               << "Parent_func_" << i+1;
+          << "Parent_func_" << i+1;
     *bfout << '\n';
+    }
 
     // Output the data by sorted function name.
+    uint64_t stackid = 0;
     vector<const char*>* all_func_names = per_func_totals().sorted_keys(compare_char_stars);
     for (vector<const char*>::iterator fn_iter = all_func_names->begin();
-         fn_iter != all_func_names->end();
-         fn_iter++) {
+        fn_iter != all_func_names->end();
+        fn_iter++) {
       const string funcname = *fn_iter;
       const char* funcname_c = bf_string_to_symbol(funcname.c_str());
       ByteFlopCounters* func_counters = per_func_totals()[funcname_c];
+      if (bfout) {
       *bfout << bf_output_prefix
-             << "BYFL_FUNC:        "
-             << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->stores << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->load_ins << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->store_ins << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->flops << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->fp_bits << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->op_bits;
+        << "BYFL_FUNC:        "
+        << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
+        << setw(HDR_COL_WIDTH) << func_counters->stores << ' '
+        << setw(HDR_COL_WIDTH) << func_counters->load_ins << ' '
+        << setw(HDR_COL_WIDTH) << func_counters->store_ins << ' '
+        << setw(HDR_COL_WIDTH) << func_counters->flops << ' '
+        << setw(HDR_COL_WIDTH) << func_counters->fp_bits << ' '
+        << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
+        << setw(HDR_COL_WIDTH) << func_counters->op_bits;
       if (bf_unique_bytes)
         *bfout << ' '
-               << setw(HDR_COL_WIDTH) << bf_tally_unique_addresses(funcname_c);
+          << setw(HDR_COL_WIDTH) << bf_tally_unique_addresses(funcname_c);
       *bfout << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
-             << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
-             << funcname_c << '\n';
+        << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
+        << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
+        << funcname_c << '\n';
+      }
+
+      if (bfbinout || use_bf_db) {
+
+        // write out the data for this basicblocks table entry
+        bf_functions_table bftable = {
+          utc_sec, utc_usec, stackid, 
+          func_counters->loads, func_counters->stores,
+          func_counters->load_ins, func_counters->store_ins,
+          func_counters->flops, func_counters->fp_bits,
+          func_counters->ops, func_counters->op_bits,
+          bf_tally_unique_addresses(funcname_c),
+          func_counters->terminators[BF_END_BB_DYNAMIC],
+          func_call_tallies()[funcname_c],
+          "", "", "", "", "", "", "", "", "", "", "", ""};
+
+        bool done = false;
+
+        const char* funcnamep = funcname_c;
+        int len = 0;
+        len = copyName(funcnamep, bftable.Function);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func1);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func2);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func3);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func4);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func5);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func6);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func7);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func8);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func9);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func10);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+        if (!done) len = copyName(funcnamep, bftable.Parent_func11);
+        if (len > 0) {funcnamep += len;} else {done = true;}
+
+#ifdef CMA
+        printf("Parsed Functions:\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+            bftable.Function,
+            bftable.Parent_func1,
+            bftable.Parent_func2,
+            bftable.Parent_func3,
+            bftable.Parent_func4,
+            bftable.Parent_func5,
+            bftable.Parent_func6,
+            bftable.Parent_func7,
+            bftable.Parent_func8,
+            bftable.Parent_func9,
+            bftable.Parent_func10,
+            bftable.Parent_func11);
+#endif
+
+      if (bfbinout) {        
+        bf_table_t table = BF_FUNCTIONS;
+
+        // write out the type of table entry this is
+        bfbinout->write((char*)&table, sizeof(bf_table_t));
+        bfbinout->write((char*)&bftable, sizeof(bf_functions_table));
+      }
+     
+      if (use_bf_db) {
+        insert_functions(bftable);
+      }
+
+        stackid++;
+      }
+
     }
+
     delete all_func_names;
 
     // Output invocation tallies for all called functions, not just
     // instrumented functions.
-    *bfout << bf_output_prefix
-           << "BYFL_CALLEE_HEADER: "
-           << setw(13) << "Invocations" << ' '
-           << "Byfl" << ' '
-           << "Function\n";
+    if (bfout) {
+      *bfout << bf_output_prefix
+        << "BYFL_CALLEE_HEADER: "
+        << setw(13) << "Invocations" << ' '
+        << "Byfl" << ' '
+        << "Function\n";
+    }
     vector<const char*> all_called_funcs;
     for (str2num_t::iterator sm_iter = func_call_tallies().begin();
-         sm_iter != func_call_tallies().end();
-         sm_iter++)
+        sm_iter != func_call_tallies().end();
+        sm_iter++)
       all_called_funcs.push_back(sm_iter->first);
     sort(all_called_funcs.begin(), all_called_funcs.end(), compare_func_totals);
     for (vector<const char*>::iterator fn_iter = all_called_funcs.begin();
-         fn_iter != all_called_funcs.end();
-         fn_iter++) {
+        fn_iter != all_called_funcs.end();
+        fn_iter++) {
       const char* funcname = *fn_iter;   // Function name
       uint64_t tally = 0;                // Invocation count
       bool instrumented = true;          // Whether function was instrumented
@@ -825,14 +1149,37 @@ private:
       }
       string funcname_orig = demangle_func_name(funcname);
       if (tally > 0) {
-        *bfout << bf_output_prefix
-               << "BYFL_CALLEE: "
-               << setw(HDR_COL_WIDTH) << tally << ' '
-               << (instrumented ? "Yes " : "No  ") << ' '
-               << funcname_orig;
-        if (funcname_orig != funcname)
-          *bfout << " [" << funcname << ']';
-        *bfout << '\n';
+        if (bfout) {
+          *bfout << bf_output_prefix
+            << "BYFL_CALLEE: "
+            << setw(HDR_COL_WIDTH) << tally << ' '
+            << (instrumented ? "Yes " : "No  ") << ' '
+            << funcname_orig;
+          if (funcname_orig != funcname)
+            *bfout << " [" << funcname << ']';
+          *bfout << '\n';
+        }
+
+        if (bfbinout) {
+          bf_table_t table = BF_CALLEE;
+
+          // write out the type of table entry this is
+          bfbinout->write((char*)&table, sizeof(bf_table_t));
+
+          // write out the data for this callee table entry
+          bf_callee_table bftable = {
+            utc_sec, utc_usec, tally, instrumented? (short)1:(short)0, ""};
+
+          // should I be copying funcname_orig? or maybe both funcname and funcname_orig?
+          strncpy(bftable.Function, funcname, MAX_FUNCTION_NAMELEN);
+
+          bfbinout->write((char*)&bftable, sizeof(bf_callee_table));
+        }
+
+        if (use_bf_db) {
+          insert_callee(utc_sec, utc_usec, tally,  instrumented? (short)1:(short)0,
+            funcname);
+        }
       }
     }
   }
@@ -856,7 +1203,7 @@ private:
     string tag(bf_output_prefix + "BYFL_SUMMARY");
     if (partition)
       tag += '(' + string(partition) + ')';
-    bfout->imbue(locale(""));
+    if (bfout) bfout->imbue(locale(""));
 
     // For convenience, assign names to each of our terminator tallies.
     const uint64_t term_static = counter_totals.terminators[BF_END_BB_STATIC];
@@ -868,36 +1215,40 @@ private:
     const uint64_t global_int_ops = counter_totals.ops - counter_totals.flops - global_mem_ops - term_any;
 
     // Report the raw measurements in terms of bytes and operations.
-    *bfout << tag << ": " << separator << '\n';
-    *bfout << tag << ": " << setw(25) << global_bytes << " bytes ("
-           << counter_totals.loads << " loaded + "
-           << counter_totals.stores << " stored)\n";
-    if (bf_unique_bytes && !partition)
-      *bfout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
-    *bfout << tag << ": " << setw(25) << counter_totals.flops << " flops\n";
-    *bfout << tag << ": " << setw(25) << global_int_ops << " integer ops\n";
-    *bfout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
-           << counter_totals.load_ins << " loads + "
-           << counter_totals.store_ins << " stores)\n";
-    *bfout << tag << ": " << setw(25) << term_any << " branch ops ("
-           << term_static << " unconditional and direct + "
-           << term_dynamic << " conditional or indirect + "
-           << term_any - term_static - term_dynamic << " other)\n";
-    *bfout << tag << ": " << setw(25) << counter_totals.ops << " TOTAL OPS\n";
+    if (bfout) {
+      *bfout << tag << ": " << separator << '\n';
+      *bfout << tag << ": " << setw(25) << global_bytes << " bytes ("
+        << counter_totals.loads << " loaded + "
+        << counter_totals.stores << " stored)\n";
+      if (bf_unique_bytes && !partition)
+        *bfout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
+      *bfout << tag << ": " << setw(25) << counter_totals.flops << " flops\n";
+      *bfout << tag << ": " << setw(25) << global_int_ops << " integer ops\n";
+      *bfout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
+        << counter_totals.load_ins << " loads + "
+        << counter_totals.store_ins << " stores)\n";
+      *bfout << tag << ": " << setw(25) << term_any << " branch ops ("
+        << term_static << " unconditional and direct + "
+        << term_dynamic << " conditional or indirect + "
+        << term_any - term_static - term_dynamic << " other)\n";
+      *bfout << tag << ": " << setw(25) << counter_totals.ops << " TOTAL OPS\n";
+    }
 
     // Output reuse distance if measured.
     if (reuse_unique > 0) {
       uint64_t median_value;
       uint64_t mad_value;
       bf_get_median_reuse_distance(&median_value, &mad_value);
-      *bfout << tag << ": " << setw(25);
-      if (median_value == ~(uint64_t)0)
-        *bfout << "infinite" << " median reuse distance\n";
-      else
-        *bfout << median_value << " median reuse distance (+/- "
-               << mad_value << ")\n";
+      if (bfout) {
+        *bfout << tag << ": " << setw(25);
+        if (median_value == ~(uint64_t)0)
+          *bfout << "infinite" << " median reuse distance\n";
+        else
+          *bfout << median_value << " median reuse distance (+/- "
+            << mad_value << ")\n";
+      }
     }
-    *bfout << tag << ": " << separator << '\n';
+    if (bfout) *bfout << tag << ": " << separator << '\n';
 
     // Output raw, per-type information.
     if (bf_types) {
@@ -910,6 +1261,9 @@ private:
       const char *memtype2name[] = {"integers", "floating-point values",
                                     "\"other\" values (not integers or FP values)"};
 
+      int lsid = 0; // unique load/store id
+      bf_table_t table = BF_LOADSTORES;
+
       // Output all nonzero entries.
       for (int memop = 0; memop < BF_OP_NUM; memop++)
         for (int memref = 0; memref < BF_REF_NUM; memref++)
@@ -918,47 +1272,72 @@ private:
               for (int memtype = 0; memtype < BF_TYPE_NUM; memtype++) {
                 uint64_t idx = mem_type_to_index(memop, memref, memagg, memtype, memwidth);
                 uint64_t tally = counter_totals.mem_insts[idx];
-                if (tally > 0)
-                  *bfout << tag << ": " << setw(25) << tally << ' '
-                         << memop2name[memop]
-                         << memref2name[memref]
-                         << memagg2name[memagg]
-                         << memwidth2name[memwidth]
-                         << memtype2name[memtype]
-                         << '\n';
+                if (tally > 0) {
+                  if (bfout) {
+                    *bfout << tag << ": " << setw(25) << tally << ' '
+                      << memop2name[memop]
+                      << memref2name[memref]
+                      << memagg2name[memagg]
+                      << memwidth2name[memwidth]
+                      << memtype2name[memtype]
+                      << '\n';
+                  }
+ 
+                  if (bfbinout) { 
+                    // write out the type of table entry this is
+                    bfbinout->write((char*)&table, sizeof(bf_table_t));
+
+                    // write out the data for this table entry
+                    cout << "bf_run_number: " << bf_run_number << endl;
+                    bf_loadstores_table bftable = {utc_sec, utc_usec, lsid, tally, (short)memop, 
+                      (short)memref, (short)memagg, (short)memwidth, (short)memtype};
+                    bfbinout->write((char*)&bftable, sizeof(bf_loadstores_table));
+                  }
+                
+                  if (use_bf_db) {
+                    insert_loadstores(utc_sec, utc_usec, lsid, tally, (short)memop,
+                      (short)memref, (short)memagg, (short)memwidth, (short)memtype);
+                  }
+
+                  if (bfbinout || use_bf_db) {
+                    lsid++;
+                  }
+                }
               }
-      *bfout << tag << ": " << separator << '\n';
+      if (bfout) *bfout << tag << ": " << separator << '\n';
     }
-
+        
     // Report the raw measurements in terms of bits and bit operations.
-    *bfout << tag << ": " << setw(25) << global_bytes*8 << " bits ("
-           << counter_totals.loads*8 << " loaded + "
-           << counter_totals.stores*8 << " stored)\n";
-    if (bf_unique_bytes && !partition)
-      *bfout << tag << ": " << setw(25) << global_unique_bytes*8 << " unique bits\n";
-    *bfout << tag << ": " << setw(25) << counter_totals.fp_bits << " flop bits\n";
-    *bfout << tag << ": " << setw(25) << counter_totals.op_bits << " op bits (excluding memory ops)\n";
-    *bfout << tag << ": " << separator << '\n';
-
-    // Report the amount of memory that passed through
-    // llvm.mem{set,cpy,move}.*.
-    if (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] > 0)
-      *bfout << tag << ": " << setw(25)
-             << counter_totals.mem_intrinsics[BF_MEMSET_BYTES]
-             << " bytes stored by "
-             << counter_totals.mem_intrinsics[BF_MEMSET_CALLS] << ' '
-             << (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] == 1 ? "call" : "calls")
-             << " to memset()\n";
-    if (counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] > 0)
-      *bfout << tag << ": " << setw(25)
-             << counter_totals.mem_intrinsics[BF_MEMXFER_BYTES]
-             << " bytes loaded and stored by "
-             << counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] << ' '
-             << (counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] == 1 ? "call" : "calls")
-             << " to memcpy() or memmove()\n";
-    if (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] > 0
-        || counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] > 0)
+    if (bfout) {
+      *bfout << tag << ": " << setw(25) << global_bytes*8 << " bits ("
+        << counter_totals.loads*8 << " loaded + "
+        << counter_totals.stores*8 << " stored)\n";
+      if (bf_unique_bytes && !partition)
+        *bfout << tag << ": " << setw(25) << global_unique_bytes*8 << " unique bits\n";
+      *bfout << tag << ": " << setw(25) << counter_totals.fp_bits << " flop bits\n";
+      *bfout << tag << ": " << setw(25) << counter_totals.op_bits << " op bits (excluding memory ops)\n";
       *bfout << tag << ": " << separator << '\n';
+
+      // Report the amount of memory that passed through
+      // llvm.mem{set,cpy,move}.*.
+      if (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] > 0)
+        *bfout << tag << ": " << setw(25)
+          << counter_totals.mem_intrinsics[BF_MEMSET_BYTES]
+          << " bytes stored by "
+          << counter_totals.mem_intrinsics[BF_MEMSET_CALLS] << ' '
+          << (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] == 1 ? "call" : "calls")
+          << " to memset()\n";
+      if (counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] > 0)
+        *bfout << tag << ": " << setw(25)
+          << counter_totals.mem_intrinsics[BF_MEMXFER_BYTES]
+          << " bytes loaded and stored by "
+          << counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] << ' '
+          << (counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] == 1 ? "call" : "calls")
+          << " to memcpy() or memmove()\n";
+      if (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] > 0
+          || counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] > 0)
+        *bfout << tag << ": " << separator << '\n';
+    }
 
     // Report vector-operation measurements.
     uint64_t num_vec_ops=0, total_vec_elts, total_vec_bits;
@@ -967,15 +1346,17 @@ private:
         bf_get_vector_statistics(partition, &num_vec_ops, &total_vec_elts, &total_vec_bits);
       else
         bf_get_vector_statistics(&num_vec_ops, &total_vec_elts, &total_vec_bits);
-      *bfout << tag << ": " << setw(25) << num_vec_ops << " vector operations (FP & int)\n";
-      if (num_vec_ops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)total_vec_elts / (double)num_vec_ops
-               << " elements per vector\n"
-               << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)total_vec_bits / (double)num_vec_ops
-               << " bits per element\n";
-      *bfout << tag << ": " << separator << '\n';
+      if (bfout) {
+        *bfout << tag << ": " << setw(25) << num_vec_ops << " vector operations (FP & int)\n";
+        if (num_vec_ops > 0)
+          *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+            << (double)total_vec_elts / (double)num_vec_ops
+            << " elements per vector\n"
+            << tag << ": " << fixed << setw(25) << setprecision(4)
+            << (double)total_vec_bits / (double)num_vec_ops
+            << " bits per element\n";
+        *bfout << tag << ": " << separator << '\n';
+      }
     }
 
 
@@ -1001,99 +1382,147 @@ private:
            ntiter != sorted_inst_mix.end();
            ntiter++) {
         total_insts += ntiter->second;
-        *bfout << tag << ": " << setw(25) << ntiter->second << ' '
-               << setw(maxopnamelen) << left
-               << ntiter->first << " instructions executed\n"
-               << right;
+        if (bfout) {
+          *bfout << tag << ": " << setw(25) << ntiter->second << ' '
+            << setw(maxopnamelen) << left
+            << ntiter->first << " instructions executed\n"
+            << right;
+        }
+
+        if (bfbinout) { 
+          bf_table_t table = BF_INSTMIX;
+
+          // write out the type of table entry this is
+          bfbinout->write((char*)&table, sizeof(bf_table_t));
+
+          // write out the data for this instmix table entry
+          bf_instmix_table bftable = {utc_sec, utc_usec, {}, ntiter->second}; 
+          strncpy(bftable.inst_type, ntiter->first, MAX_OPCODE_NAMELEN);
+
+          bfbinout->write((char*)&bftable, sizeof(bf_instmix_table));
+        }
+
+        if (use_bf_db) {
+          insert_instmix(utc_sec, utc_usec, ntiter->first, ntiter->second);
+        }
+
       }
-      *bfout << tag << ": " << setw(25) << total_insts << ' '
-             << setw(maxopnamelen) << left
-             << "TOTAL" << " instructions executed\n"
-             << right
-             << tag << ": " << separator << '\n';
+
+      if (bfout) {
+        *bfout << tag << ": " << setw(25) << total_insts << ' '
+          << setw(maxopnamelen) << left
+          << "TOTAL" << " instructions executed\n"
+          << right
+          << tag << ": " << separator << '\n';
+      }
     }
 
-    // Report a bunch of derived measurements.
+    // Calculate derived measurements
+
+    derived_measurements dm {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1 }; 
+
     if (counter_totals.stores > 0) {
-      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)counter_totals.loads / (double)counter_totals.stores
-             << " bytes loaded per byte stored\n";
+      dm.bytes_loaded_per_byte_stored =  (double)counter_totals.loads / (double)counter_totals.stores;
     }
-    if (counter_totals.load_ins > 0)
-      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)counter_totals.ops / (double)counter_totals.load_ins
-             << " ops per load instruction\n";
-    if (global_mem_ops > 0)
-      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_bytes*8 / (double)global_mem_ops
-             << " bits loaded/stored per memory op\n";
+
+    if (counter_totals.load_ins > 0) {
+      dm.ops_per_load_instr = (double)counter_totals.ops / (double)counter_totals.load_ins;
+    }
+
+    if (global_mem_ops > 0) {
+      dm.bits_loaded_stored_per_memory_op = (double)global_bytes*8 / (double)global_mem_ops;
+    }
+
     if (term_dynamic > 0) {
-      if (counter_totals.flops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)counter_totals.flops / (double)term_dynamic
-               << " flops per conditional/indirect branch\n";
-      if (counter_totals.ops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)counter_totals.ops / (double)term_dynamic
-               << " ops per conditional/indirect branch\n";
-      if (num_vec_ops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)num_vec_ops / (double)term_dynamic
-               << " vector ops (FP & int) per conditional/indirect branch\n";
+      if (counter_totals.flops > 0) {
+        dm.flops_per_conditional_indirect_branch = (double)counter_totals.flops / (double)term_dynamic;
+      }
+
+      if (counter_totals.ops > 0) {
+        dm.ops_per_conditional_indirect_branch = (double)counter_totals.ops / (double)term_dynamic;
+      }
+
+      if (num_vec_ops > 0) {
+        dm.vector_ops_per_conditional_indirect_branch = (double)num_vec_ops / (double)term_dynamic;
+      }
     }
+
     if (num_vec_ops > 0) {
-      if (counter_totals.flops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)num_vec_ops / (double)counter_totals.flops
-               << " vector ops (FP & int) per flop\n";
-      if (counter_totals.ops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)num_vec_ops / (double)counter_totals.ops
-               << " vector ops (FP & int) per op\n";
+      if (counter_totals.flops > 0) {
+        dm.vector_ops_per_flop = (double)num_vec_ops / (double)counter_totals.flops;
+      }
+
+      if (counter_totals.ops > 0) {
+        dm.vector_ops_per_op = (double)num_vec_ops / (double)counter_totals.ops;
+      }
     }
-    if (total_insts > 0)
-      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)counter_totals.ops / (double)total_insts
-             << " ops per instruction\n";
-    *bfout << tag << ": " << separator << '\n';
+
+    if (total_insts > 0) {
+      dm.ops_per_instruction = (double)counter_totals.ops / (double)total_insts;
+    }
+
     if (counter_totals.flops > 0) {
-      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_bytes / (double)counter_totals.flops
-             << " bytes per flop\n"
-             << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_bytes*8.0 / (double)counter_totals.fp_bits
-             << " bits per flop bit\n";
+      dm.bytes_per_flop = (double)global_bytes / (double)counter_totals.flops;
+      dm.bits_per_flop_bit = (double)global_bytes*8.0 / (double)counter_totals.fp_bits;
     }
-    if (counter_totals.ops > 0)
-      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_bytes / (double)counter_totals.ops
-             << " bytes per op\n"
-             << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_bytes*8.0 / (double)counter_totals.op_bits
-             << " bits per (non-memory) op bit\n";
+
+    if (counter_totals.ops > 0) {
+      dm.bytes_per_op = (double)global_bytes / (double)counter_totals.ops;
+      dm.bits_per_nonmemory_op_bit = (double)global_bytes*8.0 / (double)counter_totals.op_bits;
+    }
+
     if (bf_unique_bytes && (counter_totals.flops > 0 || counter_totals.ops > 0)) {
-      *bfout << tag << ": " << separator << '\n';
-      if (counter_totals.flops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)global_unique_bytes / (double)counter_totals.flops
-               << " unique bytes per flop\n"
-               << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)global_unique_bytes*8.0 / (double)counter_totals.fp_bits
-               << " unique bits per flop bit\n";
-      if (counter_totals.ops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)global_unique_bytes / (double)counter_totals.ops
-               << " unique bytes per op\n"
-               << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
-               << " unique bits per (non-memory) op bit\n";
+      if (counter_totals.flops > 0) {
+        dm.unique_bytes_per_flop = (double)global_unique_bytes / (double)counter_totals.flops;
+        dm.unique_bits_per_flop_bit = (double)global_unique_bytes*8.0 / (double)counter_totals.fp_bits;
+      }
+
+      if (counter_totals.ops > 0) {
+        dm.unique_bytes_per_op = (double)global_unique_bytes / (double)counter_totals.ops;
+        dm.unique_bits_per_nonmemory_op_bit = (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits;
+      }
     }
-    if (bf_unique_bytes && !partition)
-      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_bytes / (double)global_unique_bytes
-             << " bytes per unique byte\n";
-    if (!partition)
+
+    if (bf_unique_bytes && !partition) {
+      dm.bytes_per_unique_byte = (double)global_bytes / (double)global_unique_bytes;
+    }
+    
+    // Report a bunch of derived measurements.
+
+    if (bfout) {
+
+      REPORT_DERIVED(bfout, tag, dm.bytes_loaded_per_byte_stored, " bytes loaded per byte stored\n");
+      REPORT_DERIVED(bfout, tag, dm.ops_per_load_instr, " ops per load instruction\n");
+      REPORT_DERIVED(bfout, tag, dm.bits_loaded_stored_per_memory_op, " bits loaded/stored per memory op\n");
+      REPORT_DERIVED(bfout, tag, dm.flops_per_conditional_indirect_branch, " flops per conditional/indirect branch\n");
+      REPORT_DERIVED(bfout, tag, dm.ops_per_conditional_indirect_branch, " ops per conditional/indirect branch\n");
+      REPORT_DERIVED(bfout, tag, dm.vector_ops_per_conditional_indirect_branch, " vector ops (FP & int) per conditional/indirect branch\n");
+      REPORT_DERIVED(bfout, tag, dm.vector_ops_per_flop, " vector ops (FP & int) per flop\n");
+      REPORT_DERIVED(bfout, tag, dm.vector_ops_per_op, " vector ops (FP & int) per op\n");
+      REPORT_DERIVED(bfout, tag, dm.ops_per_instruction, " ops per instruction\n");
       *bfout << tag << ": " << separator << '\n';
+      REPORT_DERIVED(bfout, tag, dm.bytes_per_flop, " bytes per flop\n");
+      REPORT_DERIVED(bfout, tag, dm.bits_per_flop_bit, " bits per flop bit\n");
+      REPORT_DERIVED(bfout, tag, dm.bytes_per_op, " bytes per op\n");
+      REPORT_DERIVED(bfout, tag, dm.bits_per_nonmemory_op_bit, " bits per (nonmemory) op bit\n");
+      *bfout << tag << ": " << separator << '\n';
+      REPORT_DERIVED(bfout, tag, dm.unique_bytes_per_flop, " unique bytes per flop\n");
+      REPORT_DERIVED(bfout, tag, dm.unique_bits_per_flop_bit, " unique bits per flop bit\n");
+      REPORT_DERIVED(bfout, tag, dm.unique_bytes_per_op, " unique bytes per op\n");
+      REPORT_DERIVED(bfout, tag, dm.unique_bits_per_nonmemory_op_bit, " unique bits per (nonmemory) op bit\n");
+      REPORT_DERIVED(bfout, tag, dm.bytes_per_unique_byte, " bytes per unique byte\n");
+      if (!partition) *bfout << tag << ": " << separator << '\n';
+    }
+
+    if (bfbinout) {
+      binout_derived(utc_sec, utc_usec, bfbinout, dm);
+    }
+
+    if (use_bf_db) {
+      insert_derived(utc_sec, utc_usec, dm);
+    } 
+
   }
 
 public:
@@ -1106,6 +1535,8 @@ public:
     bf_initialize_if_necessary();
     if (suppress_output())
       return;
+    
+    report_run_info();
 
     // Report per-function counter totals.
     if (bf_per_func)
@@ -1153,7 +1584,9 @@ public:
 
     // Report the global counter totals across all basic blocks.
     report_totals(NULL, global_totals);
-    bfout->flush();
+    if (bfout) bfout->flush();
+    if (bfbinout) bfbinout->close();
+    if (use_bf_db) close_database();
   }
 } run_at_end_of_program;
 

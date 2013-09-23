@@ -92,6 +92,13 @@ namespace bytesflops_pass {
                cl::desc("Treat addresses not touched after this many accesses as untouched"),
                cl::value_desc("accesses"));
 
+  // Define a command-line option for specifying a run number
+  cl::opt<unsigned long long>
+  RunNumber("bf-run-number", cl::init(~(unsigned long long)0),
+               cl::NotHidden,
+               cl::desc("Specify a unique run number"),
+               cl::value_desc("runnumber"));
+
   static RegisterPass<BytesFlops> H("bytesflops", "Bytes:flops instrumentation");
 
 }  // namespace bytesflops_pass

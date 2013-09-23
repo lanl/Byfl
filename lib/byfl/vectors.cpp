@@ -12,6 +12,7 @@
 #include <string.h>
 #include <unordered_map>
 #include "cachemap.h"
+#include "byfl-binary.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
@@ -91,6 +92,13 @@ extern "C" {
 }
 extern string bf_output_prefix;
 extern ostream* bfout;
+extern ostream* bfbinout;
+extern uint64_t bf_run_number;     
+extern uint64_t utc_sec;     
+extern uint64_t utc_usec;     
+extern bool use_bf_db;
+extern void insert_vectorops(uint64_t sec, uint64_t usec, uint64_t vectid, int Elements,
+    int Elt_bits, short IsFlop, uint64_t Tally, const char* Function);
 
 
 // Initialize some of our variables at first use.
@@ -196,42 +204,72 @@ void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* tota
 void bf_report_vector_operations (size_t call_stack_depth)
 {
   // Output a header line.
+  if (bfout) {
   *bfout << bf_output_prefix
-         << "BYFL_VECTOR_HEADER: "
-         << setw(20) << "Elements" << ' '
-         << setw(20) << "Elt_bits" << ' '
-         << setw(4)  << "Type" << ' '
-         << setw(20) << "Tally";
+    << "BYFL_VECTOR_HEADER: "
+    << setw(20) << "Elements" << ' '
+    << setw(20) << "Elt_bits" << ' '
+    << setw(4)  << "Type" << ' '
+    << setw(20) << "Tally";
   if (bf_per_func) {
     *bfout << " Function";
     if (bf_call_stack)
       for (size_t i=0; i<call_stack_depth-1; i++)
         *bfout << ' '
-               << "Parent_func_" << i+1;
+          << "Parent_func_" << i+1;
   }
   *bfout << '\n';
+  }
 
   // Output a histogram.  Each line represents one set of vector
   // characteristics from one function.
+  uint64_t vectid = 0;
   for (name_to_vector_t::iterator vectally_iter = function_vector_usage->begin();
-       vectally_iter != function_vector_usage->end();
-       vectally_iter++) {
+      vectally_iter != function_vector_usage->end();
+      vectally_iter++) {
     const char* funcname = vectally_iter->first;
     vector_to_tally_t* vectally = vectally_iter->second;
     for (vector_to_tally_t::iterator tally_iter = vectally->begin();
-         tally_iter != vectally->end();
-         tally_iter++) {
+        tally_iter != vectally->end();
+        tally_iter++) {
       VectorOperation* vecop = tally_iter->first;
       uint64_t tally = tally_iter->second;
+      if (bfout) {
       *bfout << bf_output_prefix
-             << "BYFL_VECTOR:        "
-             << setw(20) << vecop->num_elements << ' '
-             << setw(20) << vecop->element_bits << ' '
-             << (vecop->is_flop ? "FP   " : "Int   ")
-             << setw(20) << tally;
+        << "BYFL_VECTOR:        "
+        << setw(20) << vecop->num_elements << ' '
+        << setw(20) << vecop->element_bits << ' '
+        << (vecop->is_flop ? "FP   " : "Int   ")
+        << setw(20) << tally;
       if (bf_per_func)
         *bfout << ' ' << funcname;
       *bfout << '\n';
+      }
+
+      if (bfbinout) {
+        bf_table_t table = BF_VECTOROPS;
+
+        // write out the type of table entry this is
+        bfbinout->write((char*)&table, sizeof(bf_table_t));
+
+        // write out the data for this vectorops table entry
+        bf_vectorops_table bftable = {
+          utc_sec, utc_usec, vectid, vecop->num_elements, vecop->element_bits,
+          (vecop->is_flop ? (short)1 : (short)0), tally, ""};
+        if (bf_per_func) {
+          strncpy(bftable.Function, funcname, MAX_FUNCTION_NAMELEN);
+        }            
+        bfbinout->write((char*)&bftable, sizeof(bf_vectorops_table));
+      }
+
+      if (use_bf_db) {
+        insert_vectorops( utc_sec, utc_usec, vectid, vecop->num_elements, vecop->element_bits,
+          (vecop->is_flop ? (short)1 : (short)0), tally, funcname);
+      }
+
+      if (bfbinout || use_bf_db) {
+        vectid++;
+      }
     }
   }
 }

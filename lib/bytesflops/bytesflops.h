@@ -74,6 +74,9 @@ namespace bytesflops_pass {
   // Define a command-line option for tallying vector operations.
   extern cl::opt<bool> TallyVectors;
 
+  // Define a command-line option to provide a run number
+  extern cl::opt<unsigned long long> RunNumber;
+
   // Define a command-line option for tracking reuse distance.
   typedef enum {RD_LOADS, RD_STORES, RD_BOTH} ReuseDistType;
   extern cl::bits<ReuseDistType> ReuseDist;
