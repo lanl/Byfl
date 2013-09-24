@@ -374,7 +374,7 @@ void insert_derived(uint64_t sec, uint64_t usec, const derived_measurements& dm)
       << dm.unique_bits_per_nonmemory_op_bit << ", "
       << dm.bytes_per_unique_byte << ")";
 
-    cout << sqlstr.str();
+    //cout << sqlstr.str();
     stmt->execute(sqlstr.str());
 
   } catch (sql::SQLException &e) {

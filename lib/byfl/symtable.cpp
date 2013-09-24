@@ -5,9 +5,7 @@
  * By Scott Pakin <pakin@lanl.gov>
  */
 
-#include <map>
-#include <string.h>
-#include <stdlib.h>
+#include "byfl.h"
 
 using namespace std;
 

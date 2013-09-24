@@ -43,8 +43,12 @@ namespace bytesflops_pass {
   // names but also immediate parents.
   extern cl::opt<bool> TrackCallStack;
 
-  // Define a command-line option for keeping track of unique bytes
+  // Define a command-line option for keeping track of unique bytes.
   extern cl::opt<bool> TrackUniqueBytes;
+
+  // Define a command-line option for helping find a program's
+  // working-set size.
+  extern cl::opt<bool> FindMemFootprint;
 
   // Define a command-line option for tallying load/store operations
   // based on various data types.

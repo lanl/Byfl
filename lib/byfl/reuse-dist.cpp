@@ -5,17 +5,11 @@
  * By Scott Pakin <pakin@lanl.gov>
  */
 
-#include <iostream>
-#include <stdlib.h>
-#include <inttypes.h>
-#include "cachemap.h"
+#include "byfl.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
 using namespace std;
-
-// The LLVM pass determines when to prune the tree.
-extern uint64_t bf_max_reuse_distance;
 
 
 namespace bytesflops {

@@ -70,7 +70,7 @@ int getArgs(int argc, char** argv) {
         abort ();
     }
 
-  printf ("lvalue = %d, pvalue = %d, fvalue = %s\n",
+  printf ("location = %d, password = %d, binary filename = %s\n",
       lvalue, pvalue, fvalue);
 
   if (optind+2 != argc) {
@@ -79,11 +79,11 @@ int getArgs(int argc, char** argv) {
   }
 
   index = optind;
-  db = argv[index];
-  user = argv[index+1];
+  db = argv[index++];
+  user = argv[index++];
 
   for (; index < argc; index++)
-    printf ("Non-option argument %s\n", argv[index]);
+    printf ("Unused argument: %s\n", argv[index]);
   return 0;
 }
 
@@ -315,7 +315,7 @@ void populateDatabase()
               << bf_instmix_tbl.usec << ", '" 
               << bf_instmix_tbl.inst_type << "', " 
               << bf_instmix_tbl.tally << ")";
-            cout << sql.str();
+            //cout << sql.str();
             stmt->execute(sql.str());
           }
           break;
@@ -447,7 +447,7 @@ void populateDatabase()
               << bf_derived_tbl.dm.unique_bytes_per_op << ", "  
               << bf_derived_tbl.dm.unique_bits_per_nonmemory_op_bit << ", "  
               << bf_derived_tbl.dm.bytes_per_unique_byte << ")";
-            cout << sql.str() << endl;
+            //cout << sql.str() << endl;
             stmt->execute(sql.str());
           }
           break;

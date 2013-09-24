@@ -30,7 +30,12 @@ namespace bytesflops_pass {
   // Define a command-line option for keeping track of unique bytes
   cl::opt<bool>
   TrackUniqueBytes("bf-unique-bytes", cl::init(false), cl::NotHidden,
-                   cl::desc("Additionally tally unique bytes accessed"));
+                   cl::desc("Tally unique bytes accessed"));
+
+  // Define a command-line option for keeping track of unique bytes
+  cl::opt<bool>
+  FindMemFootprint("bf-mem-footprint", cl::init(false), cl::NotHidden,
+		   cl::desc("Tabulate the minimum amount of memory needed for various cache hit rates"));
 
   // Define a command-line option for tallying load/store operations
   // based on various data types (note this also implies --bf-all-ops).

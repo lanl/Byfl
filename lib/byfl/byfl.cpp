@@ -6,25 +6,7 @@
  *    Pat McCormick <pat@lanl.gov>
  */
 
-#include <iostream>
-#include <fstream>
-#include <cassert>
-#include <iomanip>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <algorithm>
-#include <stdio.h>
-#include <string.h>
-#include <locale>
-#include <wordexp.h>
-#include <sys/time.h>
-#include <inttypes.h>
-
-#include "byfl-common.h"
-#include "cachemap.h"
-#include "opcode2name.h"
-#include "byfl-binary.h"
+#include "byfl.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
@@ -44,20 +26,6 @@ typedef enum {
   BB_END_COND=2       // Basic block terminated with a conditional branch.
 } bb_end_t;
 
-
-// The following constants are defined by the instrumented code.
-extern uint64_t bf_bb_merge;         // Number of basic blocks to merge to compress the output
-extern uint8_t  bf_every_bb;         // 1=tally and output per-basic-block data
-extern uint8_t  bf_types;            // 1=count loads/stores per type
-extern uint8_t  bf_per_func;         // 1=tally and output per-function data
-extern uint8_t  bf_call_stack;       // 1=maintain a function call stack
-extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
-extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
-extern uint8_t  bf_tally_inst_mix;   // 1=maintain instruction mix histogram
-extern const char* bf_option_string; // -bf-* command-line options
-extern uint64_t bf_run_number;         // Unique number of the run
-extern uint64_t bf_utc_sec;         // seconds since the epoch
-extern uint64_t bf_utc_usec;         // usec portion of time
 
 // Encapsulate of all of our counters into a single structure.
 class ByteFlopCounters {
@@ -317,14 +285,6 @@ extern "C" {
 
 namespace bytesflops {
 
-// The following constants are defined by the instrumented code.
-extern const char* bf_string_to_symbol (const char *nonunique);
-extern void bf_report_vector_operations (size_t call_stack_depth);
-extern void bf_get_vector_statistics(uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
-extern void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
-extern void bf_get_reuse_distance (vector<uint64_t>** hist, uint64_t* unique_addrs);
-extern void bf_get_median_reuse_distance (uint64_t* median_value, uint64_t* mad_value);
-
 const char* bf_func_and_parents; // Top of the complete_call_stack stack
 string bf_output_prefix;         // String to output before "BYFL" on every line
 string bf_binary_output_filename;       // Name for binary output file
@@ -452,7 +412,7 @@ public:
 } check_construction;
 
 
-int setTime() {
+int set_time() {
   if (utc_sec != 0) return -1;
   struct timeval now;
   struct tm* ptm;
@@ -475,33 +435,6 @@ int setTime() {
 
   return 0;
 }
-
-extern void initialize_byfl(void);
-extern void initialize_reuse(void);
-extern void initialize_symtable(void);
-extern void initialize_threading(void);
-extern void initialize_ubytes(void);
-extern void initialize_vectors(void);
-extern void bf_push_basic_block (void);
-extern uint64_t bf_tally_unique_addresses (void);
-extern uint64_t bf_tally_unique_addresses (const char* funcname);
-extern int get_db_vars(char** bf_db_location, char** bf_db_name, char** bf_db_user,
-      char** bf_db_password);
-extern int connect_database(char* lvalue, char* db, char* user, char* pvalue);
-extern void insert_loadstores(uint64_t sec, uint64_t usec, uint64_t lsid, uint64_t tally,
-   short memop, short memref, short memagg, short memsize, short memtype);
-extern void insert_basicblocks(uint64_t sec, uint64_t usec, uint64_t bbid, uint64_t num_merged,
-    uint64_t LD_bytes, uint64_t ST_bytes, uint64_t LD_ops, uint64_t ST_ops,
-    uint64_t Flops, uint64_t FP_bits, uint64_t Int_ops, uint64_t Int_op_bits);
-extern void insert_instmix(uint64_t sec, uint64_t usec, const char* inst_type, uint64_t tally);
-extern void insert_functions(bf_functions_table &bf_functions_tbl);
-extern void insert_callee(uint64_t sec, uint64_t usec, uint64_t Invocations, short Byfl,
-    const char* Function);
-extern void insert_runs(uint64_t sec, uint64_t usec, char* datetime,
-    string name, int64_t run_no, string output_id, const char* bf_options);
-extern void insert_derived(uint64_t sec, uint64_t usec, const derived_measurements &dm);
-extern void binout_derived(uint64_t sec, uint64_t usec, ofstream* outstrm, const derived_measurements &dm);
-extern void close_database();
 
 
 // Initialize some of our variables at first use.
@@ -541,8 +474,9 @@ void bf_initialize_if_necessary (void)
     initialize_symtable();
     initialize_threading();
     initialize_ubytes();
+    initialize_tallybytes();
     initialize_vectors();
-    setTime();
+    set_time();
     initialized = true;
   }
 }
@@ -1022,23 +956,24 @@ private:
       const char* funcname_c = bf_string_to_symbol(funcname.c_str());
       ByteFlopCounters* func_counters = per_func_totals()[funcname_c];
       if (bfout) {
-      *bfout << bf_output_prefix
-        << "BYFL_FUNC:        "
-        << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
-        << setw(HDR_COL_WIDTH) << func_counters->stores << ' '
-        << setw(HDR_COL_WIDTH) << func_counters->load_ins << ' '
-        << setw(HDR_COL_WIDTH) << func_counters->store_ins << ' '
-        << setw(HDR_COL_WIDTH) << func_counters->flops << ' '
-        << setw(HDR_COL_WIDTH) << func_counters->fp_bits << ' '
-        << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
-        << setw(HDR_COL_WIDTH) << func_counters->op_bits;
-      if (bf_unique_bytes)
+        *bfout << bf_output_prefix
+          << "BYFL_FUNC:        "
+          << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
+          << setw(HDR_COL_WIDTH) << func_counters->stores << ' '
+          << setw(HDR_COL_WIDTH) << func_counters->load_ins << ' '
+          << setw(HDR_COL_WIDTH) << func_counters->store_ins << ' '
+          << setw(HDR_COL_WIDTH) << func_counters->flops << ' '
+          << setw(HDR_COL_WIDTH) << func_counters->fp_bits << ' '
+          << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
+          << setw(HDR_COL_WIDTH) << func_counters->op_bits;
+        if (bf_unique_bytes)
+          *bfout << ' '
+            << setw(HDR_COL_WIDTH)
+            << (bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c));
         *bfout << ' '
-          << setw(HDR_COL_WIDTH) << bf_tally_unique_addresses(funcname_c);
-      *bfout << ' '
-        << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
-        << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
-        << funcname_c << '\n';
+          << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
+          << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
+          << funcname_c << '\n';
       }
 
       if (bfbinout || use_bf_db) {
@@ -1050,7 +985,9 @@ private:
           func_counters->load_ins, func_counters->store_ins,
           func_counters->flops, func_counters->fp_bits,
           func_counters->ops, func_counters->op_bits,
-          bf_tally_unique_addresses(funcname_c),
+          bf_mem_footprint ? 
+            bf_tally_unique_addresses_tb(funcname_c) : 
+            bf_tally_unique_addresses(funcname_c),
           func_counters->terminators[BF_END_BB_DYNAMIC],
           func_call_tallies()[funcname_c],
           "", "", "", "", "", "", "", "", "", "", "", ""};
@@ -1084,33 +1021,17 @@ private:
         if (!done) len = copyName(funcnamep, bftable.Parent_func11);
         if (len > 0) {funcnamep += len;} else {done = true;}
 
-#ifdef CMA
-        printf("Parsed Functions:\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
-            bftable.Function,
-            bftable.Parent_func1,
-            bftable.Parent_func2,
-            bftable.Parent_func3,
-            bftable.Parent_func4,
-            bftable.Parent_func5,
-            bftable.Parent_func6,
-            bftable.Parent_func7,
-            bftable.Parent_func8,
-            bftable.Parent_func9,
-            bftable.Parent_func10,
-            bftable.Parent_func11);
-#endif
+        if (bfbinout) {        
+          bf_table_t table = BF_FUNCTIONS;
 
-      if (bfbinout) {        
-        bf_table_t table = BF_FUNCTIONS;
+          // write out the type of table entry this is
+          bfbinout->write((char*)&table, sizeof(bf_table_t));
+          bfbinout->write((char*)&bftable, sizeof(bf_functions_table));
+        }
 
-        // write out the type of table entry this is
-        bfbinout->write((char*)&table, sizeof(bf_table_t));
-        bfbinout->write((char*)&bftable, sizeof(bf_functions_table));
-      }
-     
-      if (use_bf_db) {
-        insert_functions(bftable);
-      }
+        if (use_bf_db) {
+          insert_functions(bftable);
+        }
 
         stackid++;
       }
@@ -1196,7 +1117,7 @@ private:
       global_unique_bytes = reuse_unique;
     else
       if (bf_unique_bytes && !partition)
-        global_unique_bytes = bf_tally_unique_addresses();
+        global_unique_bytes = bf_mem_footprint ? bf_tally_unique_addresses_tb() : bf_tally_unique_addresses();
 
     // Prepare the tag to use for output, and indicate that we want to
     // use separators in numerical output.
@@ -1257,9 +1178,9 @@ private:
       const char *memref2name[] = {"", "pointers to "};
       const char *memagg2name[] = {"", "vectors of "};
       const char *memwidth2name[] = {"8-bit ", "16-bit ", "32-bit ",
-                                     "64-bit ", "128-bit ", "oddly sized "};
+        "64-bit ", "128-bit ", "oddly sized "};
       const char *memtype2name[] = {"integers", "floating-point values",
-                                    "\"other\" values (not integers or FP values)"};
+        "\"other\" values (not integers or FP values)"};
 
       int lsid = 0; // unique load/store id
       bf_table_t table = BF_LOADSTORES;
@@ -1282,21 +1203,20 @@ private:
                       << memtype2name[memtype]
                       << '\n';
                   }
- 
+
                   if (bfbinout) { 
                     // write out the type of table entry this is
                     bfbinout->write((char*)&table, sizeof(bf_table_t));
 
                     // write out the data for this table entry
-                    cout << "bf_run_number: " << bf_run_number << endl;
                     bf_loadstores_table bftable = {utc_sec, utc_usec, lsid, tally, (short)memop, 
                       (short)memref, (short)memagg, (short)memwidth, (short)memtype};
                     bfbinout->write((char*)&bftable, sizeof(bf_loadstores_table));
                   }
-                
+
                   if (use_bf_db) {
                     insert_loadstores(utc_sec, utc_usec, lsid, tally, (short)memop,
-                      (short)memref, (short)memagg, (short)memwidth, (short)memtype);
+                        (short)memref, (short)memagg, (short)memwidth, (short)memtype);
                   }
 
                   if (bfbinout || use_bf_db) {
@@ -1359,12 +1279,10 @@ private:
       }
     }
 
-
     // Pretty-print the histogram of instructions executed.
     uint64_t total_insts = 0;
     if (bf_tally_inst_mix) {
       // Sort the histogram by decreasing opcode tally.
-      extern const char* opcode2name[];
       vector<name_tally> sorted_inst_mix;
       size_t maxopnamelen = 0;
       for (uint64_t i = 0; i < NUM_OPCODES; i++)
@@ -1417,11 +1335,41 @@ private:
       }
     }
 
+
+    // Output quantiles of working-set sizes.
+    if (bf_mem_footprint) {
+      // Produce a histogram that tallies each byte-access count.
+      vector<bf_addr_tally_t> access_counts;
+      uint64_t total_bytes = 0;
+      bf_get_address_tally_hist (access_counts, &total_bytes);
+
+      // Output every nth quantile.
+      const double pct_change = 0.05;   // Minimum percentage-point change to output
+      uint64_t running_total_bytes = 0;     // Running total of tally (# of addresses)
+      uint64_t running_total_accesses = 0;  // Running total of byte-access count times tally.
+      double hit_rate = 0.0;            // Quotient of the preceding two values
+      for (vector<bf_addr_tally_t>::iterator counts_iter = access_counts.begin();
+           counts_iter != access_counts.end();
+           counts_iter++) {
+        running_total_bytes += counts_iter->second;
+        running_total_accesses += uint64_t(counts_iter->first) * uint64_t(counts_iter->second);
+        double new_hit_rate = double(running_total_accesses) / double(global_bytes);
+        if (new_hit_rate - hit_rate > pct_change || running_total_accesses == global_bytes) {
+          hit_rate = new_hit_rate;
+          *bfout << tag << ": "
+                 << setw(25) << running_total_bytes << " bytes cover "
+                 << fixed << setw(5) << setprecision(1) << hit_rate*100.0 << "% of memory accesses\n";
+        }
+      }
+      *bfout << tag << ": " << separator << '\n';
+    }
+
     // Calculate derived measurements
 
     derived_measurements dm {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
       -1, -1, -1, -1 }; 
 
+    // Report a bunch of derived measurements.
     if (counter_totals.stores > 0) {
       dm.bytes_loaded_per_byte_stored =  (double)counter_totals.loads / (double)counter_totals.stores;
     }
