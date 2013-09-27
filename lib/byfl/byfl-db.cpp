@@ -288,30 +288,6 @@ void insert_runs(uint64_t sec, uint64_t usec, char* datetime,
   }
 }
 
-#ifdef CMA
-void insert_derived_measurements(
-  bytes_loaded_per_byte_stored,
-  ops_per_load_instr,
-  bits_loaded_stored_per_memory_op,
-  flops_per_conditional_indirect_branch,
-  ops_per_conditional_indirect_branch,
-  vector_ops_per_conditional_indirect_branch,
-  vector_ops_per_flop,
-  vector_ops_per_op,
-  ops_per_instruction,
-  bytes_per_flop,
-  bits_per_flop_bit,
-  bytes_per_op,
-  bits_per_nonmemory_op_bit,
-  unique_bytes_per_flop,
-  unique_bits_per_flop_bit,
-  unique_bytes_per_op,
-  unique_bits_per_nonmemory_op_bit,
-  bytes_per_unique_byte
-  // we can add more here
-){}
-#endif 
-   
 
 void insert_derived(uint64_t sec, uint64_t usec, const derived_measurements& dm) 
 {
@@ -390,6 +366,7 @@ void insert_derived(uint64_t sec, uint64_t usec, const derived_measurements& dm)
 
 
 // print out everything stored in the database so far
+// not used actively, just for debugging
 void queryDatabase() 
 {
 

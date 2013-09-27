@@ -126,25 +126,3 @@ struct bf_derived_table {
 
 #endif
 
-#ifdef CMA
-  double bytes_loaded_per_byte_stored;
-  double ops_per_load_instr;
-  double bits_loaded_stored_per_memory_op;
-  double flops_per_conditional_indirect_branch;
-  double ops_per_conditional_indirect_branch;
-  double vector_ops_per_conditional_indirect_branch;
-  double vector_ops_per_flop;
-  double vector_ops_per_op;
-  double ops_per_instruction;
-  double bytes_per_flop;
-  double bits_per_flop_bit;
-  double bytes_per_op;
-  double bits_per_nonmemory_op_bit;
-  double unique_bytes_per_flop;
-  double unique_bits_per_flop_bit;
-  double unique_bytes_per_op;
-  double unique_bits_per_nonmemory_op_bit;
-  double bytes_per_unique_byte;
-#endif
-
-
