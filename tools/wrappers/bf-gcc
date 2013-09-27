@@ -23,6 +23,7 @@ use strict;
 my $dragonegg = '@DRAGONEGG@';
 my $byfl_libdir = '@PROJ_libdir@';
 my $llvm_libdir = '@LLVM_INST_LIBDIR@';
+my $enable_byfl_db = @ENABLE_BYFL_DB@;
 my $mysqlcppconn_libdir = '@MYSQLCPPCONN_LIBDIR@';
 
 # Store the name of this script and the name of the underlying compiler.
@@ -45,7 +46,6 @@ my @bf_options = split(" ", $ENV{"BF_OPTS"} || "");
 # Let the user disable either the bytesflops plugin, DragonEgg IR
 # emission, or everything besides command-line filtering.
 my $bf_disable = "none";
-my $bf_db_disable = "none";
 
 # Apply GCC's -save-temps option to our temporary files as well.
 my $save_temps = "no";
@@ -495,7 +495,7 @@ if (defined $build_type{"link"}) {
     if ($bf_disable eq "none") {
         push @llvm_ld_options, ("$byfl_libdir/libbyfl.bc", "-lstdc++");
         push @llvm_ld_options, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;
-        if ($bf_db_disable eq "none") {
+        if ($enable_byfl_db eq 1) {
             push @llvm_ld_options, ("-L$mysqlcppconn_libdir", "-lmysqlcppconn");
         } 
     }

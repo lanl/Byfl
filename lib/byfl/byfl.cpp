@@ -538,11 +538,11 @@ static bool suppress_output (void)
     output = SHOW;
 
     // check if we want output to go to stdout or not
-    char *bf_text_cout = getenv("BF_TEXT_STDOUT");
-    if (bf_text_cout) {
-      bfout = &cout;
-    } else {
+    char *bf_no_text = getenv("BF_NO_TEXT");
+    if (bf_no_text) {
       bfout = NULL;
+    } else {
+      bfout = &cout;
     }
 
     // If the BF_PREFIX environment variable is set, expand it and

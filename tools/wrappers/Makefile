@@ -20,6 +20,7 @@ EXTRA_DIST = $(SCRIPTS) Makefile.PL lib/ParseGccOpts.pm
 GENERATED_SCRIPTS = bf-mpicc bf-mpicxx bf-mpif90 bf-mpif77
 
 include $(LEVEL)/Makefile.common
+include $(LEVEL)/Makefile.db
 
 install:: wrappers.mak $(addprefix $(PROJ_OBJ_DIR)/, $(GENERATED_SCRIPTS))
 	$(Echo) Installing $(BuildMode) wrapper scripts
@@ -47,13 +48,19 @@ $(PROJ_OBJ_DIR)/bf-gcc: $(PROJ_SRC_DIR)/bf-gcc
 	$(Verb) cat $< | \
 	  $(SED) -e 's,@DRAGONEGG@,$(DRAGONEGG),' \
 		 -e 's,@PROJ_libdir@,$(PROJ_libdir),' \
-		 -e 's,@LLVM_INST_LIBDIR@,$(LLVM_INST_LIBDIR),' > $@
+		 -e 's,@LLVM_INST_LIBDIR@,$(LLVM_INST_LIBDIR),' \
+		 -e 's,@MYSQLCPPCONN_LIBDIR@,$(MYSQLCPPCONN_LIBDIR),' \
+		 -e 's,@MYSQLCPPCONN_INCLUDEDIR@,$(MYSQLCPPCONN_INCLUDEDIR),' \
+		 -e 's,@ENABLE_BYFL_DB@,$(ENABLE_BYFL_DB),' > $@
 
 $(PROJ_OBJ_DIR)/bf-inst: $(PROJ_SRC_DIR)/bf-inst
 	$(Verb) cat $< | \
 	  $(SED) -e 's,@DRAGONEGG@,$(DRAGONEGG),' \
 		 -e 's,@PROJ_libdir@,$(PROJ_libdir),' \
-		 -e 's,@LLVM_INST_LIBDIR@,$(LLVM_INST_LIBDIR),' > $@
+		 -e 's,@LLVM_INST_LIBDIR@,$(LLVM_INST_LIBDIR),' \
+		 -e 's,@MYSQLCPPCONN_LIBDIR@,$(MYSQLCPPCONN_LIBDIR),' \
+		 -e 's,@MYSQLCPPCONN_INCLUDEDIR@,$(MYSQLCPPCONN_INCLUDEDIR),' \
+		 -e 's,@ENABLE_BYFL_DB@,$(ENABLE_BYFL_DB),' > $@
 
 $(PROJ_OBJ_DIR)/lib/ParseGccOpts.pm: $(PROJ_SRC_DIR)/lib/ParseGccOpts.pm
 	-$(Verb) mkdir lib
