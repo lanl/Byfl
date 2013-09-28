@@ -602,7 +602,7 @@ static bool suppress_output (void)
       }
     }
 
-    // If the BF_MPI_RANK environment variable is set,
+    // If the BF_OUTPUT_ID environment variable is set,
     // it indicates a unique ID such has rank number or host name
     char *output_id = getenv("BF_OUTPUT_ID");
     if (output_id) {
@@ -615,7 +615,6 @@ static bool suppress_output (void)
       for (size_t i = 0; i < expansion.we_wordc; i++)
         bf_output_id += string(expansion.we_wordv[i]) + string(" ");
       wordfree(&expansion);
-
     }
 
     if (get_db_vars(&bf_db_location, &bf_db_name, &bf_db_user, &bf_db_password)) {
