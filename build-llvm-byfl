@@ -1,41 +1,54 @@
 #! /bin/bash
 
-#####################################
-# Automatically do a clean build of #
-# LLVM trunk and then of Byfl       #
-#                                   #
-# By Scott Pakin <pakin@lanl.gov>   #
-#####################################
+######################################
+# Automatically do a clean build of  #
+# LLVM trunk, Clang trunk, DragonEgg #
+# trunk and then of Byfl head        #
+#                                    #
+# By Scott Pakin <pakin@lanl.gov>    #
+######################################
+
+# Define a function to work around OS X's lack of "readlink -f".
+function abs_dirname() {
+  somedir=`echo "$1/" | sed 's,//*,/,g'`
+  mkdir -p "$somedir"
+  (cd "${somedir%/*}" && pwd -P)
+}
 
 # Determine where to build, where to install, and how many processes to use.
 gui=yes
 download=yes
 compile=yes
-while getopts j:b:tdc opt; do
+llvm_revision=HEAD
+while getopts j:b:r:tdc opt; do
     case $opt in
-	j)
-	    # Parallelism
-	    numprocs="$OPTARG"
-	    ;;
+        j)
+            # Parallelism
+            numprocs="$OPTARG"
+            ;;
 
-	b)
-	    # Build directory
-	    builddir="$OPTARG"
-	    ;;
-	t)
-	    # Show progress textually
-	    gui=no
-	    ;;
-	d)
-	    # Download only
-	    download=yes
-	    compile=no
-	    ;;
-	c)
-	    # Compile only
-	    compile=yes
-	    download=no
-	    ;;
+        b)
+            # Build directory
+            builddir="$OPTARG"
+            ;;
+        r)
+            # LLVM/Clang/DragonEgg revision to use
+            llvm_revision="$OPTARG"
+            ;;
+        t)
+            # Show progress textually
+            gui=no
+            ;;
+        d)
+            # Download only
+            download=yes
+            compile=no
+            ;;
+        c)
+            # Compile only
+            compile=yes
+            download=no
+            ;;
     esac
 done
 shift $((OPTIND-1))
@@ -43,17 +56,24 @@ if [ -z "$1" ] ; then
     echo "Usage: $0 [-j <parallelism> [-b <build_dir>] [-t] [-d | -c] <install_dir>" >&2
     exit 1
 fi
-installdir=`readlink -f "$1"`
 if [ -z "$builddir" ] ; then
     builddir=$(mktemp --directory --tmpdir=$(/bin/pwd) byfl-build.XXXXXX)
 fi
-builddir=`readlink -f "$builddir"`
+builddir=`abs_dirname "$builddir"`
+installdir=`abs_dirname "$1"`
 if [ -z "$numprocs" ] ; then
-    numprocs=`cat /proc/cpuinfo | egrep -c '^processor'`
+    # No parallel-build factor was specified -- guess a good value to use.
+    if [ -e /proc/cpuinfo ] ; then
+        # Linux -- get the CPU count from /proc/cpuinfo.
+        numprocs=`cat /proc/cpuinfo | egrep -c '^processor'`
+    else
+        # OS X or other -- disable implicit parallel builds.
+        numprocs=1
+    fi
 fi
 
 # Ensure we have a version of GCC that works with DragonEgg.
-gcc_version=`gcc --version | awk 'NR == 1 {print $3}'`
+gcc_version=`gcc --version | awk 'NR==1 {sub(/\([^\)]*\)/, ""); print $2}'`
 if `echo $gcc_version | awk '!/^4\.[567]\./ {exit 1}'` ; then
     :
 else
@@ -64,23 +84,23 @@ fi
 # Prepare the GUI.
 if [ "$gui" = yes ] ; then
     if [ ! `type -P stdbuf` ] ; then
-	gui=no
+        gui=no
     elif [ ! `type -P zenity` ] ; then
-	gui=no
+        gui=no
     fi
 fi
 if [ "$gui" = yes ] ; then
     coproc zproc {
-	zenity --progress --title="Byfl installation progress" --auto-kill
+        zenity --progress --title="Byfl installation progress" --auto-kill
     }
     while [ -z "$zenity_pid" ] ; do
-	zenity_pid=`ps | awk '$NF == "zenity" {print $1}'`
-	sleep 1
+        zenity_pid=`ps | awk '$NF == "zenity" {print $1}'`
+        sleep 1
     done
     function abend () {
-	test -z "$zproc_PID" || kill $zproc_PID
-	zenity --error --title="Fail" --text="Installation failed."
-	exit 1
+        test -z "$zproc_PID" || kill $zproc_PID
+        zenity --error --title="Fail" --text="Installation failed."
+        exit 1
     }
     trap abend ERR
 else
@@ -101,20 +121,20 @@ function run_with_progress () {
     # Run the command either with or without the GUI.  Abort on error.
     logfile="$builddir/build-logs/$tag.log"
     if [ "$gui" = yes ] ; then
-	# Estimate the number of lines of output we'll see.
-	echo 0 1>&4
-	"$@" 2>&1 | \
-	    tee $logfile | \
-	    stdbuf -oL awk '{printf "%d\n", 100*NR/MAXLN; print > "/dev/stderr"}' MAXLN=$maxlines | \
-	    stdbuf -oL uniq 1>&4
-	echo 100 1>&4
+        # Estimate the number of lines of output we'll see.
+        echo 0 1>&4
+        "$@" 2>&1 | \
+            tee $logfile | \
+            stdbuf -oL awk '{printf "%d\n", 100*NR/MAXLN; print > "/dev/stderr"}' MAXLN=$maxlines | \
+            stdbuf -oL uniq 1>&4
+        echo 100 1>&4
     else
-	"$@"
+        "$@"
     fi
     if [ "${PIPESTATUS[0]}" != 0 ] ; then
-	echo "${0}: Execution of \"$@\" failed (${PIPESTATUS[0]})" 1>&2
-	false
-	exit 1
+        echo "${0}: Execution of \"$@\" failed (${PIPESTATUS[0]})" 1>&2
+        false
+        exit 1
     fi
 }
 
@@ -138,7 +158,7 @@ if [ "$download" = yes ] ; then
 
     # Download LLVM trunk.
     echo "# Downloading LLVM into $builddir" 1>&4
-    run_with_progress llvm-dl 12000 svn checkout http://llvm.org/svn/llvm-project/llvm/trunk llvm
+    run_with_progress llvm-dl 12000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/trunk llvm
     cd llvm
     llvm_revision=`svn info | awk '/^Revision: / {print $2}'`
     cd ..
@@ -162,8 +182,8 @@ if [ "$download" = yes ] ; then
     # Say what we did.
     echo "Downloaded LLVM, Clang, DragonEgg, and Byfl into $builddir."
     if [ "$gui" = yes -a "$compile" = no ] ; then
-	kill $zenity_pid
-	zenity --info --title="Finished downloading" --text="Downloaded LLVM, Clang, DragonEgg,\nand Byfl into $builddir."
+        kill $zenity_pid
+        zenity --info --title="Finished downloading" --text="Downloaded LLVM, Clang, DragonEgg,\nand Byfl into $builddir."
     fi
 fi
 
@@ -231,7 +251,7 @@ CFILE
     echo "It is now safe to delete $builddir."
     echo "Don't forget to add $byflperllib to your PERLLIB variable."
     if [ "$gui" = yes ] ; then
-	kill $zenity_pid
-	zenity --info --title="Finished installation" --text="Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir.\n\nIt is now safe to delete $builddir.\nDon't forget to add $byflperllib to your PERLLIB variable."
+        kill $zenity_pid
+        zenity --info --title="Finished installation" --text="Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir.\n\nIt is now safe to delete $builddir.\nDon't forget to add $byflperllib to your PERLLIB variable."
     fi
 fi
