@@ -72,8 +72,12 @@ if [ -z "$numprocs" ] ; then
     fi
 fi
 
+# Honor the user's preferred C and C++ compilers.
+CC=${CC:-gcc}
+CXX=${CXX:-g++}
+
 # Ensure we have a version of GCC that works with DragonEgg.
-gcc_version=`gcc --version | awk 'NR==1 {sub(/\([^\)]*\)/, ""); print $2}'`
+gcc_version=`${CC} --version | awk 'NR==1 {sub(/\([^\)]*\)/, ""); print $2}'`
 if `echo $gcc_version | awk '!/^4\.[567]\./ {exit 1}'` ; then
     :
 else
@@ -91,7 +95,7 @@ if [ "$gui" = yes ] ; then
 fi
 if [ "$gui" = yes ] ; then
     coproc zproc {
-        zenity --progress --title="Byfl installation progress" --auto-kill
+	zenity --progress --title="Byfl installation progress" --auto-kill ; \
     }
     while [ -z "$zenity_pid" ] ; do
         zenity_pid=`ps | awk '$NF == "zenity" {print $1}'`
@@ -192,7 +196,7 @@ if [ "$compile" = yes ] ; then
     # Configure LLVM and Clang.
     echo "# Configuring LLVM and Clang" 1>&4
     cd llvm
-    run_with_progress llvm-config 640 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC=gcc CXX=g++ REQUIRES_RTTI=1
+    run_with_progress llvm-config 640 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
 
     # Build LLVM and Clang.
     echo "# Compiling LLVM and Clang" 1>&4
@@ -218,7 +222,7 @@ if [ "$compile" = yes ] ; then
     (echo $builddir_llvm ; echo $builddir_llvm) | ./AutoRegen.sh
     test -e ../build || mkdir ../build
     cd ../build
-    run_with_progress byfl-config 330 ../configure --disable-assertions --enable-optimized --enable-debug-runtime --enable-debug-symbols DRAGONEGG="$installdir/lib/dragonegg.so" CXX=g++ CXXFLAGS="-g -O2 -std=c++0x" --with-llvmsrc="$builddir/llvm" --with-llvmobj="$builddir/llvm" --prefix="$installdir"
+    run_with_progress byfl-config 330 ../configure --disable-assertions --enable-optimized --enable-debug-runtime --enable-debug-symbols DRAGONEGG="$installdir/lib/dragonegg.so" CXX="$CXX" CXXFLAGS="-g -O2 -std=c++0x" --with-llvmsrc="$builddir/llvm" --with-llvmobj="$builddir/llvm" --prefix="$installdir"
 
     # Build Byfl.
     echo "# Compiling Byfl" 1>&4
