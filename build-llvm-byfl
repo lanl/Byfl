@@ -8,6 +8,13 @@
 # By Scott Pakin <pakin@lanl.gov>    #
 ######################################
 
+# Ensure we have a version of bash that can parse the rest of this
+# file (specifically, the coproc statement).
+if [ `echo $BASH_VERSION | sed -e 's/\..*//'` -lt 4 ] ; then
+    echo "${0}: This script requires bash version 4+; you're running version $BASH_VERSION" 1>&2;
+    exit 1
+fi
+
 # Define a function to work around OS X's lack of "readlink -f".
 function abs_dirname() {
   somedir=`echo "$1/" | sed 's,//*,/,g'`
@@ -77,11 +84,15 @@ CC=${CC:-gcc}
 CXX=${CXX:-g++}
 
 # Ensure we have a version of GCC that works with DragonEgg.
-gcc_version=`${CC} --version | awk 'NR==1 {sub(/\([^\)]*\)/, ""); print $2}'`
-if `echo $gcc_version | awk '!/^4\.[567]\./ {exit 1}'` ; then
+gcc_version=`$CC --version | awk 'NR==1 {sub(/\([^\)]*\)/, ""); print $2}'`
+if `echo $gcc_version | awk '!/^4\.[5-8]\./ {exit 1}'` ; then
     :
 else
-    echo "${0}: DragonEgg requires GCC version 4.5, 4.6, or 4.7; version $gcc_version almost certainly won't work" 1>&2
+    echo "${0}: DragonEgg requires GCC version 4.5, 4.6, 4.7, or 4.8; version $gcc_version almost certainly won't work" 1>&2
+    exit 1
+fi
+if [ `$CC -print-file-name=plugin` = plugin ] ; then
+    echo "${0}: DragonEgg requires the GCC plugin development files (e.g., auto-host.h) corresponding to `$CC --version | head -1`" 1>&2
     exit 1
 fi
 
@@ -95,7 +106,7 @@ if [ "$gui" = yes ] ; then
 fi
 if [ "$gui" = yes ] ; then
     coproc zproc {
-	zenity --progress --title="Byfl installation progress" --auto-kill ; \
+	zenity --progress --title="Byfl installation progress" --auto-kill
     }
     while [ -z "$zenity_pid" ] ; do
         zenity_pid=`ps | awk '$NF == "zenity" {print $1}'`
