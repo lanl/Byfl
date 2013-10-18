@@ -82,7 +82,7 @@ namespace bytesflops_pass {
 
     // Create a global string that stores all of our compilation command-line options.
     ifstream cmdline("/proc/self/cmdline");   // Full command line passed to opt
-    string bf_cmdline("[failed to read /proc/cpuinfo]");  // Reconstructed command line with -bf-* options only
+    string bf_cmdline("[failed to read /proc/self/cmdline]");  // Reconstructed command line with -bf-* options only
     if (cmdline.is_open()) {
       // Read the command line into a buffer.
       const size_t maxcmdlinelen = 65536;
