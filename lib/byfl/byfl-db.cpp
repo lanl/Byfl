@@ -27,8 +27,15 @@ int get_db_vars(char** bf_db_location, char** bf_db_name, char** bf_db_user,
   *bf_db_user = getenv("BF_DB_USER");
   *bf_db_password = getenv("BF_DB_PASSWORD");
 
+  if (!*bf_db_location && !*bf_db_name & !*bf_db_user && *bf_db_password) {
+    // assume they don't want to connect
+    return 0;
+  }
+ 
+  // assuming they want to connect
+ 
   if (!*bf_db_location) {
-    //cout << "Cannot connect to database without location.\nPlease set BF_DB_LOCATION environment variable." << endl;
+    cout << "Cannot connect to database without location.\nPlease set BF_DB_LOCATION environment variable." << endl;
     return 0;
   }
 

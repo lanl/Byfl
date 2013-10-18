@@ -25,6 +25,7 @@ my $byfl_libdir = '@PROJ_libdir@';
 my $llvm_libdir = '@LLVM_INST_LIBDIR@';
 my $enable_byfl_db = @ENABLE_BYFL_DB@;
 my $mysqlcppconn_libdir = '@MYSQLCPPCONN_LIBDIR@';
+my $mysqlclient_libdir = '@MYSQLCLIENT_LIBDIR@';
 
 # Store the name of this script and the name of the underlying compiler.
 my $progname = basename $0;
@@ -496,7 +497,7 @@ if (defined $build_type{"link"}) {
         push @llvm_ld_options, ("$byfl_libdir/libbyfl.bc", "-lstdc++");
         push @llvm_ld_options, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;
         if ($enable_byfl_db eq 1) {
-            push @llvm_ld_options, ("-L$mysqlcppconn_libdir", "-lmysqlcppconn");
+            push @llvm_ld_options, ("-L$mysqlcppconn_libdir", "-lmysqlcppconn", "-L$mysqlclient_libdir", "-lmysqlclient");
         } 
     }
     elsif ($compiler eq "g++") {

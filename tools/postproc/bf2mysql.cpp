@@ -21,7 +21,7 @@ using namespace std;
 // make it start it up, do the import, then shut it down.
 // Note: databasename, user, location and password must all be in single quotes
 
-// bf2mysql databasename user -l location -p password -f binaryfilename 
+// bf2mysql -d databasename -u username -l location -p password binaryfilename 
 // If no binaryfile is named, it is taken from stdout
 
 // For example:
@@ -30,8 +30,8 @@ using namespace std;
   char *lvalue = NULL; // location of database
   char *pvalue = NULL; // database password for user
   char *fvalue = NULL; // binary filename
-  char *db = NULL;
-  char *user = NULL;
+  char *dvalue = NULL; // database name
+  char *uvalue = NULL; // database user name
 
 
   sql::Driver *driver;
@@ -44,7 +44,7 @@ int getArgs(int argc, char** argv) {
 
   opterr = 0;
 
-  while ((c = getopt (argc, argv, "lpf:")) != -1)
+  while ((c = getopt (argc, argv, "d:u:l:p:")) != -1) {
     switch (c)
     {
       case 'l':
@@ -53,15 +53,18 @@ int getArgs(int argc, char** argv) {
       case 'p':
         pvalue = optarg;
         break;
-      case 'f':
-        fvalue = optarg;
+      case 'd':
+        dvalue = optarg;
+        break;
+      case 'u':
+        uvalue = optarg;
         break;
       case '?':
-        if ((optopt == 'l') || (optopt == 'p') || (optopt == 'f'))
+        if ((optopt == 'l') || (optopt == 'p') || (optopt == 'd') || (optopt == 'u'))
           fprintf (stderr, "Option -%c requires an argument.\n", optopt);
         else if (isprint (optopt))
           fprintf (stderr, "Unknown option `-%c'.\n", optopt);
-        else
+       else
           fprintf (stderr,
               "Unknown option character `\\x%x'.\n",
               optopt);
@@ -69,18 +72,20 @@ int getArgs(int argc, char** argv) {
       default:
         abort ();
     }
+  }
 
-  printf ("location = %d, password = %d, binary filename = %s\n",
-      lvalue, pvalue, fvalue);
+  printf ("database = %s user = %s location = %s, password = %s, \n",
+      dvalue, uvalue, lvalue, pvalue);
 
-  if (optind+2 != argc) {
-    fprintf(stderr, "bf2mysql requires a database and user name.\n");
+  if (optind+1 != argc) {
+    fprintf(stderr, "Usage:  bf2mysql -d database -u user -l location -p password byflbinaryfilename\n");
     return 1;
   }
 
   index = optind;
-  db = argv[index++];
-  user = argv[index++];
+  fvalue = argv[index++];
+
+  printf ("byflbinaryfilename = %s, \n", fvalue);
 
   for (; index < argc; index++)
     printf ("Unused argument: %s\n", argv[index]);
@@ -111,10 +116,10 @@ void connectDatabase()  {
     /* Create a connection */
     driver = get_driver_instance();
 
-    con = driver->connect(lvalue?lvalue:"localhost", user, pvalue?pvalue:"");
+    con = driver->connect(lvalue?lvalue:"localhost", uvalue, pvalue?pvalue:"");
 
     /* Connect to the MySQL test database */
-    con->setSchema(db);
+    con->setSchema(dvalue);
     stmt = con->createStatement();
     res = stmt->executeQuery("SELECT 'Connected!' AS _message");
     cout << "connected!\n";

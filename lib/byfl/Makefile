@@ -41,7 +41,7 @@ opcode2name.cpp opcode2name.h: opcode2name
 	$(PROJ_SRC_DIR)/opcode2name '$(CPP) -I$(LLVM_SRC_ROOT)/include' opcode2name.cpp opcode2name.h
 
 clean-local::
-	$(RM) $(BUILT_SOURCES)
+	$(RM) -f $(BUILT_SOURCES)
 
 #
 # With LLVM 3.1, .bca files are deprecated yet the Makefile doesn't know

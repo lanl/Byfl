@@ -23,7 +23,7 @@ include $(LEVEL)/Makefile.db
 
 ifeq ($(ENABLE_BYFL_DB), 1)
 bf2mysql: $(addprefix $(PROJ_SRC_DIR)/,bf2mysql.cpp)
-	$(CXX) -L$(MYSQLCPPCONN_LIBDIR) -lmysqlcppconn -I$(PROJ_SRC_ROOT)/lib/include $(addprefix $(PROJ_SRC_DIR)/,bf2mysql.cpp)	-o bf2mysql
+	$(CXX) -L$(MYSQLCPPCONN_LIBDIR) -lmysqlcppconn -I$(PROJ_SRC_ROOT)/lib/include $(addprefix $(PROJ_SRC_DIR)/,bf2mysql.cpp)	-I$(MYSQLCPPCONN_INCLUDEDIR) -L$(MYSQLCLIENT_LIBDIR) -lmysqlclient -o bf2mysql
 BF_DB_TOOLS = bf2mysql
 else
 BF_DB_TOOLS =
@@ -38,3 +38,7 @@ ifeq ($(ENABLE_BYFL_DB), 1)
 	$(Verb) $(ProgInstall) -d $(DESTDIR)$(PROJ_bindir)
 	$(Verb) $(ProgInstall) -t $(DESTDIR)$(PROJ_bindir) $(addprefix $(PROJ_OBJ_DIR)/,bf2mysql)
 endif
+
+clean-local::
+	$(Verb) $(RM) -f bf2mysql
+

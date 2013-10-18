@@ -296,7 +296,7 @@ char* bf_db_location;
 char* bf_db_name;
 char* bf_db_user;
 char* bf_db_password;
-int bbid = 0; // unique basic block id
+uint64_t bbid = 0; // unique basic block id
 uint64_t utc_sec = 0;
 uint64_t utc_usec = 0;
 char datetime_str[40];
