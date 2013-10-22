@@ -856,6 +856,34 @@ AC_ARG_ENABLE(libffi,AS_HELP_STRING(
   esac],
   llvm_cv_enable_libffi=no)
 
+AC_ARG_ENABLE(byfl-db,AS_HELP_STRING(
+  --enable-byfl-db,[Enable MySQL database storage of Byfl outputs.  If this is specified, may also need to specify MySQL C++ connector libraries and include directories via --with-mysqlcppconn-libdir, --with-mysqlcppconn-includedir and --with-mysqlclient-libdir. (default is that it is disabled)]),
+  [case "$enableval" in 
+    yes) ENABLE_BYFL_DB=1 ;;
+    no) ENABLE_BYFL_DB=0 ;;
+    *) AC_MSG_ERROR([Invalid setting fo --enable-byfl-db.  Use "yes" or "no"]) ;;
+  esac],
+  ENABLE_BYFL_DB=0)
+
+AC_ARG_WITH(mysqlcppconn-libdir,
+  [AS_HELP_STRING([--with-mysqlcppconn-libdir],
+    [Directory where MySQL C++ Connector library is installed])],
+  [MYSQLCPPCONN_LIBDIR="$withval"],
+  [MYSQLCPPCONN_LIBDIR=""])
+
+AC_ARG_WITH(mysqlcppconn-includedir,
+  [AS_HELP_STRING([--with-mysqlcppconn-includedir],
+    [Directory where MySQL C++ Connector include directory is installed])],
+  [MYSQLCPPCONN_INCLUDEDIR="$withval"],
+  [MYSQLCPPCONN_INCLUDEDIR=""])
+
+AC_ARG_WITH(mysqlclient-libdir,
+  [AS_HELP_STRING([--with-mysqlclient-libdir],
+    [Directory where MySQL Client library is installed])],
+  [MYSQLCLIENT_LIBDIR="$withval"],
+  [MYSQLCLIENT_LIBDIR=""])
+
+
 dnl===-----------------------------------------------------------------------===
 dnl===
 dnl=== SECTION 4: Check for programs we need and that they are the right version
@@ -1439,6 +1467,10 @@ AC_SUBST(LLVM_INCLUDEDIR)
 AC_SUBST(LLVM_INFODIR)
 AC_SUBST(LLVM_MANDIR)
 AC_SUBST(LLVM_CONFIGTIME)
+AC_SUBST(ENABLE_BYFL_DB)
+AC_SUBST(MYSQLCPPCONN_LIBDIR)
+AC_SUBST(MYSQLCPPCONN_INCLUDEDIR)
+AC_SUBST(MYSQLCLIENT_LIBDIR)
 
 # Place the various directores into the config.h file as #defines so that we
 # can know about the installation paths within LLVM.
@@ -1462,6 +1494,14 @@ AC_DEFINE_UNQUOTED(LLVM_CONFIGTIME, "$LLVM_CONFIGTIME",
                    [Time at which LLVM was configured])
 AC_DEFINE_UNQUOTED(LLVM_DEFAULT_TARGET_TRIPLE, "$target",
                    [Target triple LLVM will generate code for by default])
+AC_DEFINE_UNQUOTED(ENABLE_BYFL_DB, "$ENABLE_BYFL_DB",
+                   [Whether Byfl database extension is enabled])
+AC_DEFINE_UNQUOTED(MYSQLCPPCONN_LIBDIR, "$MYSQLCPPCONN_LIBDIR",
+                   [Directory for MySQL C++ Connector library])
+AC_DEFINE_UNQUOTED(MYSQLCPPCONN_INCLUDEDIR, "$MYSQLCPPCONN_INCLUDEDIR",
+                   [Directory for MySQL C++ Connector includes])
+AC_DEFINE_UNQUOTED(MYSQLCLIENT_LIBDIR, "$MYSQLCLIENT_LIBDIR",
+                   [Directory for MySQL Client library])
 
 # Determine which bindings to build.
 if test "$BINDINGS_TO_BUILD" = auto ; then
@@ -1562,6 +1602,7 @@ AC_ARG_WITH(llvm-libdir,
    fi])
 AC_SUBST(LLVM_INST_LIBDIR)
 
+
 dnl===-----------------------------------------------------------------------===
 dnl===
 dnl=== SECTION 10: Specify the output files and generate it
@@ -1575,6 +1616,7 @@ dnl **************************************************************************
 dnl Configure a common Makefile
 AC_CONFIG_FILES(Makefile.common)
 AC_CONFIG_FILES(Makefile.llvm.config)
+AC_CONFIG_FILES(Makefile.db)
 
 dnl Configure project makefiles
 dnl List every Makefile that exists within your source tree
