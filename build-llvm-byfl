@@ -169,7 +169,7 @@ mkdir build-logs
 if [ "$download" = yes ] ; then
     # Delete old files before downloading the new ones.
     echo "# Removing old versions of LLVM, Clang, DragonEgg, and Byfl from $builddir" 1>&4
-    run_with_progress cleanup 50000 rm -rfv byfl dragonegg llvm
+    run_with_progress cleanup 70000 rm -rfv byfl dragonegg llvm
 
     # Download LLVM trunk.
     echo "# Downloading LLVM into $builddir" 1>&4
@@ -207,21 +207,21 @@ if [ "$compile" = yes ] ; then
     # Configure LLVM and Clang.
     echo "# Configuring LLVM and Clang" 1>&4
     cd llvm
-    run_with_progress llvm-config 640 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
+    run_with_progress llvm-config 650 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
 
     # Build LLVM and Clang.
     echo "# Compiling LLVM and Clang" 1>&4
-    run_with_progress llvm-build 3300 make -j$numprocs
+    run_with_progress llvm-build 3100 make -j$numprocs
 
     # Install LLVM and Clang.
     echo "# Installing LLVM and Clang into $installdir" 1>&4
-    run_with_progress llvm-inst 730 make install
+    run_with_progress llvm-inst 750 make install
 
     # Build DragonEgg.
     export PATH=$installdir/bin:$PATH
     cd ../dragonegg
     echo "# Compiling DragonEgg" 1>&4
-    run_with_progress dregg-build 37 make -j$numprocs
+    run_with_progress dregg-build 41 make -j$numprocs
 
     # Install DragonEgg.
     echo "# Installing DragonEgg into $installdir" 1>&4
@@ -233,15 +233,15 @@ if [ "$compile" = yes ] ; then
     (echo $builddir_llvm ; echo $builddir_llvm) | ./AutoRegen.sh
     test -e ../build || mkdir ../build
     cd ../build
-    run_with_progress byfl-config 330 ../configure --disable-assertions --enable-optimized --enable-debug-runtime --enable-debug-symbols DRAGONEGG="$installdir/lib/dragonegg.so" CXX="$CXX" CXXFLAGS="-g -O2 -std=c++0x" --with-llvmsrc="$builddir/llvm" --with-llvmobj="$builddir/llvm" --prefix="$installdir"
+    run_with_progress byfl-config 340 ../configure --disable-assertions --enable-optimized --enable-debug-runtime --enable-debug-symbols DRAGONEGG="$installdir/lib/dragonegg.so" CXX="$CXX" CXXFLAGS="-g -O2 -std=c++0x" --with-llvmsrc="$builddir/llvm" --with-llvmobj="$builddir/llvm" --prefix="$installdir"
 
     # Build Byfl.
     echo "# Compiling Byfl" 1>&4
-    run_with_progress byfl-build 49 make -j$numprocs
+    run_with_progress byfl-build 35 make -j$numprocs
 
     # Install Byfl.
     echo "# Installing Byfl into $installdir" 1>&4
-    run_with_progress byfl-inst 43 make install
+    run_with_progress byfl-inst 73 make install
 
     # Test the installation
     echo "# Testing the Byfl installation" 1>&4
@@ -256,7 +256,7 @@ int main (void) {
   return 0;
 }
 CFILE
-    export PERLLIB=${byflperllib}:$PERLLIB
+    export PERL5LIB=${byflperllib}:$PERL5LIB
     bf-gcc $cfile -o $exefile
     run_with_progress byfl-test 21 $exefile
     rm -f $cfile $exefile
@@ -264,9 +264,9 @@ CFILE
     # Say what we did.
     echo "Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir."
     echo "It is now safe to delete $builddir."
-    echo "Don't forget to add $byflperllib to your PERLLIB variable."
+    echo "Don't forget to add $byflperllib to your PERL5LIB variable."
     if [ "$gui" = yes ] ; then
         kill $zenity_pid
-        zenity --info --title="Finished installation" --text="Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir.\n\nIt is now safe to delete $builddir.\nDon't forget to add $byflperllib to your PERLLIB variable."
+        zenity --info --title="Finished installation" --text="Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir.\n\nIt is now safe to delete $builddir.\nDon't forget to add $byflperllib to your PERL5LIB variable."
     fi
 fi

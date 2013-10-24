@@ -2,9 +2,9 @@
 
 ##########################################
 # Generate Byfl wrappers for the various #
-# Open MPI and MPICH2 wrapper scripts	 #
-#					 #
-# By Scott Pakin <pakin@lanl.gov>	 #
+# Open MPI and MPICH2 wrapper scripts    #
+#                                        #
+# By Scott Pakin <pakin@lanl.gov>        #
 ##########################################
 
 # Parse the command line.
