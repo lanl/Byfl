@@ -188,8 +188,11 @@ sub parse_gcc_options (@)
     # Second pass: Handle various special cases and also construct the
     # leftover list.
     foreach my $arg (@arg_list) {
-        if ($arg eq "-static-libstdc++" || $arg =~ /^-Wl,/) {
+        if ($arg eq "-static-libstdc++") {
             $for_linker_1->(substr($arg, 1), undef);
+        }
+        elsif ($arg =~ /^-Wl,(.*)$/) {
+            $for_linker_1->(substr($1, 1), undef);
         }
         elsif ($arg =~ /^-+([^=]+)(=(.*))?$/) {
             $for_compiler->($1, $3);
