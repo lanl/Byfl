@@ -364,6 +364,13 @@ if (defined $build_type{"compile"}) {
         $byfl_bcfile =~ s/\.bc$/.byfl.bc/;
         my @deletable = ($sfile, $bcfile, $opt_bcfile, $byfl_bcfile);
 
+        # Handle the obscure special case of the same input file being
+        # specified multiple times on the same command line.  In this
+        # case, the .s file is deleted/moved after the first time the
+        # input file is processed, which would cause opt to fail to
+        # find its input file and therefore abort.
+        next if !-e $sfile;
+
         # Run the static analyzer if -bf-static was specified.
         execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
                         "-bytesflops", @bf_options,
