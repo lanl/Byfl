@@ -1532,6 +1532,34 @@ else
 fi
 AC_SUBST(RDYNAMIC)
 
+dnl Byfl requires C++11.  Abort if we don't have it.
+AC_LANG_PUSH([C++])
+old_CXXFLAGS="$CXXFLAGS"
+if test "$ENABLE_CXX11" = 1 ; then
+  CXXFLAGS="$old_CXXFLAGS -std=c++11"
+fi
+AC_MSG_CHECKING([if "$CXX $CXXFLAGS" provides C++11 support])
+AC_COMPILE_IFELSE([
+#include <string>
+
+using namespace std;
+
+string::const_iterator check_cxx11 (string mystring)
+{
+  return mystring.cbegin();
+}
+],
+,
+[AC_MSG_RESULT([no])
+if test "$ENABLE_CXX11" = 1 ; then
+  AC_MSG_FAILURE([Byfl requires C++11 compiliance.])
+else
+  AC_MSG_FAILURE([Byfl requires C++11 compiliance.  Try reconfiguring with --enable-cxx11.])
+fi])
+AC_MSG_RESULT([yes])
+AC_LANG_POP([C++])
+CXXFLAGS="$old_CXXFLAGS"
+
 dnl Prepare for a DragonEgg build of the Bytesflops helper library.
 AC_ARG_VAR([LLVMCC], [LLVM-capable C compiler])
 AC_ARG_VAR([LLVMCXX], [LLVM-capable C++ compiler])
