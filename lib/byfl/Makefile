@@ -53,13 +53,20 @@ BytecodeDestDir := $(DESTDIR)$(PROJ_libdir)
 endif
 
 ObjectsBC := $(BaseNameSources:%=$(ObjDir)/%.bc)
+LocalBytecodeBlob = $(ObjDir)/lib$(LIBRARYNAME).bc
 DestBytecodeBlob = $(BytecodeDestDir)/lib$(LIBRARYNAME).bc
+
+all-local:: $(LocalBytecodeBlob)
 
 install-local:: $(DestBytecodeBlob)
 
-$(DestBytecodeBlob): $(ObjectsBC)
+$(DestBytecodeBlob): $(LocalBytecodeBlob)
+	$(INSTALL) -d $(BytecodeDestDir)
+	$(DataInstall) $(LocalBytecodeBlob) $(DestBytecodeBlob)
+
+$(LocalBytecodeBlob): $(ObjectsBC)
 	$(Echo) Installing $(BuildMode) Bytecode File $(DestBytecodeBlob)
-	$(Verb) llvm-link -o $(DestBytecodeBlob) $(ObjectsBC)
+	$(Verb) llvm-link -o $(LocalBytecodeBlob) $(ObjectsBC)
 
 BCCompile.CXX = $(LLVMCXX) $(CPP.Flags) $(CXX.Flags) $(CXXFLAGS) $(CPPFLAGS) \
                 $(TargetCommonOpts) $(CompileCommonOpts)
