@@ -1572,7 +1572,6 @@ fi
 if test -z "$LLVMCXX" ; then
    AC_PATH_PROG(LLVMCXX, g++, /usr/bin/g++)
 fi
-DRAGONEGG=${DRAGONEGG:-$LLVM_LIBDIR/dragonegg.so}
 AC_ARG_VAR([LLVMCC_OPTION], [Either "gcc" or "clang" to categorize LLVMCC/LLVMCXX])
 LLVMCC_OPTION=${LLVMCC_OPTION:-gcc}
 AC_SUBST(LLVMCC_OPTION)
@@ -1589,6 +1588,17 @@ AC_ARG_WITH(llvm-libdir,
      fi
    fi])
 AC_SUBST(LLVM_INST_LIBDIR)
+DRAGONEGG=${DRAGONEGG:-$LLVM_INST_LIBDIR/dragonegg.so}
+AC_CACHE_CHECK([if $DRAGONEGG exists],
+  [ax_cv_file_dragonegg_so],
+  [if test -e "$DRAGONEGG" ; then
+     ax_cv_file_dragonegg_so=yes
+   else
+     ax_cv_file_dragonegg_so=no
+   fi])
+if test "$ax_cv_file_dragonegg_so" = no ; then
+  AC_MSG_ERROR([Byfl cannot build without the DragonEgg plugin])
+fi
 
 dnl===-----------------------------------------------------------------------===
 dnl===
