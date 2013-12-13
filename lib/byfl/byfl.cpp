@@ -424,6 +424,7 @@ void initialize_byfl (void) {
 // is a kludge to work around the "C++ static initialization order
 // fiasco" (cf. the C++ FAQ).  bf_initialize_if_necessary() can safely
 // be called multiple times.
+extern "C"
 void bf_initialize_if_necessary (void)
 {
   static bool initialized = false;
@@ -441,6 +442,7 @@ void bf_initialize_if_necessary (void)
 
 
 // Push a new basic block onto the stack (before a function call).
+extern "C"
 void bf_push_basic_block (void)
 {
   bb_totals().push_back(counter_memory_pool->allocate());
@@ -449,6 +451,7 @@ void bf_push_basic_block (void)
 
 // Pop and discard the top basic block off the stack (after a function
 // returns).
+extern "C"
 void bf_pop_basic_block (void)
 {
   counter_memory_pool->deallocate(bb_totals().back());
@@ -457,6 +460,7 @@ void bf_pop_basic_block (void)
 
 
 // Tally the number of calls to each function.
+extern "C"
 void bf_incr_func_tally (const char* funcname)
 {
   const char* unique_name = bf_string_to_symbol(funcname);
@@ -467,6 +471,7 @@ void bf_incr_func_tally (const char* funcname)
 // Push a function name onto the call stack.  Increment the invocation
 // count the call stack as a whole, and ensure the individual function
 // name also exists in the hash table.
+extern "C"
 void bf_push_function (const char* funcname)
 {
   const char* unique_combined_name = call_stack->push_function(funcname);
@@ -478,6 +483,7 @@ void bf_push_function (const char* funcname)
 
 
 // Pop the top function name from the call stack.
+extern "C"
 void bf_pop_function (void)
 {
   bf_func_and_parents = call_stack->pop_function();
@@ -541,6 +547,7 @@ static bool suppress_output (void)
 // At the end of a basic block, accumulate the current counter
 // variables (bf_*_count) into the current basic block's counters and
 // into the global counters.
+extern "C"
 void bf_accumulate_bb_tallies (void)
 {
   // Add the current values to the per-BB totals.
@@ -570,12 +577,14 @@ void bf_accumulate_bb_tallies (void)
 
 // Reset the current basic block's tallies rather than requiring a
 // push and a pop for every basic block.
+extern "C"
 void bf_reset_bb_tallies (void)
 {
   bb_totals().back()->reset();
 }
 
 // Report what we've measured for the current basic block.
+extern "C"
 void bf_report_bb_tallies (void)
 {
   static bool showed_header = false;         // true=already output our header
@@ -625,6 +634,7 @@ void bf_report_bb_tallies (void)
 
 
 // Associate the current counter values with a given function.
+extern "C"
 void bf_assoc_counters_with_func (const char* funcname)
 {
   // Ensure that per_func_totals contains an ByteFlopCounters entry

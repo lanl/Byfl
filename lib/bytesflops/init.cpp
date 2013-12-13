@@ -114,16 +114,16 @@ namespace bytesflops_pass {
     // Inject external declarations for
     // bf_initialize_if_necessary(), bf_push_basic_block(), and
     // bf_pop_basic_block().
-    init_if_necessary = declare_thunk(&module, "_ZN10bytesflops26bf_initialize_if_necessaryEv");
-    push_bb = declare_thunk(&module, "_ZN10bytesflops19bf_push_basic_blockEv");
-    pop_bb = declare_thunk(&module, "_ZN10bytesflops18bf_pop_basic_blockEv");
+    init_if_necessary = declare_thunk(&module, "bf_initialize_if_necessary");
+    push_bb = declare_thunk(&module, "bf_push_basic_block");
+    pop_bb = declare_thunk(&module, "bf_pop_basic_block");
 
     // Inject external declarations for bf_accumulate_bb_tallies(),
     // bf_reset_bb_tallies(), and bf_report_bb_tallies().
     if (InstrumentEveryBB) {
-      accum_bb_tallies = declare_thunk(&module, "_ZN10bytesflops24bf_accumulate_bb_talliesEv");
-      reset_bb_tallies = declare_thunk(&module, "_ZN10bytesflops19bf_reset_bb_talliesEv");
-      report_bb_tallies = declare_thunk(&module, "_ZN10bytesflops20bf_report_bb_talliesEv");
+      accum_bb_tallies = declare_thunk(&module, "bf_accumulate_bb_tallies");
+      reset_bb_tallies = declare_thunk(&module, "bf_reset_bb_tallies");
+      report_bb_tallies = declare_thunk(&module, "bf_report_bb_tallies");
     }
 
     // Inject an external declaration for bf_assoc_counters_with_func().
@@ -134,7 +134,7 @@ namespace bytesflops_pass {
         FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
       assoc_counts_with_func =
         declare_extern_c(void_func_result,
-                         "_ZN10bytesflops27bf_assoc_counters_with_funcEPKc",
+                         "bf_assoc_counters_with_func",
                          &module);
     }
 
@@ -146,7 +146,7 @@ namespace bytesflops_pass {
         FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
       tally_function =
         declare_extern_c(void_func_result,
-                         "_ZN10bytesflops18bf_incr_func_tallyEPKc",
+                         "bf_incr_func_tally",
                          &module);
     }
 
@@ -160,11 +160,11 @@ namespace bytesflops_pass {
         FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
       push_function =
         declare_extern_c(void_str_func_result,
-                         "_ZN10bytesflops16bf_push_functionEPKc",
+                         "bf_push_function",
                          &module);
 
       // bf_pop_function()
-      pop_function = declare_thunk(&module, "_ZN10bytesflops15bf_pop_functionEv");
+      pop_function = declare_thunk(&module, "bf_pop_function");
     }
 
     // Declare bf_tally_vector_operation() only if we were asked
@@ -179,7 +179,7 @@ namespace bytesflops_pass {
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       tally_vector =
         declare_extern_c(void_func_result,
-                         "_ZN10bytesflops25bf_tally_vector_operationEPKcmmb",
+                         "bf_tally_vector_operation",
                          &module);
     }
 
@@ -196,8 +196,8 @@ namespace bytesflops_pass {
       assoc_addrs_with_prog =
         declare_extern_c(void_func_result,
 			 FindMemFootprint
-			 ? "_ZN10bytesflops31bf_assoc_addresses_with_prog_tbEmm"
-                         : "_ZN10bytesflops28bf_assoc_addresses_with_progEmm",
+			 ? "bf_assoc_addresses_with_prog_tb"
+                         : "bf_assoc_addresses_with_prog",
                          &module);
 
       // Declare bf_assoc_addresses_with_func() only if we were
@@ -212,8 +212,8 @@ namespace bytesflops_pass {
         assoc_addrs_with_func =
           declare_extern_c(void_func_result,
 			   FindMemFootprint
-			   ? "_ZN10bytesflops31bf_assoc_addresses_with_func_tbEPKcmm"
-			   : "_ZN10bytesflops28bf_assoc_addresses_with_funcEPKcmm",
+			   ? "bf_assoc_addresses_with_func_tb"
+			   : "bf_assoc_addresses_with_func",
                            &module);
       }
     }
@@ -249,15 +249,15 @@ namespace bytesflops_pass {
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       reuse_dist_prog =
         declare_extern_c(void_func_result,
-                         "_ZN10bytesflops24bf_reuse_dist_addrs_progEmm",
+                         "bf_reuse_dist_addrs_prog",
                          &module);
     }
 
     // Inject external declarations for bf_acquire_mega_lock() and
     // bf_release_mega_lock().
     if (ThreadSafety) {
-      take_mega_lock = declare_thunk(&module, "_ZN10bytesflops20bf_acquire_mega_lockEv");
-      release_mega_lock = declare_thunk(&module, "_ZN10bytesflops20bf_release_mega_lockEv");
+      take_mega_lock = declare_thunk(&module, "bf_acquire_mega_lock");
+      release_mega_lock = declare_thunk(&module, "bf_release_mega_lock");
     }
     return true;
   }
