@@ -33,6 +33,8 @@ CC = @CC@
 CFLAGS = @CFLAGS@
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@
+datarootdir = @datarootdir@
+mandir = @mandir@
 
 # Configuration file to set paths specific to local installation of LLVM
 include $(PROJ_OBJ_ROOT)/Makefile.llvm.config

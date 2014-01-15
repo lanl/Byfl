@@ -38,7 +38,10 @@ clean-local::
 # ----------------------------------------------------------------------
 
 wrappers.mak: $(PROJ_OBJ_DIR)/Makefile.PL $(PROJ_OBJ_DIR)/bf-gcc $(PROJ_OBJ_DIR)/lib/ParseGccOpts.pm $(PROJ_OBJ_DIR)/bf-inst
-	$(Verb) $(PERL) $(PROJ_SRC_DIR)/Makefile.PL $(if $(VERBOSE),verbose) PREFIX=$(PROJ_prefix) FIRST_MAKEFILE=wrappers.mak
+	$(Verb) $(PERL) $(PROJ_SRC_DIR)/Makefile.PL $(if $(VERBOSE),verbose) \
+	  PREFIX=$(PROJ_prefix) FIRST_MAKEFILE=wrappers.mak \
+	  INSTALLMAN1DIR=$(mandir)/man1 INSTALLMAN3DIR=$(mandir)/man3 \
+	  INSTALLSITEMAN1DIR=$(mandir)/man1 INSTALLSITEMAN3DIR=$(mandir)/man3
 
 $(PROJ_OBJ_DIR)/Makefile.PL: $(PROJ_SRC_DIR)/Makefile.PL
 	$(Verb) cp $< $@
