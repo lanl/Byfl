@@ -452,6 +452,16 @@ namespace bytesflops_pass {
       Function* entry_func = TrackCallStack ? push_function : tally_function;
       Constant* argument = map_func_name_to_arg(module, function_name);
       callinst_create(entry_func, argument, new_entry);
+
+      // generate unique key ID for function
+      std::vector<Value*> key_args;
+      key_args.push_back(argument);
+
+      FunctionKeyGen::KeyID keyval = m_keygen->nextRandomKey();
+      ConstantInt * key = ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
+                                           keyval);
+      key_args.push_back(key);
+      callinst_create(record_key, key_args, new_entry);
     }
     BranchInst::Create(&old_entry, new_entry);
   }

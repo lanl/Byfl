@@ -26,8 +26,9 @@ function abs_dirname() {
 gui=yes
 download=yes
 compile=yes
+compile_byfl_only=no
 llvm_revision=HEAD
-while getopts j:b:r:tdc opt; do
+while getopts j:b:r:tdcC opt; do
     case $opt in
         j)
             # Parallelism
@@ -51,6 +52,12 @@ while getopts j:b:r:tdc opt; do
             download=yes
             compile=no
             ;;
+        C)
+            # Compile byfl only
+            compile_byfl_only=yes
+            compile=no
+            download=no
+            ;;
         c)
             # Compile only
             compile=yes
@@ -60,7 +67,7 @@ while getopts j:b:r:tdc opt; do
 done
 shift $((OPTIND-1))
 if [ -z "$1" ] ; then
-    echo "Usage: $0 [-j <parallelism> [-b <build_dir>] [-t] [-d | -c] <install_dir>" >&2
+    echo "Usage: $0 [-j <parallelism> [-b <build_dir>] [-t] [-d | -c | -C] <install_dir>" >&2
     exit 1
 fi
 if [ -z "$builddir" ] ; then
@@ -199,6 +206,45 @@ if [ "$download" = yes ] ; then
     if [ "$gui" = yes -a "$compile" = no ] ; then
         kill $zenity_pid
         zenity --info --title="Finished downloading" --text="Downloaded LLVM, Clang, DragonEgg,\nand Byfl into $builddir."
+    fi
+fi
+
+if [ "$compile_byfl_only" = yes ]; then
+	cd byfl/build
+	
+    # Build Byfl.
+    echo "# Compiling Byfl" 1>&4
+    run_with_progress byfl-build 35 make -j$numprocs
+
+    # Install Byfl.
+    echo "# Installing Byfl into $installdir" 1>&4
+    run_with_progress byfl-inst 73 make install
+
+    # Test the installation
+    echo "# Testing the Byfl installation" 1>&4
+    test "$gui" = yes && echo 0 1>&4
+    byflperllib=$(dirname $(find $installdir/share -name ParseGccOpts.pm))
+    cfile=`mktemp --tmpdir --suffix=.c byfltest-XXXXXX`
+    exefile=`echo $cfile | sed 's/\.c$//'`
+    cat <<CFILE > $cfile
+#include <stdio.h>
+int main (void) {
+  printf("Hello, world!\n");
+  return 0;
+}
+CFILE
+    export PERL5LIB=${byflperllib}:$PERL5LIB
+    bf-gcc $cfile -o $exefile
+    run_with_progress byfl-test 21 $exefile
+    rm -f $cfile $exefile
+
+    # Say what we did.
+    echo "Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir."
+    echo "It is now safe to delete $builddir."
+    echo "Don't forget to add $byflperllib to your PERL5LIB variable."
+    if [ "$gui" = yes ] ; then
+        kill $zenity_pid
+        zenity --info --title="Finished installation" --text="Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir.\n\nIt is now safe to delete $builddir.\nDon't forget to add $byflperllib to your PERL5LIB variable."
     fi
 fi
 

@@ -23,8 +23,10 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <memory>
 #include <set>
 #include "byfl-common.h"
+#include "FunctionKeyGen.h"
 
 using namespace std;
 using namespace llvm;
@@ -163,6 +165,9 @@ namespace bytesflops_pass {
     ConstantInt* cond_end_bb;       // 2, basic block ended with a conditional branch
     ConstantInt* zero;        // A 64-bit constant "0"
     ConstantInt* one;         // A 64-bit constant "1"
+
+    Function* record_key;     // Pointer to bf_record_key()
+    std::unique_ptr<FunctionKeyGen>    m_keygen;
 
     // Insert after a given instruction some code to increment a
     // global variable.

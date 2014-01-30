@@ -47,6 +47,8 @@ public:
   // Ditto for the size() method.
   size_t size() const { return the_map->size(); }
 
+  size_t count(const Key & key) { return the_map->count(key);}
+
   // The find() method first checks the cache then falls back to the
   // unordered_map.
   iterator find (const Key& key) {
