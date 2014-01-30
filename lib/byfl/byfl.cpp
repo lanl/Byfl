@@ -7,6 +7,8 @@
  */
 
 #include "byfl.h"
+#include "byfl-common.h"
+#include "CallStack.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
@@ -245,18 +247,28 @@ static ByteFlopCounters prev_global_totals;  // Previously reported global talli
 // Keep track of counters on a per-function basis, being careful to
 // work around the "C++ static initialization order fiasco" (cf. the
 // C++ FAQ).
-typedef CachedUnorderedMap<const char*, ByteFlopCounters*> str2bfc_t;
+
+typedef const char * MapKey_t;
+
+typedef CachedUnorderedMap<MapKey_t, ByteFlopCounters*> str2bfc_t;
 typedef str2bfc_t::iterator counter_iterator;
 static str2bfc_t& per_func_totals()
 {
   static str2bfc_t* mapping = new str2bfc_t();
   return *mapping;
 }
-typedef CachedUnorderedMap<const char*, uint64_t> str2num_t;
+typedef CachedUnorderedMap<MapKey_t, uint64_t> str2num_t;
 static str2num_t& func_call_tallies()
 {
   static str2num_t* mapping = new str2num_t();
   return *mapping;
+}
+
+typedef CachedUnorderedMap<KeyType_t, std::string> key2name_t;
+static key2name_t & key_to_func()
+{
+    static key2name_t * mapping = new key2name_t();
+    return *mapping;
 }
 
 // Keep track of counters on a user-defined basis, being careful to
@@ -322,63 +334,6 @@ public:
 };
 static CounterMemoryPool* counter_memory_pool = NULL;
 
-// Maintain a function call stack.
-class CallStack {
-private:
-  vector<const char*> complete_call_stack;  // Stack of function and ancestor names
-public:
-  size_t max_depth;   // Maximum depth achieved by complete_call_stack
-
-  CallStack() {
-    bf_func_and_parents = "-";
-    max_depth = 0;
-  }
-
-  // Push a function name onto the stack.  Return a string containing
-  // the name of the function followed by the names of all of its
-  // ancestors.
-  const char* push_function (const char* funcname) {
-    // Push both the current function name and the combined name of the
-    // function and its call stack.
-    static char* combined_name = NULL;
-    static size_t len_combined_name = 0;
-    const char* unique_combined_name;      // Interned version of combined_name
-    size_t current_stack_depth = complete_call_stack.size();
-    if (current_stack_depth == 0) {
-      // First function on the call stack
-      len_combined_name = strlen(funcname) + 1;
-      combined_name = (char*) malloc(len_combined_name);
-      strcpy(combined_name, funcname);
-      max_depth = 1;
-    }
-    else {
-      // All other calls (the common case)
-      const char* ancestors_names = complete_call_stack.back();
-      size_t length_needed = strlen(funcname) + strlen(ancestors_names) + 2;
-      if (len_combined_name < length_needed) {
-        len_combined_name = length_needed*2;
-        combined_name = (char*) realloc(combined_name, len_combined_name);
-      }
-      sprintf(combined_name, "%s %s", funcname, ancestors_names);
-      current_stack_depth++;
-      if (current_stack_depth > max_depth)
-        max_depth = current_stack_depth;
-    }
-    unique_combined_name = bf_string_to_symbol(combined_name);
-    complete_call_stack.push_back(unique_combined_name);
-    return unique_combined_name;
-  }
-
-  // Pop a function name from the call stack and return the new top of
-  // the call stack (function + ancestors).
-  const char* pop_function (void) {
-    complete_call_stack.pop_back();
-    if (complete_call_stack.size() > 0)
-      return complete_call_stack.back();
-    else
-      return "[EMPTY]";
-  }
-};
 static CallStack* call_stack = NULL;
 
 // As a kludge, set a global variable indicating that all of the
@@ -398,6 +353,7 @@ public:
 
 // Initialize some of our variables at first use.
 void initialize_byfl (void) {
+  bf_func_and_parents = "-";
   call_stack = new CallStack();
   counter_memory_pool = new CounterMemoryPool();
   if (bf_types) {
@@ -465,6 +421,36 @@ void bf_incr_func_tally (const char* funcname)
 {
   const char* unique_name = bf_string_to_symbol(funcname);
   func_call_tallies()[unique_name]++;
+}
+
+extern "C"
+void bf_record_key(const char* funcname, KeyType_t keyID)
+{
+    //printf("Recording key %lu for %s\n", keyID, funcname);
+    bool fatal = false;
+
+    auto & map = key_to_func();
+    auto iter = map.find(keyID);
+    if ( iter != map.end() )
+    {
+        // check for duplicates
+        if ( iter->second != funcname )
+        {
+            fatal = true;
+        }
+        else if ( map.count(keyID) > 1 )
+        {
+            fatal = true;
+        }
+    }
+
+    if ( fatal )
+    {
+        std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
+        exit(-1);
+    }
+
+    map[keyID] = std::move(std::string(funcname));
 }
 
 

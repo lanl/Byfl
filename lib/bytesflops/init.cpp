@@ -7,6 +7,7 @@
  */
 
 #include "bytesflops.h"
+#include "FunctionKeyGen.h"
 
 namespace bytesflops_pass {
 
@@ -154,14 +155,22 @@ namespace bytesflops_pass {
     // bf_pop_function().
     if (TallyByFunction && TrackCallStack) {
       // bf_push_function()
-      vector<Type*> single_string_arg;
-      single_string_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
+      vector<Type*> string_arg;
+      string_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
       FunctionType* void_str_func_result =
-        FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
+        FunctionType::get(Type::getVoidTy(globctx), string_arg, false);
       push_function =
-        declare_extern_c(void_str_func_result,
-                         "bf_push_function",
-                         &module);
+              declare_extern_c(void_str_func_result,
+                               "bf_push_function",
+                               &module);
+
+      // add 2nd arg for key
+      string_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
+      FunctionType* void_str_int_func_result =
+                FunctionType::get(Type::getVoidTy(globctx), string_arg, false);
+      record_key = declare_extern_c(void_str_int_func_result,
+                       "bf_record_key",
+                       &module);
 
       // bf_pop_function()
       pop_function = declare_thunk(&module, "bf_pop_function");
@@ -259,6 +268,15 @@ namespace bytesflops_pass {
       take_mega_lock = declare_thunk(&module, "bf_acquire_mega_lock");
       release_mega_lock = declare_thunk(&module, "bf_release_mega_lock");
     }
+
+    // initialize the function key generator
+    FunctionKeyGen::Seed_t  seed;
+    std::hash<std::string> hash_key;
+    seed = hash_key(module.getModuleIdentifier());
+
+    m_keygen = std::unique_ptr<FunctionKeyGen>(new FunctionKeyGen(seed));
+
+
     return true;
   }
 
@@ -270,14 +288,23 @@ namespace bytesflops_pass {
     StringRef function_name = function.getName();
     string function_name_orig = demangle_func_name(function_name.str());
     remove_all_instances(function_name_orig, ' ');  // Normalize the name by removing spaces.
-    if (instrument_only != NULL
-        && instrument_only->find(function_name) == instrument_only->end()
-        && instrument_only->find(function_name_orig) == instrument_only->end())
-      return false;
-    if (dont_instrument != NULL
-        && (dont_instrument->find(function_name) != dont_instrument->end()
-            || dont_instrument->find(function_name_orig) != dont_instrument->end()))
-      return false;
+
+    if ( instrument_only != NULL )
+    {
+        if ( (instrument_only->find(function_name) == instrument_only->end())
+             && (instrument_only->find(function_name_orig) == instrument_only->end())
+            )
+            return false;
+    }
+
+    if ( dont_instrument != NULL )
+    {
+        if ( (dont_instrument->find(function_name) != dont_instrument->end())
+            || (dont_instrument->find(function_name_orig) != dont_instrument->end())
+            )
+            return false;
+    }
+
     if (function_name == "bf_categorize_counters")
       // Avoid the endless recursion that would be caused if we were
       // to instrument bf_categorize_counters() using
@@ -291,6 +318,12 @@ namespace bytesflops_pass {
     static_ops = 0;
     static_cond_brs = 0;
     static_bblocks = 0;
+
+    // set up a unique identifier for the function so that we don't
+    // have to compute the hash value repeatedly.
+//    FunctionKeyGen::KeyID
+//    key = m_keygen->nextRandomKey();
+
 
     // Instrument "interesting" instructions in every basic block.
     Module* module = function.getParent();
