@@ -241,7 +241,7 @@ namespace bytesflops_pass {
                                 BasicBlock::iterator& insert_before);
 
     // Insert code at the end of a basic block.
-    void insert_end_bb_code (Module* module, StringRef function_name,
+    void insert_end_bb_code (Module* module, KeyType_t funcKey,
                              int& must_clear, BasicBlock::iterator& insert_before);
 
     // Wrap CallInst::Create() with code to acquire and release the

@@ -120,13 +120,15 @@ public:
   }
 
   // sorted_keys() returns a pointer to a vector of keys in sorted order.
-  vector<Key>* sorted_keys (bool (*goes_before)(Key, Key)) {
+  template <typename SortFn = std::less<Key> >
+  vector<Key>* sorted_keys (SortFn compare = SortFn() ) {
     vector<Key>* keys = new vector<Key>();
     for (const_iterator iter = begin(); iter != end(); iter++)
       keys->push_back(iter->first);
-    sort(keys->begin(), keys->end(), goes_before);
+    sort(keys->begin(), keys->end(), compare);
     return keys;
   }
+
 };
 
 #endif

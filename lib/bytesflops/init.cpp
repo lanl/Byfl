@@ -127,53 +127,48 @@ namespace bytesflops_pass {
       report_bb_tallies = declare_thunk(&module, "bf_report_bb_tallies");
     }
 
-    // Inject an external declaration for bf_assoc_counters_with_func().
-    if (TallyByFunction) {
-      vector<Type*> single_string_arg;
-      single_string_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
-      FunctionType* void_func_result =
-        FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
-      assoc_counts_with_func =
-        declare_extern_c(void_func_result,
-                         "bf_assoc_counters_with_func",
-                         &module);
-    }
-
     // Inject an external declarations for bf_increment_func_tally().
     if (TallyByFunction) {
-      vector<Type*> single_string_arg;
-      single_string_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
-      FunctionType* void_func_result =
-        FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
+        // bf_assoc_counters_with_func
+        vector<Type*> single_string_arg;
+        single_string_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
+        FunctionType* void_func_result =
+          FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
+        assoc_counts_with_func =
+          declare_extern_c(void_func_result,
+                           "bf_assoc_counters_with_func",
+                           &module);
+
+        vector<Type*> track_func_arg;
+        track_func_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
+        FunctionType* void_str_func_result =
+                  FunctionType::get(Type::getVoidTy(globctx), track_func_arg, false);
+
+        // add 2nd arg for function key
+        track_func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
+        FunctionType* void_str_int_func_result =
+                  FunctionType::get(Type::getVoidTy(globctx), track_func_arg, false);
+
       tally_function =
-        declare_extern_c(void_func_result,
+        declare_extern_c(void_str_func_result,
                          "bf_incr_func_tally",
                          &module);
-    }
 
-    // Inject external declarations for bf_push_function() and
-    // bf_pop_function().
-    if (TallyByFunction && TrackCallStack) {
-      // bf_push_function()
-      vector<Type*> string_arg;
-      string_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
-      FunctionType* void_str_func_result =
-        FunctionType::get(Type::getVoidTy(globctx), string_arg, false);
-      push_function =
-              declare_extern_c(void_str_func_result,
-                               "bf_push_function",
-                               &module);
-
-      // add 2nd arg for key
-      string_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
-      FunctionType* void_str_int_func_result =
-                FunctionType::get(Type::getVoidTy(globctx), string_arg, false);
       record_key = declare_extern_c(void_str_int_func_result,
                        "bf_record_key",
                        &module);
-
-      // bf_pop_function()
-      pop_function = declare_thunk(&module, "bf_pop_function");
+      if ( TrackCallStack )
+      {
+          // Inject external declarations for bf_push_function() and
+          // bf_pop_function().
+          // bf_push_function()
+          push_function =
+                  declare_extern_c(void_str_int_func_result,
+                                   "bf_push_function",
+                                   &module);
+          // bf_pop_function()
+          pop_function = declare_thunk(&module, "bf_pop_function");
+      }
     }
 
     // Declare bf_tally_vector_operation() only if we were asked

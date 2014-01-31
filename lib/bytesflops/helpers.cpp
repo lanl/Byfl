@@ -405,7 +405,7 @@ namespace bytesflops_pass {
   }
 
   // Insert code at the end of a basic block.
-  void BytesFlops::insert_end_bb_code (Module* module, StringRef function_name,
+  void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
                                        int& must_clear,
                                        BasicBlock::iterator& insert_before) {
     // Keep track of how the basic block terminated.
@@ -452,7 +452,9 @@ namespace bytesflops_pass {
     // bf_assoc_counters_with_func() at the end of the basic block.
     if (TallyByFunction) {
       vector<Value*> arg_list;
-      arg_list.push_back(map_func_name_to_arg(module, function_name));
+      ConstantInt * key = ConstantInt::get(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)),
+                                           funcKey);
+      arg_list.push_back(key);
       callinst_create(assoc_counts_with_func, arg_list, insert_before);
     }
 
