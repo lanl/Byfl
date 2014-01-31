@@ -250,11 +250,12 @@ static ByteFlopCounters prev_global_totals;  // Previously reported global talli
 
 typedef const char * MapKey_t;
 
+typedef CachedUnorderedMap<KeyType_t, ByteFlopCounters*> key2bfc_t;
 typedef CachedUnorderedMap<MapKey_t, ByteFlopCounters*> str2bfc_t;
 typedef str2bfc_t::iterator counter_iterator;
-static str2bfc_t& per_func_totals()
+static key2bfc_t& per_func_totals()
 {
-  static str2bfc_t* mapping = new str2bfc_t();
+  static key2bfc_t* mapping = new key2bfc_t();
   return *mapping;
 }
 typedef CachedUnorderedMap<MapKey_t, uint64_t> str2num_t;
@@ -290,9 +291,13 @@ extern "C" {
   const char* bf_categorize_counters (void) __attribute__((weak, alias("bf_categorize_counters_original")));
 }
 
+KeyType_t bf_categorize_counters_id = 10; // should be unlikely that this is duplicate
+
 namespace bytesflops {
 
 const char* bf_func_and_parents; // Top of the complete_call_stack stack
+KeyType_t bf_func_and_parents_id; // Top of the complete_call_stack stack
+KeyType_t bf_current_func_key;
 string bf_output_prefix;         // String to output before "BYFL" on every line
 ostream* bfout;                  // Stream to which to send standard output
 
@@ -350,10 +355,15 @@ public:
   }
 } check_construction;
 
+extern "C"
+void bf_record_key(const char* funcname, KeyType_t keyID);
+
 
 // Initialize some of our variables at first use.
 void initialize_byfl (void) {
   bf_func_and_parents = "-";
+  bf_func_and_parents_id = KeyType_t(0);
+  bf_current_func_key = KeyType_t(0);
   call_stack = new CallStack();
   counter_memory_pool = new CounterMemoryPool();
   if (bf_types) {
@@ -373,6 +383,12 @@ void initialize_byfl (void) {
   for (unsigned int i = 0; i < BF_NUM_MEM_INTRIN; i++)
     bf_mem_intrin_count[i] = 0;
   bf_push_basic_block();
+
+  const char * partition = bf_categorize_counters();
+  if ( NULL != partition )
+  {
+      bf_record_key(partition, bf_categorize_counters_id);
+  }
 }
 
 
@@ -458,10 +474,26 @@ void bf_record_key(const char* funcname, KeyType_t keyID)
 // count the call stack as a whole, and ensure the individual function
 // name also exists in the hash table.
 extern "C"
-void bf_push_function (const char* funcname)
+void bf_push_function (const char* funcname, KeyType_t key)
 {
-  const char* unique_combined_name = call_stack->push_function(funcname);
+  uint64_t depth = 1;
+
+  bf_current_func_key = key;
+//  std::cout << "Pushed function: before: bf_func_and_parents = " << bf_func_and_parents
+//          << ", func = " << funcname << ", key = " << key
+//          << ", bf_func_and_parents_id = " << bf_func_and_parents_id << std::endl;
+
+  const char* unique_combined_name = call_stack->push_function(funcname, key);
   bf_func_and_parents = unique_combined_name;
+
+  depth <<= call_stack->depth();
+  bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ key;
+
+//  std::cout << "Pushed function: after: bf_func_and_parents = " << bf_func_and_parents
+//          << ", key = " << key << ", depth = " << depth
+//          << ", bf_func_and_parents_id = " << bf_func_and_parents_id << std::endl << std::endl;
+  bf_record_key(bf_func_and_parents, bf_func_and_parents_id);
+
   func_call_tallies()[bf_func_and_parents]++;
   const char* unique_name = bf_string_to_symbol(funcname);
   func_call_tallies()[unique_name] += 0;
@@ -472,7 +504,16 @@ void bf_push_function (const char* funcname)
 extern "C"
 void bf_pop_function (void)
 {
-  bf_func_and_parents = call_stack->pop_function();
+  uint64_t depth = 1;
+
+  depth <<= call_stack->depth();
+  CallStack::StackItem_t item = call_stack->pop_function();
+  bf_func_and_parents = item.first;
+  bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ bf_current_func_key;
+  bf_current_func_key = item.second;
+//  std::cout << "Popped function: bf_func_and_parents = " << bf_func_and_parents
+//          << ", key = " << item.second << ", depth = " << depth
+//          << ", bf_func_and_parents_id = " << bf_func_and_parents_id << std::endl << std::endl;
 }
 
 
@@ -553,8 +594,8 @@ void bf_accumulate_bb_tallies (void)
   global_totals.accumulate(current_bb);
   const char* partition = bf_string_to_symbol(bf_categorize_counters());
   if (partition != NULL) {
-    counter_iterator sm_iter = user_defined_totals().find(partition);
-    if (sm_iter == per_func_totals().end())
+    auto sm_iter = user_defined_totals().find(partition);
+    if (sm_iter == user_defined_totals().end())
       user_defined_totals()[partition] = new ByteFlopCounters(*current_bb);
     else
       user_defined_totals()[partition]->accumulate(current_bb);
@@ -621,18 +662,31 @@ void bf_report_bb_tallies (void)
 
 // Associate the current counter values with a given function.
 extern "C"
-void bf_assoc_counters_with_func (const char* funcname)
+void bf_assoc_counters_with_func (KeyType_t funcID)
 {
   // Ensure that per_func_totals contains an ByteFlopCounters entry
   // for funcname, then add the current counters to that entry.
-  if (bf_call_stack)
-    funcname = bf_func_and_parents;
+//  if (bf_call_stack)
+//    funcname = bf_func_and_parents;
+//  else
+//    funcname = bf_string_to_symbol(funcname);
+
+  key2bfc_t::iterator sm_iter;
+  KeyType_t key;
+  if ( bf_call_stack )
+  {
+      sm_iter = per_func_totals().find(bf_func_and_parents_id);
+      key = bf_func_and_parents_id;
+  }
   else
-    funcname = bf_string_to_symbol(funcname);
-  counter_iterator sm_iter = per_func_totals().find(funcname);
+  {
+      sm_iter = per_func_totals().find(funcID);
+      key = funcID;
+  }
+
   if (sm_iter == per_func_totals().end())
     // This is the first time we've seen this function name.
-    per_func_totals()[funcname] =
+    per_func_totals()[key] =
       new ByteFlopCounters(bf_mem_insts_count,
                            bf_inst_mix_histo,
                            bf_terminator_count,
@@ -722,13 +776,13 @@ private:
     *bfout << '\n';
 
     // Output the data by sorted function name.
-    vector<const char*>* all_func_names = per_func_totals().sorted_keys(compare_char_stars);
-    for (vector<const char*>::iterator fn_iter = all_func_names->begin();
-         fn_iter != all_func_names->end();
+    vector<KeyType_t> * all_funcs = per_func_totals().sorted_keys();
+    for (vector<KeyType_t>::iterator fn_iter = all_funcs->begin();
+         fn_iter != all_funcs->end();
          fn_iter++) {
-      const string funcname = *fn_iter;
+      const string funcname = key_to_func()[*fn_iter];
       const char* funcname_c = bf_string_to_symbol(funcname.c_str());
-      ByteFlopCounters* func_counters = per_func_totals()[funcname_c];
+      ByteFlopCounters* func_counters = per_func_totals()[*fn_iter];
       *bfout << bf_output_prefix
              << "BYFL_FUNC:        "
              << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
@@ -748,7 +802,7 @@ private:
              << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
              << funcname_c << '\n';
     }
-    delete all_func_names;
+    delete all_funcs;
 
     // Output invocation tallies for all called functions, not just
     // instrumented functions.
@@ -1116,7 +1170,7 @@ public:
     // after each tally.  We therefore reconstruct the lost global
     // counts from the per-function tallies.
     if (global_totals.terminators[BF_END_BB_ANY] == 0)
-      for (counter_iterator sm_iter = per_func_totals().begin();
+      for (auto sm_iter = per_func_totals().begin();
            sm_iter != per_func_totals().end();
            sm_iter++)
         global_totals.accumulate(sm_iter->second);

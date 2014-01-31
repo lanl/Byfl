@@ -366,6 +366,9 @@ namespace bytesflops_pass {
     // Tally the number of basic blocks that the function contains.
     static_bblocks += function.size();
 
+    // generate a unique key for the function and insert call to record it
+    FunctionKeyGen::KeyID keyval = m_keygen->nextRandomKey();
+
     // Iterate over each basic block in turn.
     for (Function::iterator func_iter = function.begin();
          func_iter != function.end();
@@ -432,7 +435,7 @@ namespace bytesflops_pass {
 
       // Add one last bit of code then release the mega-lock and elide
       // the sentinel terminator.
-      insert_end_bb_code(module, function_name, must_clear, terminator_inst);
+      insert_end_bb_code(module, keyval, must_clear, terminator_inst);
       if (ThreadSafety)
         callinst_create(release_mega_lock, terminator_inst);
       unreachable->eraseFromParent();
@@ -448,20 +451,30 @@ namespace bytesflops_pass {
     BasicBlock* new_entry =
       BasicBlock::Create(func_ctx, "bf_entry", &function, &old_entry);
     callinst_create(init_if_necessary, new_entry);
+
+    // generate a unique key for the function and insert call to record it
+    std::vector<Value*> key_args;
+
+    ConstantInt * key = ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
+                                       keyval);
+    Constant* argument = map_func_name_to_arg(module, function_name);
+
+    key_args.push_back(argument);
+    key_args.push_back(key);
+
+    callinst_create(record_key, key_args, new_entry);
+
     if (TallyByFunction) {
-      Function* entry_func = TrackCallStack ? push_function : tally_function;
-      Constant* argument = map_func_name_to_arg(module, function_name);
-      callinst_create(entry_func, argument, new_entry);
+      if ( TrackCallStack )
+      {
+          callinst_create(push_function, key_args, new_entry);
+      }
+      else
+      {
+          callinst_create(tally_function, map_func_name_to_arg(module, function_name), new_entry);
+      }
 
-      // generate unique key ID for function
-      std::vector<Value*> key_args;
-      key_args.push_back(argument);
-
-      FunctionKeyGen::KeyID keyval = m_keygen->nextRandomKey();
-      ConstantInt * key = ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
-                                           keyval);
-      key_args.push_back(key);
-      callinst_create(record_key, key_args, new_entry);
+      //std::cout << "key = " << keyval << " for func " << function_name.data() << std::endl;
     }
     BranchInst::Create(&old_entry, new_entry);
   }
