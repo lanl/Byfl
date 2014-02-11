@@ -169,22 +169,22 @@ mkdir build-logs
 if [ "$download" = yes ] ; then
     # Delete old files before downloading the new ones.
     echo "# Removing old versions of LLVM, Clang, DragonEgg, and Byfl from $builddir" 1>&4
-    run_with_progress cleanup 70000 rm -rfv byfl dragonegg llvm
+    run_with_progress cleanup 56000 rm -rfv byfl dragonegg llvm
 
     # Download LLVM trunk.
     echo "# Downloading LLVM into $builddir" 1>&4
-    run_with_progress llvm-dl 12000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/trunk llvm
+    run_with_progress llvm-dl 14000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/trunk llvm
     cd llvm
     llvm_revision=`svn info | awk '/^Revision: / {print $2}'`
     cd ..
 
     # Download Clang.
     echo "# Downloading Clang revision $llvm_revision into $builddir" 1>&4
-    run_with_progress clang-dl 9100 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/trunk llvm/tools/clang
+    run_with_progress clang-dl 11000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/trunk llvm/tools/clang
 
     # Download the Clang run-time system.
     echo "# Downloading Clang RT revision $llvm_revision into $builddir" 1>&4
-    run_with_progress rts-dl 1300 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/compiler-rt/trunk llvm/projects/compiler-rt
+    run_with_progress rts-dl 1500 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/compiler-rt/trunk llvm/projects/compiler-rt
 
     # Download DragonEgg.
     echo "# Downloading DragonEgg revision $llvm_revision into $builddir" 1>&4
@@ -192,7 +192,7 @@ if [ "$download" = yes ] ; then
 
     # Download Byfl.
     echo "# Downloading Byfl into $builddir" 1>&4
-    run_with_progress byfl-dl 1 git clone https://github.com/losalamos/Byfl.git byfl
+    run_with_progress byfl-dl 2 git clone https://github.com/losalamos/Byfl.git byfl
 
     # Say what we did.
     echo "Downloaded LLVM, Clang, DragonEgg, and Byfl into $builddir."
@@ -207,21 +207,21 @@ if [ "$compile" = yes ] ; then
     # Configure LLVM and Clang.
     echo "# Configuring LLVM and Clang" 1>&4
     cd llvm
-    run_with_progress llvm-config 650 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
+    run_with_progress llvm-config 640 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
 
     # Build LLVM and Clang.
     echo "# Compiling LLVM and Clang" 1>&4
-    run_with_progress llvm-build 3100 make -j$numprocs
+    run_with_progress llvm-build 3900 make -j$numprocs
 
     # Install LLVM and Clang.
     echo "# Installing LLVM and Clang into $installdir" 1>&4
-    run_with_progress llvm-inst 750 make install
+    run_with_progress llvm-inst 820 make install
 
     # Build DragonEgg.
     export PATH=$installdir/bin:$PATH
     cd ../dragonegg
     echo "# Compiling DragonEgg" 1>&4
-    run_with_progress dregg-build 41 make -j$numprocs
+    run_with_progress dregg-build 270 make -j$numprocs
 
     # Install DragonEgg.
     echo "# Installing DragonEgg into $installdir" 1>&4
@@ -237,11 +237,11 @@ if [ "$compile" = yes ] ; then
 
     # Build Byfl.
     echo "# Compiling Byfl" 1>&4
-    run_with_progress byfl-build 35 make -j$numprocs
+    run_with_progress byfl-build 52 make -j$numprocs
 
     # Install Byfl.
     echo "# Installing Byfl into $installdir" 1>&4
-    run_with_progress byfl-inst 73 make install
+    run_with_progress byfl-inst 43 make install
 
     # Test the installation
     echo "# Testing the Byfl installation" 1>&4
