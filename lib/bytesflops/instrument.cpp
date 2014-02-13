@@ -181,7 +181,8 @@ namespace bytesflops_pass {
                                    StringRef function_name,
                                    Instruction* inst,
                                    BasicBlock::iterator& insert_before,
-                                   int& must_clear) {
+                                   int& must_clear,
+                                   bool in_landing_pad) {
     Function* func = dyn_cast<CallInst>(inst)->getCalledFunction();
     if (!func)
       return;
@@ -212,10 +213,40 @@ namespace bytesflops_pass {
     // name) in order to keep track of calls to uninstrumented
     // functions.
     if (TallyByFunction) {
+
+      // generate key if needed
+        FunctionKeyGen::KeyID keyval;
       string augmented_callee_name(string("+") + callee_name.str());
+      auto cit = func_key_map.find(augmented_callee_name);
+      if ( cit == func_key_map.end() )
+      {
+          keyval = m_keygen->nextRandomKey();
+          func_key_map[augmented_callee_name] = keyval;
+      }
+      else
+      {
+          keyval = cit->second;
+      }
+
+      std::vector<Value*> key_args;
+
       Constant* argument = map_func_name_to_arg(module, StringRef(augmented_callee_name));
-      callinst_create(tally_function, argument, insert_before);
-    }
+      ConstantInt * key = ConstantInt::get(IntegerType::get(module->getContext(),
+                                       8*sizeof(FunctionKeyGen::KeyID)),
+                                       keyval);
+
+      key_args.push_back(argument);
+      key_args.push_back(key);
+
+      // check if we need to insert call to record key
+      auto rit = recorded.find(keyval);
+      if ( (recorded.end() == rit) && !in_landing_pad )
+      {
+          recorded.insert(keyval);
+          callinst_create(record_key, key_args, insert_before);
+      }
+      callinst_create(tally_function, key_args, insert_before);
+    } // end if (TallyByFunction)
   }
 
   // Instrument all instructions except no-ops.
@@ -390,6 +421,8 @@ namespace bytesflops_pass {
       if (ThreadSafety)
         callinst_create(take_mega_lock, terminator_inst);
 
+      bool in_landing_pad = bb.isLandingPad();
+
       // Iterate over the basic block's instructions one-by-one until
       // we reach the sentinal.
       for (BasicBlock::iterator iter = bb.begin();
@@ -423,7 +456,8 @@ namespace bytesflops_pass {
             break;
 
           case Instruction::Call:
-            instrument_call(module, function_name, &inst, terminator_inst, must_clear);
+            instrument_call(module, function_name, &inst, terminator_inst,
+                            must_clear, in_landing_pad);
             break;
 
           default:
@@ -450,21 +484,22 @@ namespace bytesflops_pass {
     BasicBlock& old_entry = function.front();
     BasicBlock* new_entry =
       BasicBlock::Create(func_ctx, "bf_entry", &function, &old_entry);
+
     callinst_create(init_if_necessary, new_entry);
 
-    // generate a unique key for the function and insert call to record it
-    std::vector<Value*> key_args;
-
-    ConstantInt * key = ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
-                                       keyval);
-    Constant* argument = map_func_name_to_arg(module, function_name);
-
-    key_args.push_back(argument);
-    key_args.push_back(key);
-
-    callinst_create(record_key, key_args, new_entry);
-
     if (TallyByFunction) {
+      // generate a unique key for the function and insert call to record it
+      std::vector<Value*> key_args;
+
+      ConstantInt * key = ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
+                                       keyval);
+      Constant* argument = map_func_name_to_arg(module, function_name);
+
+      key_args.push_back(argument);
+      key_args.push_back(key);
+
+      callinst_create(record_key, key_args, new_entry);
+
       if ( TrackCallStack )
       {
           callinst_create(push_function, key_args, new_entry);

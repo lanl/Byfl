@@ -258,10 +258,10 @@ static key2bfc_t& per_func_totals()
   static key2bfc_t* mapping = new key2bfc_t();
   return *mapping;
 }
-typedef CachedUnorderedMap<MapKey_t, uint64_t> str2num_t;
-static str2num_t& func_call_tallies()
+typedef CachedUnorderedMap<KeyType_t, uint64_t> key2num_t;
+static key2num_t& func_call_tallies()
 {
-  static str2num_t* mapping = new str2num_t();
+  static key2num_t* mapping = new key2num_t();
   return *mapping;
 }
 
@@ -271,6 +271,14 @@ static key2name_t & key_to_func()
     static key2name_t * mapping = new key2name_t();
     return *mapping;
 }
+
+typedef std::map<std::string, uint64_t> str2num_t;
+static str2num_t& final_call_tallies()
+{
+  static str2num_t* mapping = new str2num_t();
+  return *mapping;
+}
+
 
 // Keep track of counters on a user-defined basis, being careful to
 // work around the "C++ static initialization order fiasco" (cf. the
@@ -433,10 +441,12 @@ void bf_pop_basic_block (void)
 
 // Tally the number of calls to each function.
 extern "C"
-void bf_incr_func_tally (const char* funcname)
+void bf_incr_func_tally (const char* funcname, KeyType_t keyID)
 {
-  const char* unique_name = bf_string_to_symbol(funcname);
-  func_call_tallies()[unique_name]++;
+//  const char* unique_name = bf_string_to_symbol(funcname);
+  func_call_tallies()[keyID]++;
+//  std::cout << "Recording tally for key " << keyID
+//          << " for function " << funcname << std::endl;
 }
 
 extern "C"
@@ -494,9 +504,11 @@ void bf_push_function (const char* funcname, KeyType_t key)
 //          << ", bf_func_and_parents_id = " << bf_func_and_parents_id << std::endl << std::endl;
   bf_record_key(bf_func_and_parents, bf_func_and_parents_id);
 
-  func_call_tallies()[bf_func_and_parents]++;
+  //func_call_tallies()[bf_func_and_parents]++;
+  func_call_tallies()[bf_func_and_parents_id]++;
   const char* unique_name = bf_string_to_symbol(funcname);
-  func_call_tallies()[unique_name] += 0;
+  func_call_tallies()[key] += 0;
+  //func_call_tallies()[unique_name] += 0;
 }
 
 
@@ -723,20 +735,57 @@ static class RunAtEndOfProgram {
 private:
   string separator;    // Horizontal rule to output between sections
 
+  static void
+  aggregate_call_tallies()
+  {
+      key2num_t & fmap = func_call_tallies();
+      str2num_t & final_map = final_call_tallies();
+      for ( auto it = fmap.begin(); it != fmap.end(); it++ )
+      {
+          auto kiter = key_to_func().find(it->first);
+          if ( kiter == key_to_func().end() )
+          {
+              std::cerr << "Error: key " << it->first
+                      << " was not recorded." << std::endl;
+          }
+          else
+          {
+              std::string & func = key_to_func()[it->first];
+              final_map[func.c_str()] += it->second;
+          }
+      }
+//      std::cout << "main cnt = " << final_map["main"] << std::endl;
+//      std::cout << "final_map = {";
+//      for ( auto it = final_map.begin();
+//              it != final_map.end(); it++ )
+//      {
+//          std::cout << " (" << it->first << ", " << it->second << ")";
+//      }
+//      std::cout << "}\n";
+  }
+
   // Compare two strings.
   static bool compare_char_stars (const char* one, const char* two) {
     return strcmp(one, two) < 0;
   }
 
+  static bool compare_keys_to_names (KeyType_t one, KeyType_t two) {
+    auto & map = key_to_func();
+    return map[one] < map[two];
+  }
+
   // Compare two function names, reporting which was called more
   // times.  Break ties by comparing function names.
-  static bool compare_func_totals (const char* one, const char* two) {
-    uint64_t one_calls = func_call_tallies()[one];
-    uint64_t two_calls = func_call_tallies()[two];
+  static bool compare_func_totals (const std::string & one,
+                                  const std::string & two)
+  {
+    uint64_t one_calls = final_call_tallies()[one];
+    uint64_t two_calls = final_call_tallies()[two];
     if (one_calls != two_calls)
       return one_calls > two_calls;
     else
-      return compare_char_stars(one, two);
+      return one < two;
+      //return compare_char_stars(one, two);
   }
 
   // Compare two {name, tally} pairs, reporting which has the greater
@@ -751,6 +800,9 @@ private:
 
   // Report per-function counter totals.
   void report_by_function (void) {
+
+    aggregate_call_tallies();
+
     // Output a header line.
     *bfout << bf_output_prefix
            << "BYFL_FUNC_HEADER: "
@@ -776,7 +828,7 @@ private:
     *bfout << '\n';
 
     // Output the data by sorted function name.
-    vector<KeyType_t> * all_funcs = per_func_totals().sorted_keys();
+    vector<KeyType_t> * all_funcs = per_func_totals().sorted_keys(compare_keys_to_names);
     for (vector<KeyType_t>::iterator fn_iter = all_funcs->begin();
          fn_iter != all_funcs->end();
          fn_iter++) {
@@ -799,7 +851,7 @@ private:
                << (bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c));
       *bfout << ' '
              << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
-             << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
+             << setw(HDR_COL_WIDTH) << final_call_tallies()[funcname_c] << ' '
              << funcname_c << '\n';
     }
     delete all_funcs;
@@ -812,10 +864,10 @@ private:
            << "Byfl" << ' '
            << "Function\n";
     vector<const char*> all_called_funcs;
-    for (str2num_t::iterator sm_iter = func_call_tallies().begin();
-         sm_iter != func_call_tallies().end();
+    for (str2num_t::iterator sm_iter = final_call_tallies().begin();
+         sm_iter != final_call_tallies().end();
          sm_iter++)
-      all_called_funcs.push_back(sm_iter->first);
+      all_called_funcs.push_back(sm_iter->first.c_str());
     sort(all_called_funcs.begin(), all_called_funcs.end(), compare_func_totals);
     for (vector<const char*>::iterator fn_iter = all_called_funcs.begin();
          fn_iter != all_called_funcs.end();
@@ -825,9 +877,9 @@ private:
       bool instrumented = true;          // Whether function was instrumented
       if (funcname[0] == '+') {
         const char* unique_name = bf_string_to_symbol(funcname+1);
-        str2num_t::iterator tally_iter = func_call_tallies().find(unique_name);
-        instrumented = (tally_iter != func_call_tallies().end());
-        tally = func_call_tallies()[bf_string_to_symbol(funcname)];
+        str2num_t::iterator tally_iter = final_call_tallies().find(unique_name);
+        instrumented = (tally_iter != final_call_tallies().end());
+        tally = final_call_tallies()[bf_string_to_symbol(funcname)];
         funcname = unique_name;
       }
       string funcname_orig = demangle_func_name(funcname);

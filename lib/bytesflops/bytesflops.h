@@ -168,6 +168,8 @@ namespace bytesflops_pass {
 
     Function* record_key;     // Pointer to bf_record_key()
     std::unique_ptr<FunctionKeyGen>    m_keygen;
+    std::map<std::string, KeyType_t>   func_key_map;
+    std::set<KeyType_t>                recorded;
 
     // Insert after a given instruction some code to increment a
     // global variable.
@@ -276,7 +278,8 @@ namespace bytesflops_pass {
                          StringRef function_name,
                          Instruction* inst,
                          BasicBlock::iterator& insert_before,
-                         int& must_clear);
+                         int& must_clear,
+                         bool in_landing_pad);
 
     // Instrument all instructions.
     void instrument_all(Module* module,

@@ -458,6 +458,8 @@ if (defined $build_type{"link"}) {
         elsif ($opt eq "o") {
             push @llvm_ld_options, ("-o", $arg);
         }
+        elsif ($opt eq "rdynamic") {
+        }
         elsif ($opt eq "O") {
             # Make a few modifications to the optimization level
             # specified on the command line for clang's benefit.

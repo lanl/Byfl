@@ -128,6 +128,12 @@ namespace bytesflops_pass {
     }
 
     // Inject an external declarations for bf_increment_func_tally().
+    assoc_counts_with_func = 0;
+    record_key = 0;
+    tally_function = 0;
+    push_function = 0;
+    pop_function = 0;
+
     if (TallyByFunction) {
         // bf_assoc_counters_with_func
         vector<Type*> single_string_arg;
@@ -150,7 +156,7 @@ namespace bytesflops_pass {
                   FunctionType::get(Type::getVoidTy(globctx), track_func_arg, false);
 
       tally_function =
-        declare_extern_c(void_str_func_result,
+        declare_extern_c(void_str_int_func_result,
                          "bf_incr_func_tally",
                          &module);
 

@@ -49,6 +49,18 @@ public:
 
   size_t count(const Key & key) { return the_map->count(key);}
 
+  iterator contains( const T & value )
+  {
+      for ( auto iter = this->begin(); iter != this->end(); iter++ )
+      {
+          if ( iter->second == value )
+          {
+              return iter;
+          }
+      }
+      return this->end();
+  }
+
   // The find() method first checks the cache then falls back to the
   // unordered_map.
   iterator find (const Key& key) {
@@ -76,7 +88,8 @@ public:
     iterator iter = the_map->find(key);
     if (iter != end()) {
       // Cache only successful searches.
-      memcpy((void *)&prev_key[cache_size-1], &key, sizeof(Key));
+      //memcpy((void *)&prev_key[cache_size-1], &key, sizeof(Key));
+      prev_key[cache_size-1] = key;
       prev_iter[cache_size-1] = iter;
     }
     return iter;
