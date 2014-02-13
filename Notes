@@ -1,0 +1,21 @@
+2/3/14
+- Left off:
+  - Ran CICE with byfl
+    - copied cice source to byfl-tests/tests
+    - modified bld/Macros.Linux.LANL.darwin for gcc build
+    - modified byfl-env to set OMPI_FC=bf-gfortran
+    - added '-p' arg to comp_ice to set # of ranks
+    - modified comp_ice to use ${PWD} as source directory
+  - Ran S3D
+    - copied source to byfl-tests/tests
+    - create 'build' dir and run 'cmake ..' in build
+    - run 'make install'
+      - this creates 's3d_run' directory in s3d
+      - cd to s3d_run/run and run s3d.x
+  - modified bf-gcc wrapper in tools/wrappers
+    - added 
+        elsif ($opt eq "rdynamic") {
+        }
+      to 'link' code block
+    - was getting link error when running cmake on s3d 
+      
