@@ -60,7 +60,7 @@ while getopts j:b:r:tdc opt; do
 done
 shift $((OPTIND-1))
 if [ -z "$1" ] ; then
-    echo "Usage: $0 [-j <parallelism> [-b <build_dir>] [-t] [-d | -c] <install_dir>" >&2
+    echo "Usage: $0 [-j <parallelism>] [-r <LLVM revision>] [-b <build_dir>] [-t] [-d | -c] <install_dir>" >&2
     exit 1
 fi
 if [ -z "$builddir" ] ; then
