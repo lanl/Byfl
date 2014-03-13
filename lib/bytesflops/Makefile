@@ -23,7 +23,7 @@ EXTRA_DIST = bytesflops.h
 CPPFLAGS += -I$(PROJ_SRC_ROOT)/lib/include
 
 EXTRA_DIST += MersenneTwister.h FunctionKeyGen.h
-SOURCES += MersenneTwister.cpp FunctionKeyGen.cpp
+SOURCES += MersenneTwister.cpp FunctionKeyGen.cpp BytesMP.cpp
 
 #
 # Include Makefile.common so we know what to do.

@@ -8,7 +8,7 @@
     - modified comp_ice to use ${PWD} as source directory
   - Ran S3D
     - copied source to byfl-tests/tests
-    - create 'build' dir and run 'cmake ..' in build
+    - create 'build' dir and run 'cmake -D CMAKE_Fortran_COMPILER=bf-mpif90 ..' in build
     - run 'make install'
       - this creates 's3d_run' directory in s3d
       - cd to s3d_run/run and run s3d.x
@@ -19,3 +19,8 @@
       to 'link' code block
     - was getting link error when running cmake on s3d 
       
+- creating global variables in llvm:
+  - write a simple c source file, compile it to bitcode using
+    clang -S -emit-llvm -c foo.cc
+  - then run
+    llc -march=cpp foo.bc -o foo.lc
