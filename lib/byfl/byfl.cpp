@@ -16,6 +16,7 @@ using namespace std;
 
 const unsigned int HDR_COL_WIDTH = 20;
 
+
 // Define the different ways a basic block can terminate.
 typedef enum {
   BB_NOT_END=0,       // Basic block has not actually terminated.
@@ -279,6 +280,11 @@ static str2num_t& final_call_tallies()
   return *mapping;
 }
 
+static uint32_t & bf_cnt()
+{
+    static uint32_t * cnt = new uint32_t(0);
+    return *cnt;
+}
 
 // Keep track of counters on a user-defined basis, being careful to
 // work around the "C++ static initialization order fiasco" (cf. the
@@ -443,16 +449,34 @@ void bf_pop_basic_block (void)
 extern "C"
 void bf_incr_func_tally (const char* funcname, KeyType_t keyID)
 {
+//    if (17952579368071751650 == keyID)
+//        printf("incr tally for key %lu for %s\n", keyID, funcname);
 //  const char* unique_name = bf_string_to_symbol(funcname);
+//  printf("bf_fmap_cnt = %d\n", bf_fmap_cnt);
+
   func_call_tallies()[keyID]++;
 //  std::cout << "Recording tally for key " << keyID
 //          << " for function " << funcname << std::endl;
 }
 
 extern "C"
+void bf_record_cnt(uint32_t cnt, const uint64_t * keys,
+        const char ** fnames)
+{
+//    printf("bf_record_cnt: cnt = %d, keys = %p\n", cnt, keys);
+    for ( unsigned i = 0; i < cnt; i++ )
+    {
+        bf_record_key(fnames[i], keys[i]);
+//        printf("key = %ld, fname = %s\n", keys[i], fnames[i]);
+    }
+//    bf_cnt()++;
+}
+
+extern "C"
 void bf_record_key(const char* funcname, KeyType_t keyID)
 {
-    //printf("Recording key %lu for %s\n", keyID, funcname);
+   // if (17952579368071751650 == keyID)
+//        printf("Recording key %lu for %s\n", keyID, funcname);
     bool fatal = false;
 
     auto & map = key_to_func();
@@ -745,7 +769,7 @@ private:
           auto kiter = key_to_func().find(it->first);
           if ( kiter == key_to_func().end() )
           {
-              std::cerr << "Error: key " << it->first
+              std::cerr << "ERROR: key " << it->first
                       << " was not recorded." << std::endl;
           }
           else
@@ -802,6 +826,8 @@ private:
   void report_by_function (void) {
 
     aggregate_call_tallies();
+
+    *bfout << "bf_cnt = " << bf_cnt() << std::endl;
 
     // Output a header line.
     *bfout << bf_output_prefix

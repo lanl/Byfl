@@ -29,6 +29,9 @@
 #include "opcode2name.h"
 
 // The following constants are defined by the instrumented code.
+extern const char * bf_foofoo;
+extern uint64_t * testkey;
+extern uint64_t * bf_keys;
 extern uint64_t bf_bb_merge;         // Number of basic blocks to merge to compress the output
 extern uint8_t  bf_call_stack;       // 1=maintain a function call stack
 extern uint8_t  bf_every_bb;         // 1=tally and output per-basic-block data
@@ -40,6 +43,9 @@ extern uint8_t  bf_tally_inst_mix;   // 1=maintain instruction mix histogram
 extern uint8_t  bf_types;            // 1=count loads/stores per type
 extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
 extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
+
+// The following globals are defined by the instrumented code.
+extern uint64_t bf_fmap_cnt;
 
 // The following function is expected to be overridden by user code.
 extern "C" {

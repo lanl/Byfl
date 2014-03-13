@@ -6,10 +6,157 @@
  * and Pat McCormick <pat@lanl.gov>
  */
 
+#include <iostream>
 #include "bytesflops.h"
 #include "FunctionKeyGen.h"
+#include "BytesMP.h"
 
 namespace bytesflops_pass {
+
+    void BytesFlops::initializeKeyMap(Module& module)
+    {
+        if ( module.getFunction("func_key_map_ctor") )
+            return;
+
+        LLVMContext& ctx = module.getContext();
+
+        // Type Definitions
+        std::vector<Type*>StructTy_1_fields;
+        StructTy_1_fields.push_back(IntegerType::get(ctx, 32));
+        std::vector<Type*>FuncTy_3_args;
+        FunctionType* FuncTy_3 = FunctionType::get(
+         /*Result=*/Type::getVoidTy(ctx),
+         /*Params=*/FuncTy_3_args,
+         /*isVarArg=*/false);
+
+        PointerType* PointerTy_2 = PointerType::get(FuncTy_3, 0);
+
+        StructTy_1_fields.push_back(PointerTy_2);
+        StructType *StructTy_1 = StructType::get(ctx, StructTy_1_fields, /*isPacked=*/false);
+
+        ArrayType* ArrayTy_0 = NULL;
+
+        // Function Declarations
+        std::vector<Type*> no_args;
+        FunctionType *
+        void_type = FunctionType::get(/*Result=*/Type::getVoidTy(ctx),
+                                     /*Params=*/no_args,
+                                     /*isVarArg=*/false);
+
+        func_map_ctor = Function::Create(
+                        /*Type=*/FuncTy_3,
+                        /*Linkage=*/GlobalValue::InternalLinkage,
+                        /*Name=*/"func_key_map_ctor", &module);
+        func_map_ctor->setCallingConv(CallingConv::C);
+
+        AttributeSet func__ZL4initv_PAL;
+        SmallVector<AttributeSet, 4> Attrs;
+        AttributeSet PAS;
+        AttrBuilder B;
+        B.addAttribute(Attribute::NoUnwind);
+        B.addAttribute(Attribute::UWTable);
+        PAS = AttributeSet::get(ctx, ~0U, B);
+
+        Attrs.push_back(PAS);
+        func__ZL4initv_PAL = AttributeSet::get(ctx, Attrs);
+        func_map_ctor->setAttributes(func__ZL4initv_PAL);
+
+        // Global Variable Declarations
+        // Constant Definitions
+        std::vector<Constant*> ctor_elems;
+        std::vector<Constant*> const_struct_8_fields;
+        ConstantInt* const_int32_9 = ConstantInt::get(ctx, APInt(32, StringRef("65535"), 10));
+        const_struct_8_fields.push_back(const_int32_9);
+        const_struct_8_fields.push_back(func_map_ctor);
+        Constant* const_struct_8 = ConstantStruct::get(StructTy_1, const_struct_8_fields);
+        ctor_elems.push_back(const_struct_8);
+
+        GlobalVariable* llvm_global_ctors;
+
+        GlobalVariable*
+        current_ctors = module.getGlobalVariable("llvm.global_ctors");
+        if ( !current_ctors )
+        {
+            ArrayTy_0 = ArrayType::get(StructTy_1, 1);
+        }
+        else
+        {
+//            printf("%s: Warning: found llvm.global_ctors\n", module.getModuleIdentifier().c_str());
+            Constant * initializer = current_ctors->getInitializer();
+
+            ConstantArray *
+            ar = llvm::dyn_cast<ConstantArray>(initializer);
+            assert( ar );
+
+            int cnt = 0;
+            Constant *
+            elt = ar->getAggregateElement(cnt);
+            while ( elt )
+            {
+                assert( llvm::dyn_cast<ConstantStruct>(elt) );
+                ctor_elems.push_back(elt);
+                cnt++;
+                elt = ar->getAggregateElement(cnt);
+            }
+            ArrayTy_0 = ArrayType::get(StructTy_1, ctor_elems.size());
+            current_ctors->eraseFromParent();
+
+            // add our ctor to the llvm.global_ctors array
+//            gvar_array_llvm_global_ctors->replaceAllUsesWith(new_llvm_ctors);
+        }
+        llvm_global_ctors = new GlobalVariable(/*Module=*/module,
+                                                          /*Type=*/ArrayTy_0,
+                                                          /*isConstant=*/false,
+                                                          /*Linkage=*/GlobalValue::AppendingLinkage,
+                                                          /*Initializer=*/0, // has initializer, specified below
+                                                          /*Name=*/"llvm.global_ctors");
+
+
+        Constant* ctor_array = ConstantArray::get(ArrayTy_0, ctor_elems);
+
+        // Global Variable Definitions
+        llvm_global_ctors->setInitializer(ctor_array);
+
+
+    }
+
+//  void BytesFlops::initializeKeyMap(Module& module)
+//  {
+//      LLVMContext& globctx = module.getContext();
+//      IntegerType* i64type = Type::getInt64Ty(globctx);
+//
+//      vector<Type*> func_arg;
+//      func_arg.push_back(IntegerType::get(globctx, 8*sizeof(uint32_t)));
+//      FunctionType* void_int_func_result =
+//                FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
+//
+//      record_cnt = declare_extern_c(void_int_func_result,
+//                       "bf_record_cnt",
+//                       &module);
+//
+//      key_cnt = 0;
+////      byfl_fmap_cnt = create_global_variable(module, i64type,
+////                                             ConstantInt::get(i64type, 10),
+////                                             "bf_fmap_cnt");
+////
+////      printf("byfl_fmap_cnt = ");
+////      byfl_fmap_cnt->dump();
+////      for ( auto it = byfl_fmap_cnt->value_op_begin();
+////              it != byfl_fmap_cnt->value_op_end();
+////              it++)
+////      {
+////          it->dump(); printf("\n");
+////          if ( dyn_cast<ConstantInt>(*it) )
+////          {
+////              it->replaceAllUsesWith(ConstantInt::get(i64type, 12));
+////          }
+////      }
+//  }
+    
+//    GlobalVariable* create_global_constant(Module& module,
+//                                           const char* name,
+//                                           bool value);
+
 
   // Initialize the BytesFlops pass.
   bool BytesFlops::doInitialization(Module& module) {
@@ -18,6 +165,8 @@ namespace bytesflops_pass {
     IntegerType* i64type = Type::getInt64Ty(globctx);
     PointerType* i64ptrtype = Type::getInt64PtrTy(globctx);
 
+    //initializeKeyMap(module);
+      
     mem_insts_var      = declare_global_var(module, i64ptrtype, "bf_mem_insts_count", true);
     inst_mix_histo_var = declare_global_var(module, i64ptrtype, "bf_inst_mix_histo", true);
     terminator_var     = declare_global_var(module, i64ptrtype, "bf_terminator_count", true);
@@ -112,6 +261,34 @@ namespace bytesflops_pass {
     bf_cmdline_str = strdup(bf_cmdline_str);
     create_global_constant(module, "bf_option_string", bf_cmdline_str);
 
+    // Get entry to bf_initialize_func_map so that we can inject
+    // calls to record function key IDs
+//    init_func_map = declare_thunk(&module, "bf_initialize_func_map");
+
+//    BasicBlock * init_fmap_entry = BasicBlock::Create(globctx, "", init_func_map, 0);
+//    ReturnInst::Create(globctx, init_fmap_entry);
+
+    // void bf_record_cnt(uint32_t, uint64_t *)
+    vector<Type*> func_arg;
+    func_arg.push_back(IntegerType::get(globctx, 8*sizeof(uint32_t)));
+    func_arg.push_back(PointerType::get(IntegerType::get(globctx, 8*sizeof(uint64_t)),0));
+
+    PointerType* char_ptr = PointerType::get(IntegerType::get(globctx, 8), 0);
+    PointerType* char_ptr_ptr = PointerType::get(char_ptr, 0);
+    func_arg.push_back(char_ptr_ptr);
+
+    FunctionType* void_int_func_result =
+            FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
+
+    record_cnt = declare_extern_c(void_int_func_result,
+                   "bf_record_cnt",
+                   &module);
+
+//    LLVMContext& ifm_func_ctx = init_func_map->getContext();
+//    BasicBlock& old_entry = init_func_map->front();
+//    init_fmap_entry =
+//      BasicBlock::Create(ifm_func_ctx, "bf_init_fmap_entry", init_func_map, &old_entry);
+
     // Inject external declarations for
     // bf_initialize_if_necessary(), bf_push_basic_block(), and
     // bf_pop_basic_block().
@@ -147,8 +324,8 @@ namespace bytesflops_pass {
 
         vector<Type*> track_func_arg;
         track_func_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
-        FunctionType* void_str_func_result =
-                  FunctionType::get(Type::getVoidTy(globctx), track_func_arg, false);
+//        FunctionType* void_str_func_result =
+//                  FunctionType::get(Type::getVoidTy(globctx), track_func_arg, false);
 
         // add 2nd arg for function key
         track_func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
@@ -160,9 +337,9 @@ namespace bytesflops_pass {
                          "bf_incr_func_tally",
                          &module);
 
-      record_key = declare_extern_c(void_str_int_func_result,
-                       "bf_record_key",
-                       &module);
+//      record_key = declare_extern_c(void_str_int_func_result,
+//                       "bf_record_key",
+//                       &module);
       if ( TrackCallStack )
       {
           // Inject external declarations for bf_push_function() and
@@ -286,6 +463,7 @@ namespace bytesflops_pass {
   // Insert code for incrementing our byte, flop, etc. counters.
   bool BytesFlops::runOnFunction(Function& function) {
     // Do nothing if we're supposed to ignore this function.
+
     StringRef function_name = function.getName();
     string function_name_orig = demangle_func_name(function_name.str());
     remove_all_instances(function_name_orig, ' ');  // Normalize the name by removing spaces.
@@ -312,6 +490,16 @@ namespace bytesflops_pass {
       // bf_categorize_counters().
       return false;
 
+    if ( "bf_initialize_func_map" == function_name )
+    {
+        return false;
+    }
+
+    if ( function.empty() )
+    {
+//        printf("func %s is empty\n", function_name.str().c_str());
+        return false;
+    }
     // Reset all of our static counters.
     static_loads = 0;
     static_stores = 0;
@@ -330,8 +518,31 @@ namespace bytesflops_pass {
     Module* module = function.getParent();
     instrument_entire_function(module, function, function_name);
 
+//    printf("done with %s\n", function_name.str().c_str());
     // Return, indicating that we modified this function.
     return true;
+  }
+
+
+  bool BytesFlops::runOnModule(Module & module)
+  {
+      doInitialization(module);
+
+      /*
+      printf("Module %s\n", module.getModuleIdentifier().c_str());
+      if ( module.getModuleIdentifier() != "foo.s" )
+          return false;
+       */
+      
+      for ( auto fiter = module.begin(); fiter != module.end(); fiter++ )
+      {
+//          printf("processing function %s\n", fiter->getName().str().c_str());
+          runOnFunction(*fiter);
+      }
+
+      doFinalization(module);
+
+      return true;
   }
 
   // Output what we instrumented.
@@ -359,14 +570,20 @@ namespace bytesflops_pass {
   static void registerByflPass_O0(const PassManagerBuilder& pass_mgr_builder,
                                   PassManagerBase& pass_mgr) {
     if (pass_mgr_builder.OptLevel == 0)
+    {
+      pass_mgr.add(new BytesMP());
       pass_mgr.add(new BytesFlops());
+    }
   }
   static RegisterStandardPasses
   RegisterByflPass_O0(PassManagerBuilder::EP_EnabledOnOptLevel0, registerByflPass_O0);
   static void registerByflPass_opt(const PassManagerBuilder& pass_mgr_builder,
                                   PassManagerBase& pass_mgr) {
     if (pass_mgr_builder.OptLevel > 0)
+    {
+      pass_mgr.add(new BytesMP());
       pass_mgr.add(new BytesFlops());
+    }
   }
   static RegisterStandardPasses
   RegisterByflPass_opt(PassManagerBuilder::EP_ScalarOptimizerLate, registerByflPass_opt);
