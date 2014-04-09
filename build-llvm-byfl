@@ -135,11 +135,12 @@ function run_with_progress () {
 
     # Run the command either with or without the GUI.  Abort on error.
     logfile="$builddir/build-logs/$tag.log"
+    echo "\$ $@" > $logfile
     if [ "$gui" = yes ] ; then
         # Estimate the number of lines of output we'll see.
         echo 0 1>&4
         "$@" 2>&1 | \
-            tee $logfile | \
+            tee -a $logfile | \
             stdbuf -oL awk '{printf "%d\n", 100*NR/MAXLN; print > "/dev/stderr"}' MAXLN=$maxlines | \
             stdbuf -oL uniq 1>&4
         echo 100 1>&4
