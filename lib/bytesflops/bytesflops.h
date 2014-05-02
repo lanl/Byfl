@@ -173,9 +173,7 @@ namespace bytesflops_pass {
     ConstantInt* zero;        // A 64-bit constant "0"
     ConstantInt* one;         // A 64-bit constant "1"
 
-    uint32_t  key_cnt;
-    Function* record_cnt;     // Pointer to bf_record_cnt()
-    Function* record_key;     // Pointer to bf_record_key()
+    Function* record_funcs2keys;     // Pointer to bf_record_funcs2keys()
     Function* func_map_ctor;  // static constructor for the function keys
     std::unique_ptr<FunctionKeyGen>    m_keygen;
     std::map<std::string, KeyType_t>   func_key_map;

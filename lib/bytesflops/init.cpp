@@ -37,12 +37,6 @@ namespace bytesflops_pass {
         ArrayType* ArrayTy_0 = NULL;
 
         // Function Declarations
-        std::vector<Type*> no_args;
-        FunctionType *
-        void_type = FunctionType::get(/*Result=*/Type::getVoidTy(ctx),
-                                     /*Params=*/no_args,
-                                     /*isVarArg=*/false);
-
         func_map_ctor = Function::Create(
                         /*Type=*/FuncTy_3,
                         /*Linkage=*/GlobalValue::InternalLinkage,
@@ -81,7 +75,6 @@ namespace bytesflops_pass {
         }
         else
         {
-//            printf("%s: Warning: found llvm.global_ctors\n", module.getModuleIdentifier().c_str());
             Constant * initializer = current_ctors->getInitializer();
 
             ConstantArray *
@@ -119,43 +112,6 @@ namespace bytesflops_pass {
 
 
     }
-
-//  void BytesFlops::initializeKeyMap(Module& module)
-//  {
-//      LLVMContext& globctx = module.getContext();
-//      IntegerType* i64type = Type::getInt64Ty(globctx);
-//
-//      vector<Type*> func_arg;
-//      func_arg.push_back(IntegerType::get(globctx, 8*sizeof(uint32_t)));
-//      FunctionType* void_int_func_result =
-//                FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
-//
-//      record_cnt = declare_extern_c(void_int_func_result,
-//                       "bf_record_cnt",
-//                       &module);
-//
-//      key_cnt = 0;
-////      byfl_fmap_cnt = create_global_variable(module, i64type,
-////                                             ConstantInt::get(i64type, 10),
-////                                             "bf_fmap_cnt");
-////
-////      printf("byfl_fmap_cnt = ");
-////      byfl_fmap_cnt->dump();
-////      for ( auto it = byfl_fmap_cnt->value_op_begin();
-////              it != byfl_fmap_cnt->value_op_end();
-////              it++)
-////      {
-////          it->dump(); printf("\n");
-////          if ( dyn_cast<ConstantInt>(*it) )
-////          {
-////              it->replaceAllUsesWith(ConstantInt::get(i64type, 12));
-////          }
-////      }
-//  }
-    
-//    GlobalVariable* create_global_constant(Module& module,
-//                                           const char* name,
-//                                           bool value);
 
 
   // Initialize the BytesFlops pass.
@@ -261,14 +217,12 @@ namespace bytesflops_pass {
     bf_cmdline_str = strdup(bf_cmdline_str);
     create_global_constant(module, "bf_option_string", bf_cmdline_str);
 
-    // Get entry to bf_initialize_func_map so that we can inject
-    // calls to record function key IDs
-//    init_func_map = declare_thunk(&module, "bf_initialize_func_map");
-
-//    BasicBlock * init_fmap_entry = BasicBlock::Create(globctx, "", init_func_map, 0);
-//    ReturnInst::Create(globctx, init_fmap_entry);
-
-    // void bf_record_cnt(uint32_t, uint64_t *)
+    /**
+     * Instead of using a map with the function names as keys, we associate a unique
+     * integer with each function and use that as the key.  We maintain the association
+     * of the function names to their integer keys at compile time, then create a
+     * constructor to record the map via a call to bf_record_funcs2keys.
+     */
     vector<Type*> func_arg;
     func_arg.push_back(IntegerType::get(globctx, 8*sizeof(uint32_t)));
     func_arg.push_back(PointerType::get(IntegerType::get(globctx, 8*sizeof(uint64_t)),0));
@@ -280,14 +234,9 @@ namespace bytesflops_pass {
     FunctionType* void_int_func_result =
             FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
 
-    record_cnt = declare_extern_c(void_int_func_result,
-                   "bf_record_cnt",
+    record_funcs2keys = declare_extern_c(void_int_func_result,
+                   "bf_record_funcs2keys",
                    &module);
-
-//    LLVMContext& ifm_func_ctx = init_func_map->getContext();
-//    BasicBlock& old_entry = init_func_map->front();
-//    init_fmap_entry =
-//      BasicBlock::Create(ifm_func_ctx, "bf_init_fmap_entry", init_func_map, &old_entry);
 
     // Inject external declarations for
     // bf_initialize_if_necessary(), bf_push_basic_block(), and
@@ -306,40 +255,35 @@ namespace bytesflops_pass {
 
     // Inject an external declarations for bf_increment_func_tally().
     assoc_counts_with_func = 0;
-    record_key = 0;
     tally_function = 0;
     push_function = 0;
     pop_function = 0;
 
     if (TallyByFunction) {
         // bf_assoc_counters_with_func
-        vector<Type*> single_string_arg;
-        single_string_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
+        vector<Type*> func_arg;
+
+        // arg: key ID
+        func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
         FunctionType* void_func_result =
-          FunctionType::get(Type::getVoidTy(globctx), single_string_arg, false);
+          FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
         assoc_counts_with_func =
           declare_extern_c(void_func_result,
                            "bf_assoc_counters_with_func",
                            &module);
 
-        vector<Type*> track_func_arg;
-        track_func_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
-//        FunctionType* void_str_func_result =
-//                  FunctionType::get(Type::getVoidTy(globctx), track_func_arg, false);
-
+        vector<Type*> taly_func_arg;
+        taly_func_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
         // add 2nd arg for function key
-        track_func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
+        taly_func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
         FunctionType* void_str_int_func_result =
-                  FunctionType::get(Type::getVoidTy(globctx), track_func_arg, false);
+                  FunctionType::get(Type::getVoidTy(globctx), taly_func_arg, false);
 
       tally_function =
-        declare_extern_c(void_str_int_func_result,
+        declare_extern_c(void_func_result,
                          "bf_incr_func_tally",
                          &module);
 
-//      record_key = declare_extern_c(void_str_int_func_result,
-//                       "bf_record_key",
-//                       &module);
       if ( TrackCallStack )
       {
           // Inject external declarations for bf_push_function() and

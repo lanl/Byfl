@@ -295,6 +295,36 @@ static str2bfc_t& user_defined_totals()
   return *mapping;
 }
 
+static
+void bf_record_key(const char* funcname, KeyType_t keyID)
+{
+    bool fatal = false;
+
+    auto & map = key_to_func();
+    auto iter = map.find(keyID);
+    if ( iter != map.end() )
+    {
+        // check for duplicates
+        if ( iter->second != funcname )
+        {
+            fatal = true;
+        }
+        else if ( map.count(keyID) > 1 )
+        {
+            fatal = true;
+        }
+    }
+
+    if ( fatal )
+    {
+        std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
+        exit(-1);
+    }
+
+    map[keyID] = std::move(std::string(funcname));
+}
+
+
 // bf_categorize_counters() is intended to be overridden by a
 // user-defined function.
 extern "C" {
@@ -369,8 +399,6 @@ public:
   }
 } check_construction;
 
-extern "C"
-void bf_record_key(const char* funcname, KeyType_t keyID);
 
 
 // Initialize some of our variables at first use.
@@ -447,60 +475,19 @@ void bf_pop_basic_block (void)
 
 // Tally the number of calls to each function.
 extern "C"
-void bf_incr_func_tally (const char* funcname, KeyType_t keyID)
+void bf_incr_func_tally (KeyType_t keyID)
 {
-//    if (17952579368071751650 == keyID)
-//        printf("incr tally for key %lu for %s\n", keyID, funcname);
-//  const char* unique_name = bf_string_to_symbol(funcname);
-//  printf("bf_fmap_cnt = %d\n", bf_fmap_cnt);
-
   func_call_tallies()[keyID]++;
-//  std::cout << "Recording tally for key " << keyID
-//          << " for function " << funcname << std::endl;
 }
 
 extern "C"
-void bf_record_cnt(uint32_t cnt, const uint64_t * keys,
+void bf_record_funcs2keys(uint32_t cnt, const uint64_t * keys,
         const char ** fnames)
 {
-//    printf("bf_record_cnt: cnt = %d, keys = %p\n", cnt, keys);
     for ( unsigned i = 0; i < cnt; i++ )
     {
         bf_record_key(fnames[i], keys[i]);
-//        printf("key = %ld, fname = %s\n", keys[i], fnames[i]);
     }
-//    bf_cnt()++;
-}
-
-extern "C"
-void bf_record_key(const char* funcname, KeyType_t keyID)
-{
-   // if (17952579368071751650 == keyID)
-//        printf("Recording key %lu for %s\n", keyID, funcname);
-    bool fatal = false;
-
-    auto & map = key_to_func();
-    auto iter = map.find(keyID);
-    if ( iter != map.end() )
-    {
-        // check for duplicates
-        if ( iter->second != funcname )
-        {
-            fatal = true;
-        }
-        else if ( map.count(keyID) > 1 )
-        {
-            fatal = true;
-        }
-    }
-
-    if ( fatal )
-    {
-        std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
-        exit(-1);
-    }
-
-    map[keyID] = std::move(std::string(funcname));
 }
 
 
@@ -513,9 +500,6 @@ void bf_push_function (const char* funcname, KeyType_t key)
   uint64_t depth = 1;
 
   bf_current_func_key = key;
-//  std::cout << "Pushed function: before: bf_func_and_parents = " << bf_func_and_parents
-//          << ", func = " << funcname << ", key = " << key
-//          << ", bf_func_and_parents_id = " << bf_func_and_parents_id << std::endl;
 
   const char* unique_combined_name = call_stack->push_function(funcname, key);
   bf_func_and_parents = unique_combined_name;
@@ -523,16 +507,10 @@ void bf_push_function (const char* funcname, KeyType_t key)
   depth <<= call_stack->depth();
   bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ key;
 
-//  std::cout << "Pushed function: after: bf_func_and_parents = " << bf_func_and_parents
-//          << ", key = " << key << ", depth = " << depth
-//          << ", bf_func_and_parents_id = " << bf_func_and_parents_id << std::endl << std::endl;
   bf_record_key(bf_func_and_parents, bf_func_and_parents_id);
 
-  //func_call_tallies()[bf_func_and_parents]++;
   func_call_tallies()[bf_func_and_parents_id]++;
-  const char* unique_name = bf_string_to_symbol(funcname);
   func_call_tallies()[key] += 0;
-  //func_call_tallies()[unique_name] += 0;
 }
 
 
@@ -547,9 +525,6 @@ void bf_pop_function (void)
   bf_func_and_parents = item.first;
   bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ bf_current_func_key;
   bf_current_func_key = item.second;
-//  std::cout << "Popped function: bf_func_and_parents = " << bf_func_and_parents
-//          << ", key = " << item.second << ", depth = " << depth
-//          << ", bf_func_and_parents_id = " << bf_func_and_parents_id << std::endl << std::endl;
 }
 
 
@@ -826,8 +801,6 @@ private:
   void report_by_function (void) {
 
     aggregate_call_tallies();
-
-    *bfout << "bf_cnt = " << bf_cnt() << std::endl;
 
     // Output a header line.
     *bfout << bf_output_prefix
