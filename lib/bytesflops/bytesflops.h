@@ -300,8 +300,7 @@ namespace bytesflops_pass {
                          StringRef function_name,
                          Instruction* inst,
                          BasicBlock::iterator& insert_before,
-                         int& must_clear,
-                         bool in_landing_pad);
+                         int& must_clear);
 
     // Instrument all instructions.
     void instrument_all(Module* module,

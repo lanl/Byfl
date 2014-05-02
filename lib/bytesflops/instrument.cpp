@@ -36,14 +36,13 @@ namespace bytesflops_pass {
     LLVMContext& ctx = module.getContext();
       
     // Function Definitions
-
-    BasicBlock* ctor_bb = BasicBlock::Create(ctx, "", func_map_ctor,0);
+    // create a basic block in the ctor.
+    BasicBlock* ctor_bb = BasicBlock::Create(ctx, "", func_map_ctor, 0);
     if ( !ctor_bb )
     {
         printf("Error: unable to create basic block\n");
     }
     // insert call to record the keys
-    // Block  (label_11)
     std::vector<Value *> args;
 
     ConstantInt*
@@ -227,6 +226,14 @@ namespace bytesflops_pass {
 
   FunctionKeyGen::KeyID BytesFlops::record_func(const string & fname)
   {
+      /**
+       * if we haven't recorded this function yet, then
+       * generate a unique key to associate with the function and
+       * record the (key, fname) pair.
+       * For now, since we cannot preserve state (that is, the next available
+       * key) across modules, we use large random integers as keys.
+       * The RNG should have low chance of duplicates.
+       */
       FunctionKeyGen::KeyID keyval;
 
       auto cit = func_key_map.find(fname);
@@ -250,8 +257,7 @@ namespace bytesflops_pass {
                                    StringRef function_name,
                                    Instruction* inst,
                                    BasicBlock::iterator& insert_before,
-                                   int& must_clear,
-                                   bool in_landing_pad) {
+                                   int& must_clear) {
     Function* func = dyn_cast<CallInst>(inst)->getCalledFunction();
     if (!func)
       return;
@@ -445,7 +451,6 @@ namespace bytesflops_pass {
     static_bblocks += function.size();
 
     // generate a unique key for the function and insert call to record it
-//    FunctionKeyGen::KeyID keyval = m_keygen->nextRandomKey();
     FunctionKeyGen::KeyID keyval = record_func(function_name.str());
 
     // Iterate over each basic block in turn.
@@ -468,8 +473,6 @@ namespace bytesflops_pass {
       // Acquire the mega-lock before inserting any instrumentation code.
       if (ThreadSafety)
         callinst_create(take_mega_lock, terminator_inst);
-
-      bool in_landing_pad = bb.isLandingPad();
 
       // Iterate over the basic block's instructions one-by-one until
       // we reach the sentinal.
@@ -505,7 +508,7 @@ namespace bytesflops_pass {
 
           case Instruction::Call:
             instrument_call(module, function_name, &inst, terminator_inst,
-                            must_clear, in_landing_pad);
+                            must_clear);
             break;
 
           default:
@@ -571,17 +574,17 @@ namespace bytesflops_pass {
        */
       LLVMContext& ctx = module.getContext();
       
-      // construct C array of keys.
+      // construct C arrays of keys and strings.
 
+      // declare an array of integers of size func_key_map.size()
+      // (# of items in array).
       ArrayType *
       ArrayTy_0 = ArrayType::get(IntegerType::get(ctx, 64), func_key_map.size());
 
-      // set up array pointers for array of strings
+      // set up array of pointers to char (array of strings)
       PointerType *
       PointerTy = PointerType::get(IntegerType::get(ctx, 8), 0);
       ArrayType * ArrayPtrTy = ArrayType::get(PointerTy, func_key_map.size());
-
-      // declare global array of keys
 
       ConstantInt *
       const_int32 = ConstantInt::get(ctx, APInt(32, StringRef("0"), 10));
@@ -595,6 +598,7 @@ namespace bytesflops_pass {
           const std::string & name = it->first;
           auto key = it->second;
 
+          // name.size() + 1 for NULL char.
           ArrayType *
           ArrayStrTy = ArrayType::get(IntegerType::get(ctx, 8), name.size() + 1);
 
@@ -604,12 +608,13 @@ namespace bytesflops_pass {
 
           // record the name
           std::string gv_name = ".str" + std::to_string(i++);
-          GlobalVariable* gvar_array_str = new GlobalVariable(/*Module=*/module,
-          /*Type=*/ArrayStrTy,
-          /*isConstant=*/true,
-          /*Linkage=*/GlobalValue::PrivateLinkage,
-          /*Initializer=*/0, // has initializer, specified below
-          /*Name=*/gv_name.c_str());
+          GlobalVariable *
+          gvar_array_str = new GlobalVariable(/*Module=*/module,
+                                  /*Type=*/       ArrayStrTy,
+                                  /*isConstant=*/ true,
+                                  /*Linkage=*/    GlobalValue::PrivateLinkage,
+                                  /*Initializer=*/0, // has initializer, specified below
+                                  /*Name=*/       gv_name.c_str());
           gvar_array_str->setAlignment(1);
           mark_as_used(module, gvar_array_str);
 
@@ -634,12 +639,11 @@ namespace bytesflops_pass {
       //
       GlobalVariable*
       gvar_key_data = new GlobalVariable(/*Module=*/module,
-                             /*Type=*/ArrayTy_0,
-                             /*isConstant=*/true,
-                              /*Linkage=*/GlobalValue::InternalLinkage,
-                              ///*Linkage=*/GlobalValue::AppendingLinkage,
-                              /*Initializer=*/const_array_keys, // has initializer, specified below
-                              /*Name=*/string("bf_keys") + string(".data"));
+                         /*Type=*/        ArrayTy_0,
+                         /*isConstant=*/  true,
+                         /*Linkage=*/     GlobalValue::InternalLinkage,
+                         /*Initializer=*/ const_array_keys, // has initializer, specified below
+                         /*Name=*/        string("bf_keys") + string(".data"));
       gvar_key_data->setAlignment(16);
 
       PointerType* pointer_type = PointerType::get(Type::getInt64Ty(ctx), 0);
@@ -649,12 +653,13 @@ namespace bytesflops_pass {
       Constant* array_key_pointer =
       ConstantExpr::getGetElementPtr(gvar_key_data, getelementptr_indexes);
 
-      GlobalVariable* gvar_array_key = new GlobalVariable(/*Module=*/module,
-                                                          /*Type=*/pointer_type,
-                                                          /*isConstant=*/true,
-                                                          /*Linkage=*/GlobalValue::ExternalLinkage,
-                                                          /*Initializer=*/array_key_pointer, // has initializer, specified below
-                                                          /*Name=*/"bf_keys");
+      GlobalVariable *
+      gvar_array_key = new GlobalVariable(/*Module=*/module,
+                          /*Type=*/       pointer_type,
+                          /*isConstant=*/ true,
+                          /*Linkage=*/    GlobalValue::ExternalLinkage,
+                          /*Initializer=*/array_key_pointer, // has initializer, specified below
+                          /*Name=*/       "bf_keys");
       mark_as_used(module, gvar_array_key);
 
 
@@ -663,11 +668,11 @@ namespace bytesflops_pass {
       // the key of function bf_fname[i] is bf_key[i+1].
       GlobalVariable*
       gvar_fnames_data = new GlobalVariable(/*Module=*/module,
-              /*Type=*/ArrayPtrTy,
-              /*isConstant=*/true,
-              /*Linkage=*/GlobalValue::InternalLinkage,
-              /*Initializer=*/const_array_fnames, // has initializer, specified below
-              /*Name=*/ string("bf_fnames") + string(".data"));
+                  /*Type=*/       ArrayPtrTy,
+                  /*isConstant=*/ true,
+                  /*Linkage=*/    GlobalValue::InternalLinkage,
+                  /*Initializer=*/const_array_fnames, // has initializer, specified below
+                  /*Name=*/       string("bf_fnames") + string(".data"));
       gvar_fnames_data->setAlignment(16);
 
       // create (char **) type
@@ -681,17 +686,16 @@ namespace bytesflops_pass {
 
       GlobalVariable*
       gvar_fnames = new GlobalVariable(/*Module=*/module,
-                                  /*Type=*/char_ptr_ptr,
-                                  /*isConstant=*/true,
-                                  /*Linkage=*/GlobalValue::ExternalLinkage,
-                                  /*Initializer=*/array_fnames_pointer, // has initializer, specified below
-                                  /*Name=*/"bf_fnames");
+                      /*Type=*/       char_ptr_ptr,
+                      /*isConstant=*/ true,
+                      /*Linkage=*/    GlobalValue::ExternalLinkage,
+                      /*Initializer=*/array_fnames_pointer, // has initializer, specified below
+                      /*Name=*/       "bf_fnames");
       mark_as_used(module, gvar_fnames);
 
 
 
-      // Global Variable Definitions
-
+      // now insert callto create the function map into the module constructor.
       create_func_map_ctor(module, (uint32_t)func_key_map.size(),
               array_key_pointer, array_fnames_pointer);
 
