@@ -19,15 +19,22 @@ namespace bytesflops_pass {
   const int BytesFlops::CLEAR_OP_BITS        =  32;
   const int BytesFlops::CLEAR_MEM_TYPES      =  64;
 
+  /**
+   * Create a constructor for the module in which we make a call to
+   * record the map of function names to their unique keys.  The constructor
+   * acts like declaring a file function like:
+   *   __attribute__((constructor))
+   *   void file_foo_init() {...}
+   * This helps ensure that all of the function names are recorded
+   * exactly once.
+   */
   void BytesFlops::create_func_map_ctor(Module & module, uint32_t nkeys,
           Constant * keys, Constant * fnames)
   {
     initializeKeyMap(module);
 
-//    assert( llvm::dyn_cast<>);
     LLVMContext& ctx = module.getContext();
       
-    
     // Function Definitions
 
     BasicBlock* ctor_bb = BasicBlock::Create(ctx, "", func_map_ctor,0);
@@ -42,10 +49,17 @@ namespace bytesflops_pass {
     ConstantInt*
     const_nkeys = ConstantInt::get(ctx, APInt(32, nkeys));
 
+    /**
+     * args are:
+     * 1) the number of keys
+     * 2) the function keys
+     * 3) the function names
+     * that is, the key of function fnames[i] is keys[i].
+     */
     args.push_back(const_nkeys);
     args.push_back(keys);
     args.push_back(fnames);
-    CallInst* void_12 = CallInst::Create(record_cnt, args, "", ctor_bb);
+    CallInst* void_12 = CallInst::Create(record_funcs2keys, args, "", ctor_bb);
     void_12->setCallingConv(CallingConv::C);
     void_12->setTailCall(false);
     AttributeSet void_12_PAL;
@@ -270,30 +284,15 @@ namespace bytesflops_pass {
     if (TallyByFunction) {
 
       // generate key if needed
-        FunctionKeyGen::KeyID keyval;
+      FunctionKeyGen::KeyID keyval;
       string augmented_callee_name(string("+") + callee_name.str());
       keyval = record_func(augmented_callee_name);
 
-      std::vector<Value*> key_args;
-
-      Constant* argument = map_func_name_to_arg(module, StringRef(augmented_callee_name));
       ConstantInt * key = ConstantInt::get(IntegerType::get(module->getContext(),
                                        8*sizeof(FunctionKeyGen::KeyID)),
                                        keyval);
 
-      key_args.push_back(argument);
-      key_args.push_back(key);
-
-      // check if we need to insert call to record key
-//      auto rit = std::find(recorded.begin(), recorded.end(), keyval);
-//      if ( (recorded.end() == rit) && !in_landing_pad )
-//      {
-//          recorded.push_back(keyval);
-////          key_cnt++;
-////          callinst_create(record_key, key_args, insert_before);
-//      }
-
-      callinst_create(tally_function, key_args, insert_before);
+      callinst_create(tally_function, key, insert_before);
     } // end if (TallyByFunction)
   }
 
@@ -505,18 +504,6 @@ namespace bytesflops_pass {
             break;
 
           case Instruction::Call:
-//          {
-//              Function* func = dyn_cast<CallInst>(&inst)->getCalledFunction();
-//              if (func)
-//              {
-//                  std::string callee_name = func->getName().str();
-//                  if ( "log" == callee_name )
-//                  {
-//                      std::cout << function_name.str() << " calling "
-//                              << callee_name << std::endl;
-//                  }
-//              }
-//          }
             instrument_call(module, function_name, &inst, terminator_inst,
                             must_clear, in_landing_pad);
             break;
@@ -549,8 +536,6 @@ namespace bytesflops_pass {
     callinst_create(init_if_necessary, new_entry);
 
     if (TallyByFunction) {
-      // generate a unique key for the function and insert call to record it
-
       std::vector<Value*> key_args;
 
       ConstantInt * key = ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
@@ -559,31 +544,6 @@ namespace bytesflops_pass {
 
       key_args.push_back(argument);
       key_args.push_back(key);
-
-//      callinst_create(record_key, key_args, new_entry);
-
-
-//      BasicBlock& fmap_old_entry = init_func_map->front();
-//      BasicBlock* fmap_new_entry =
-//        BasicBlock::Create(init_func_map->getContext(), "bf_entry", init_func_map, &fmap_old_entry);
-//      callinst_create(record_key, key_args, fmap_new_entry);
-//      BranchInst::Create(&fmap_old_entry, fmap_new_entry);
-
-//      ConstantInt * fmap_ptr = dyn_cast<ConstantInt>( ConstantExpr::getIntegerCast(byfl_fmap_cnt,
-//                                  Type::getInt64Ty(func_ctx), false) );
-//      if ( fmap_ptr )
-//      {
-//          uint64_t tmp = fmap_ptr->getSExtValue();
-//          printf("tmp = %ld\n", tmp);
-//      }
-//      else
-//      {
-//          printf("Could not get const.\n");
-//      }
-
-//      void * v_ptr = ex_engine->getPointerToGlobal( byfl_fmap_cnt );
-//      uint64_t * fmap_ptr = static_cast<uint64_t *>(v_ptr);
-//      (*fmap_ptr)++;
         
       if ( TrackCallStack )
       {
@@ -591,102 +551,27 @@ namespace bytesflops_pass {
       }
       else
       {
-          callinst_create(tally_function, map_func_name_to_arg(module, function_name), new_entry);
+          callinst_create(tally_function, key, new_entry);
       }
 
-      //std::cout << "key = " << keyval << " for func " << function_name.data() << std::endl;
     }
 
-//    fprintf(stderr, "old_entry = ");
-//    old_entry.dump();
-//    printf("\n");
-//    if ( !new_entry ) printf("Error: unable to create new_entry\n");
     BranchInst::Create(&old_entry, new_entry);
   }
 
     
-    GlobalVariable* create_global_constant(Module& module,
-                                           const char* name,
-                                           std::vector<uint64_t> & value);
-    void mark_as_used(Module& module, Constant* protected_var);
-    
-
-  void create_array(Module * mod)
-  {
-      // Type Definitions
-      ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(mod->getContext(), 64), 3);
-      ConstantInt *
-      zero = ConstantInt::get(mod->getContext(), APInt(64, 0));
-      
-
-      // Function Declarations
-
-      // Global Variable Declarations
-
-
-      // Constant Definitions
-      std::vector<Constant*> const_array_2_elems;
-      ConstantInt* const_int64_3 = ConstantInt::get(mod->getContext(), APInt(64, StringRef("11"), 10));
-      const_array_2_elems.push_back(const_int64_3);
-      ConstantInt* const_int64_4 = ConstantInt::get(mod->getContext(), APInt(64, StringRef("22"), 10));
-      const_array_2_elems.push_back(const_int64_4);
-      ConstantInt* const_int64_5 = ConstantInt::get(mod->getContext(), APInt(64, StringRef("33"), 10));
-      const_array_2_elems.push_back(const_int64_5);
-      Constant* const_array_2 = ConstantArray::get(ArrayTy_0, const_array_2_elems);
-
-      /*
-      PointerType* pointer_type = PointerType::get(Type::getInt64Ty(mod->getContext()), 0);
-
-      // Global Variable Definitions
-      std::vector<Constant*> getelementptr_indexes;
-      getelementptr_indexes.push_back(zero);
-      //getelementptr_indexes.push_back(zero);
-      Constant* array_pointer =
-      ConstantExpr::getGetElementPtr(const_array_2, getelementptr_indexes);
-       */
-      
-      GlobalVariable* gvar_array_key = new GlobalVariable(/*Module=*/*mod,
-                                                          /*Type=*/ArrayTy_0,
-                                                          /*isConstant=*/true,
-                                                          /*Linkage=*/GlobalValue::AppendingLinkage,
-                                                          /*Initializer=*/const_array_2, // has initializer, specified below
-                                                          /*Name=*/string("testkey") + string(".data"));
-      gvar_array_key->setAlignment(16);
-      
-      PointerType* pointer_type = PointerType::get(Type::getInt64Ty(mod->getContext()), 0);
-      std::vector<Constant*> getelementptr_indexes;
-      getelementptr_indexes.push_back(zero);
-      getelementptr_indexes.push_back(zero);
-      Constant* array_pointer =
-      ConstantExpr::getGetElementPtr(gvar_array_key, getelementptr_indexes);
-
-      GlobalVariable* gvar_array = new GlobalVariable(/*Module=*/*mod,
-                                                          /*Type=*/pointer_type,
-                                                          /*isConstant=*/true,
-                                                          /*Linkage=*/GlobalValue::ExternalLinkage,
-                                                          /*Initializer=*/array_pointer, // has initializer, specified below
-                                                          /*Name=*/"testkey");
-      mark_as_used(*mod, gvar_array);
-
-
-  }
 
   bool BytesFlops::doFinalization(Module& module)
   {
+      /**
+       * The purpose is to create a static C array of function names along
+       * with an array of the associated keys.  These arrays are then
+       * used to create a module constructor to populate the
+       * (function name -> function key) map during code execution.
+       */
       LLVMContext& ctx = module.getContext();
-      std::vector<uint64_t> keys;
       
-//      keys.push_back(1);
-//      keys.push_back(2);
-//      keys.push_back(3);
-      
-//      create_global_constant(module, "bf_foofoo", "keys");
-      //bytesflops_pass::create_global_constant(module, "testkey", keys);
-//      create_array(&module);
-//      return true;
-
-      // construct C array of keys, where the first element
-      // is always the # of keys.
+      // construct C array of keys.
 
       ArrayType *
       ArrayTy_0 = ArrayType::get(IntegerType::get(ctx, 64), func_key_map.size());
@@ -697,22 +582,12 @@ namespace bytesflops_pass {
       ArrayType * ArrayPtrTy = ArrayType::get(PointerTy, func_key_map.size());
 
       // declare global array of keys
-//      GlobalVariable* gvar_array_key = new GlobalVariable(/*Module=*/module,
-//      /*Type=*/ArrayTy_0,
-//      /*isConstant=*/false,
-//      /*Linkage=*/GlobalValue::AppendingLinkage,
-//      /*Initializer=*/0, // has initializer, specified below
-//      /*Name=*/"bf_keys");
-//      gvar_array_key->setAlignment(16);
 
       ConstantInt *
       const_int32 = ConstantInt::get(ctx, APInt(32, StringRef("0"), 10));
 
       std::vector<Constant*> const_key_elems;
       std::vector<Constant*> const_fname_elems;
-
-      // record # of keys first
-//      const_key_elems.push_back( ConstantInt::get(ctx, APInt(64, func_key_map.size())) );
 
       int i = 0;
       for ( auto it = func_key_map.begin(); it != func_key_map.end(); it++ )
@@ -814,12 +689,8 @@ namespace bytesflops_pass {
       mark_as_used(module, gvar_fnames);
 
 
-//      printf("# keys = %ld, # key elems = %ld\n", ArrayTy_0->getNumElements(), const_key_elems.size());
 
       // Global Variable Definitions
-//      std::cout << "key init = " << const_array_keys << std::endl;
-//      gvar_array_key->setInitializer(const_array_keys);
-//      mark_as_used(module, gvar_array_key);
 
       create_func_map_ctor(module, (uint32_t)func_key_map.size(),
               array_key_pointer, array_fnames_pointer);
