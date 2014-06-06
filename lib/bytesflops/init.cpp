@@ -92,7 +92,7 @@ namespace bytesflops_pass {
       // by two null characters.
       if (!cmdline.bad()) {
         char* arg = cmdline_chars;
-	bf_cmdline = "";
+        bf_cmdline = "";
         while (1) {
           size_t arglen = strlen(arg);
           if (arglen == 0)
@@ -195,8 +195,8 @@ namespace bytesflops_pass {
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       assoc_addrs_with_prog =
         declare_extern_c(void_func_result,
-			 FindMemFootprint
-			 ? "_ZN10bytesflops31bf_assoc_addresses_with_prog_tbEmm"
+                         FindMemFootprint
+                         ? "_ZN10bytesflops31bf_assoc_addresses_with_prog_tbEmm"
                          : "_ZN10bytesflops28bf_assoc_addresses_with_progEmm",
                          &module);
 
@@ -211,9 +211,9 @@ namespace bytesflops_pass {
           FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
         assoc_addrs_with_func =
           declare_extern_c(void_func_result,
-			   FindMemFootprint
-			   ? "_ZN10bytesflops31bf_assoc_addresses_with_func_tbEPKcmm"
-			   : "_ZN10bytesflops28bf_assoc_addresses_with_funcEPKcmm",
+                           FindMemFootprint
+                           ? "_ZN10bytesflops31bf_assoc_addresses_with_func_tbEPKcmm"
+                           : "_ZN10bytesflops28bf_assoc_addresses_with_funcEPKcmm",
                            &module);
       }
     }
@@ -300,7 +300,7 @@ namespace bytesflops_pass {
     return true;
   }
 
-  // Output what we instrumented.
+  // Output simple counters.
   void BytesFlops::print(raw_ostream &outfile, const Module *module) const {
     outfile << module->getModuleIdentifier() << ": "
             << static_loads << " loads, "
@@ -309,6 +309,17 @@ namespace bytesflops_pass {
             << static_cond_brs << " cond_brs, "
             << static_ops << " total_ops, "
             << static_bblocks << " bblocks\n";
+
+    // Output inner-loop lengths.
+    vector<string> keys_by_value;
+    for (str2ul_t::const_iterator iter=loop_len.begin(); iter != loop_len.end(); iter++)
+      keys_by_value.push_back(iter->first);
+    sort(keys_by_value.begin(), keys_by_value.end(), compare_str2ul_t(loop_len));
+    for (vector<string>::iterator iter=keys_by_value.begin(); iter != keys_by_value.end(); iter++) {
+      ostringstream oneline;
+      oneline << setw(25) << loop_len.at(*iter) << " instructions in inner loop at " << *iter;
+      outfile << oneline.str() << '\n';
+    }
   }
 
   // Make the BytesFlops pass run automatically when loaded via Clang.

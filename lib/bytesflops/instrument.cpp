@@ -357,6 +357,66 @@ namespace bytesflops_pass {
       while (0);
   }
 
+  // Given a basic block, keep track of the number of basic blocks and
+  // instructions in each inner loop.
+  void BytesFlops::instrument_inner_loop(BasicBlock& bb) {
+    // Ensure that the basic block is within an inner loop.
+    static LoopInfo* li = &getAnalysis<LoopInfo>();
+    Loop* loop = li->getLoopFor(&bb);
+    if (loop == NULL)
+      return;   // Basic block is not within a loop.
+    const std::vector<llvm::Loop*> inners = loop->getSubLoops();
+    if (inners.size() > 0)
+      return;   // Loop is not an inner loop.
+
+    // Find the smallest line number associated with the loop.
+    unsigned long first_line = ~0UL;
+    StringRef first_filename("??");
+    const vector<BasicBlock*> loop_blocks = loop->getBlocks();
+    for (vector<BasicBlock*>::const_iterator lbb_iter = loop_blocks.begin();
+         lbb_iter != loop_blocks.end();
+         lbb_iter++) {
+      const BasicBlock* lbb = *lbb_iter;
+      const Instruction* first_inst = &*lbb->getFirstNonPHIOrDbgOrLifetime();
+      MDNode *meta = first_inst->getMetadata("dbg");
+      DILocation location(meta);
+      unsigned long lineno = location.getLineNumber();
+      if (lineno > 0 && lineno < first_line) {
+        first_line = lineno;
+        first_filename = location.getFilename();
+      }
+      else if (lineno == 0 && !location.getFilename().empty()) {
+        first_filename = location.getFilename();
+      }
+    }
+
+    // Determine the file and line number associated with the current
+    // basic block.
+    string location_str = string(first_filename);
+#ifdef PATH_MAX
+    long path_max = PATH_MAX;
+#else
+    long path_max = pathconf(path, _PC_PATH_MAX);
+    if (path_max <= 0)
+      path_max = 4096;
+#endif
+    char* canonical_loc = new char[path_max+1];
+    if (realpath(location_str.c_str(), canonical_loc) != NULL)
+      location_str = string(canonical_loc);
+    location_str += ':' + to_string(first_line);
+    delete canonical_loc;
+
+    // Determine the number of "real" instructions in the basic block.
+    unsigned long real_insts = 0;
+    for (BasicBlock::const_iterator bb_iter = bb.getFirstNonPHIOrDbgOrLifetime();
+         bb_iter != bb.end();
+         bb_iter++)
+      real_insts++;
+
+    // Tally the instructions at the file and line number.
+    loop_len[location_str] += real_insts;
+  }
+
   // Do most of the instrumentation work: Walk each instruction in
   // each basic block and add instrumentation code around loads,
   // stores, flops, etc.
@@ -365,6 +425,9 @@ namespace bytesflops_pass {
                                               StringRef function_name) {
     // Tally the number of basic blocks that the function contains.
     static_bblocks += function.size();
+
+    // Reset the per-function list of inner loops.
+    loop_len.clear();
 
     // Iterate over each basic block in turn.
     for (Function::iterator func_iter = function.begin();
@@ -377,6 +440,9 @@ namespace bytesflops_pass {
       BasicBlock::iterator terminator_inst = bb.end();
       terminator_inst--;
       int must_clear = 0;   // Keep track of which counters we need to clear.
+
+      // If the current basic block belongs to an inner loop, instrument it.
+      instrument_inner_loop(bb);
 
       // Insert an "unreachable" instruction as a sentinel before the
       // real terminator instruction.  New code is inserted before the

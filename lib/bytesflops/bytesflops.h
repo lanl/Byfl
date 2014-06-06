@@ -7,23 +7,27 @@
  */
 
 #include "llvm/ADT/StringMap.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/DebugInfo.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <set>
+#include <iomanip>
+#include <unordered_map>
 #include "byfl-common.h"
 
 using namespace std;
@@ -163,6 +167,27 @@ namespace bytesflops_pass {
     ConstantInt* cond_end_bb;       // 2, basic block ended with a conditional branch
     ConstantInt* zero;        // A 64-bit constant "0"
     ConstantInt* one;         // A 64-bit constant "1"
+    typedef unordered_map<string, unsigned long> str2ul_t;
+    str2ul_t loop_len;        // Number of instructions in each inner loop
+
+    // Say whether one str2ul_t should be output before another.
+    class compare_str2ul_t {
+    private:
+      const str2ul_t* loop_len;
+    public:
+      // Say whether one string in loop_len should be output before another.
+      bool operator() (const string& s1, const string& s2) const {
+        unsigned long len1 = loop_len->at(s1);
+        unsigned long len2 = loop_len->at(s2);
+        if (len1 == len2)
+          return s1 < s2;
+        else
+          return len1 > len2;
+      }
+      compare_str2ul_t (const str2ul_t& ll) {
+        loop_len = &ll;
+      }
+    };
 
     // Insert after a given instruction some code to increment a
     // global variable.
@@ -217,7 +242,7 @@ namespace bytesflops_pass {
 
     // Declare a function with external linkage and C calling conventions.
     Function* declare_extern_c(FunctionType *return_type,
-			       StringRef func_name, Module *module);
+                               StringRef func_name, Module *module);
 
     // Declare a function that takes no arguments and returns no value.
     Function* declare_thunk(Module* module, const char* thunk_name);
@@ -257,6 +282,9 @@ namespace bytesflops_pass {
     // Given a Call instruction, return true if we can safely ignore it.
     bool ignorable_call (const Instruction* inst);
 
+    // Tally the number of "real" instructions in a basic block.
+    size_t bb_size(const BasicBlock& bb);
+
     // Instrument Load and Store instructions.
     void instrument_load_store(Module* module,
                                StringRef function_name,
@@ -289,6 +317,9 @@ namespace bytesflops_pass {
                           BasicBlock::iterator& insert_before,
                           int& must_clear);
 
+    // Instrument inner loops given a basic block belonging to the loop.
+    void instrument_inner_loop(BasicBlock& bb);
+
     // Do most of the instrumentation work: Walk each instruction in
     // each basic block and add instrumentation code around loads,
     // stores, flops, etc.
@@ -314,9 +345,17 @@ namespace bytesflops_pass {
                                 Type *data_type,
                                 int &must_clear);
 
-    // Indicate that we need access to DataLayout.
+    // Keep track of static inner-loop information.
+    typedef struct {
+      uint64_t basic_blocks;   // Number of basic blocks in the loop
+      uint64_t instructions;   // Number of instructions in the loop
+    } inner_loop_info_t;
+    unordered_map<string, inner_loop_info_t*> loc_to_loop_info;
+
+    // Indicate that we need access to DataLayout and LoopInfo.
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<DataLayoutPass>();
+      AU.addRequired<LoopInfo>();
     }
 
   public:
