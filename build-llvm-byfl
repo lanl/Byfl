@@ -247,7 +247,7 @@ if [ "$compile" = yes ] ; then
     # Test the installation
     echo "# Testing the Byfl installation" 1>&4
     test "$gui" = yes && echo 0 1>&4
-    byflperllib=$(dirname $(find $installdir/share -name ParseGccOpts.pm))
+    byflperllib="$(make -f tools/wrappers/wrappers.mak pm-loc)"
     cfile=`mktemp --tmpdir --suffix=.c byfltest-XXXXXX`
     exefile=`echo $cfile | sed 's/\.c$//'`
     cat <<CFILE > $cfile
