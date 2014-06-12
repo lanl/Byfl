@@ -97,6 +97,25 @@ namespace bytesflops_pass {
                cl::desc("Treat addresses not touched after this many accesses as untouched"),
                cl::value_desc("accesses"));
 
+  // Define a command-line option for turning on the cache model.
+  cl::opt<bool>
+  CacheModel("bf-cache-model", cl::init(false), cl::NotHidden,
+             cl::desc("Model memory accesses to a simple cache."));
+
+  // Define a command-line option to specify the number of lines in the simple 
+  // cache model.
+  cl::opt<unsigned long long>
+  NumCacheLines("bf-cache-lines", cl::init(4), cl::NotHidden,
+                cl::desc("Number of lines used by the simple cache model when turned on."),
+                cl::value_desc("lines"));
+
+  // Define a command-line option to specify the size in bytes of the cache
+  // lines the simple cache model uses.
+  cl::opt<unsigned long long>
+  CacheLineBytes("bf-line-size", cl::init(64), cl::NotHidden,
+                 cl::desc("Size, in bytes, of the cache lines used by the simple cache model."),
+                 cl::value_desc("size"));
+
   static RegisterPass<BytesFlops> H("bytesflops", "Bytes:flops instrumentation");
 
 }  // namespace bytesflops_pass

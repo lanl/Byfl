@@ -435,6 +435,7 @@ void bf_initialize_if_necessary (void)
     initialize_ubytes();
     initialize_tallybytes();
     initialize_vectors();
+    initialize_cache();
     initialized = true;
   }
 }

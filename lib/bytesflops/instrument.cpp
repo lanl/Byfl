@@ -162,6 +162,14 @@ namespace bytesflops_pass {
       arg_list.push_back(mem_addr);
       arg_list.push_back(num_bytes);
       callinst_create(assoc_addrs_with_prog, arg_list, insert_before);
+
+      // Conditionally insert a call to bf_touch_cache()
+      if (CacheModel) {
+        vector<Value*> arg_list;
+        arg_list.push_back(mem_addr);
+        arg_list.push_back(num_bytes);
+        callinst_create(access_cache, arg_list, insert_before);
+      }
     }
 
     // If requested by the user, also insert a call to

@@ -40,6 +40,9 @@ extern uint8_t  bf_tally_inst_mix;   // 1=maintain instruction mix histogram
 extern uint8_t  bf_types;            // 1=count loads/stores per type
 extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
 extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
+extern uint8_t  bf_cache_model;      // 1=use the simple cache model
+extern uint64_t bf_cache_lines;      // total cache lines in cache model
+extern uint64_t bf_line_size;        // cache line size in bytes
 
 // The following function is expected to be overridden by user code.
 extern "C" {
@@ -73,6 +76,7 @@ namespace bytesflops {
   extern void initialize_threading(void);
   extern void initialize_ubytes(void);
   extern void initialize_vectors(void);
+  extern void initialize_cache(void);
 
   // The following library variables are used in files other than the
   // one in which they're defined.

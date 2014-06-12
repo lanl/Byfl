@@ -77,6 +77,15 @@ namespace bytesflops_pass {
     // Assign a value to bf_max_reuse_dist.
     create_global_constant(module, "bf_max_reuse_distance", uint64_t(MaxReuseDist));
 
+    // Assign a value to bf_cache_model.
+    create_global_constant(module, "bf_cache_model", bool(CacheModel));
+
+    // Assign a value to bf_cache_lines.
+    create_global_constant(module, "bf_cache_lines", uint64_t(NumCacheLines));
+
+    // Assign a value to bf_line_size.
+    create_global_constant(module, "bf_line_size", uint64_t(CacheLineBytes));
+
     // Create a global string that stores all of our command-line options.
     ifstream cmdline("/proc/self/cmdline");   // Full command line passed to opt
     string bf_cmdline("[failed to read /proc/self/cmdline]");  // Reconstructed command line with -bf-* options only
@@ -214,6 +223,19 @@ namespace bytesflops_pass {
                            FindMemFootprint
                            ? "_ZN10bytesflops31bf_assoc_addresses_with_func_tbEPKcmm"
                            : "_ZN10bytesflops28bf_assoc_addresses_with_funcEPKcmm",
+                           &module);
+      }
+      
+      // Declare bf_touch_cache() only if we are asked to use it.
+      if (CacheModel) {
+        vector<Type*> all_function_args;
+        all_function_args.push_back(IntegerType::get(globctx, 64));
+        all_function_args.push_back(IntegerType::get(globctx, 64));
+        FunctionType* void_func_result =
+          FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+        access_cache = 
+          declare_extern_c(void_func_result,
+                           "_ZN10bytesflops14bf_touch_cacheEmm",
                            &module);
       }
     }
