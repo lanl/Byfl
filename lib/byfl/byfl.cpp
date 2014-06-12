@@ -1080,6 +1080,23 @@ private:
       *bfout << tag << ": " << separator << '\n';
   }
 
+  // Report cache performance if it was used.
+  void report_cache (void) {
+    vector<uint64_t> accesses = bf_get_cache_accesses();
+    vector<uint64_t> hits = bf_get_cache_hits();
+    string tag(bf_output_prefix + "BYFL_SUMMARY");
+    for(uint64_t i = 1; i <= bf_cache_lines; i = i * 2){
+      auto access = accesses[i-1];
+      auto hit = hits[i-1];
+      *bfout << tag << ": " << setw(25) << i * bf_line_size << " Total cache size in bytes\n";
+      *bfout << tag << ": " << setw(25) << access << " Total cache accesses\n";
+      *bfout << tag << ": " << setw(25) << hit << " Total cache hits\n";
+      *bfout << tag << ": " << setw(25) << (double) hit / access << " Cache hit rate\n";
+      *bfout << tag << ": " << setw(25) << 1.0 - (double) hit / access << " Cache miss rate\n";
+      *bfout << tag << ": " << separator << '\n';
+    }
+  }
+
 public:
   RunAtEndOfProgram() {
     separator = "-----------------------------------------------------------------";
@@ -1137,6 +1154,12 @@ public:
 
     // Report the global counter totals across all basic blocks.
     report_totals(NULL, global_totals);
+
+    // Report the cache performance if it was turned on.
+    if (bf_cache_model) {
+      report_cache();
+    }
+
     bfout->flush();
   }
 } run_at_end_of_program;

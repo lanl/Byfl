@@ -4,53 +4,58 @@
  * By Eric Anger <eanger@lanl.gov>
  */
 
+#include <algorithm>
+
 #include "byfl.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
 using namespace std;
 
-bool debug = true;
-
 class Cache {
   public:
-    void access(uint64_t addr);
+    void access(uint64_t baseaddr, uint64_t numaddrs);
     Cache(uint64_t num_lines, uint64_t line_size) : lines_(num_lines), 
-      accesses_{0}, hits_{0},
-      mask_{numeric_limits<uint64_t>::max() ^ (line_size - 1)} {}
+      line_size_{line_size}, accesses_(num_lines,0), hits_(num_lines,0) {}
+    vector<uint64_t> getAccesses() const { return accesses_; }
+    vector<uint64_t> getHits() const { return hits_; }
 
+  private:
     vector<uint64_t> lines_; // back is mru, front is lru
-    long long accesses_;
-    long long hits_;
-    uint64_t mask_;
+    uint64_t line_size_;
+    vector<uint64_t> accesses_;
+    vector<uint64_t> hits_;
 };
 
-void Cache::access(uint64_t addr){
-  ++accesses_;
-  if(debug){
-    cout << "Trying to access " << hex << (addr & mask_) << dec << endl;
-    cout << "Cache contents: ";
-    for(const auto& line : lines_){
-      cout << hex << line << dec << " ";
+void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
+  //accesses_ += numaddrs;
+  for(uint64_t addr = baseaddr / line_size_ * line_size_;
+      addr <= (baseaddr + numaddrs ) / line_size_ * line_size_;
+      addr += line_size_){
+    auto first = max(baseaddr, addr);
+    auto last = min(baseaddr + numaddrs, addr + line_size_);
+    //auto line = find(begin(lines_), end(lines_), addr);
+    vector<uint64_t>::iterator line = end(lines_);
+    for(uint64_t i = 0; i < lines_.size(); ++i){
+      accesses_[i] += last - first;
+      if(addr == lines_[i]){
+        line = begin(lines_) + i;
+        break;
+      }
     }
-    cout << endl;
+    if(line != end(lines_)){
+      transform(line, end(hits_),
+                line, 
+                [=](const uint64_t cur_hits){ return cur_hits + last - first; });
+      //hits_ += last - first;
+      // move to mru
+      lines_.erase(line);
+    } else {
+      //replace lru
+      lines_.erase(begin(lines_));
+    }
+    lines_.push_back(addr);
   }
-  auto line = find(begin(lines_), end(lines_), addr & mask_);
-  if(line != end(lines_)){
-    if(debug){
-      cout << "Hit" << endl;
-    }
-    ++hits_;
-    // move to mru
-    lines_.erase(line);
-  } else {
-    if(debug){
-    cout << "Miss" << endl;
-    }
-    //replace lru
-    lines_.erase(begin(lines_));
-  }
-  lines_.push_back(addr & mask_);
 }
 
 static Cache* cache = NULL;
@@ -58,20 +63,22 @@ static Cache* cache = NULL;
 namespace bytesflops{
 
 void initialize_cache(void){
-  if(debug){
-    cout << "lines: " << bf_cache_lines << "\tsize: " << bf_line_size << endl;
-  }
   cache = new Cache(bf_cache_lines, bf_line_size);
-  /*
-  cache = new Cache(10,1);
-  */
 }
 
 // Access the cache model with this address.
 void bf_touch_cache(uint64_t baseaddr, uint64_t numaddrs){
-  for(uint64_t i = 0; i < numaddrs; ++i){
-    cache->access(baseaddr + i);
-  }
+  cache->access(baseaddr, numaddrs);
+}
+
+// Get cache accesses
+vector<uint64_t> bf_get_cache_accesses(void){
+  return cache->getAccesses();
+}
+
+// Get cache hits
+vector<uint64_t> bf_get_cache_hits(void){
+  return cache->getHits();
 }
 
 } // namespace bytesflops
