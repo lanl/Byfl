@@ -93,9 +93,6 @@ namespace bytesflops_pass {
   // Define a command-line option for turning on the cache model.
   extern cl::opt<bool> CacheModel;
 
-  // Define a command-line option for number of cache lines.
-  extern cl::opt<unsigned long long> NumCacheLines;
-
   // Define a command-line option for cache line size in bytes.
   extern cl::opt<unsigned long long> CacheLineBytes;
 

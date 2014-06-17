@@ -102,13 +102,6 @@ namespace bytesflops_pass {
   CacheModel("bf-cache-model", cl::init(false), cl::NotHidden,
              cl::desc("Model memory accesses to a simple cache."));
 
-  // Define a command-line option to specify the number of lines in the simple 
-  // cache model.
-  cl::opt<unsigned long long>
-  NumCacheLines("bf-cache-lines", cl::init(4), cl::NotHidden,
-                cl::desc("Number of lines used by the simple cache model when turned on."),
-                cl::value_desc("lines"));
-
   // Define a command-line option to specify the size in bytes of the cache
   // lines the simple cache model uses.
   cl::opt<unsigned long long>

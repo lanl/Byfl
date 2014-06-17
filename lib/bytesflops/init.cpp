@@ -80,9 +80,6 @@ namespace bytesflops_pass {
     // Assign a value to bf_cache_model.
     create_global_constant(module, "bf_cache_model", bool(CacheModel));
 
-    // Assign a value to bf_cache_lines.
-    create_global_constant(module, "bf_cache_lines", uint64_t(NumCacheLines));
-
     // Assign a value to bf_line_size.
     create_global_constant(module, "bf_line_size", uint64_t(CacheLineBytes));
 

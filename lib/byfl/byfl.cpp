@@ -1082,17 +1082,16 @@ private:
 
   // Report cache performance if it was used.
   void report_cache (void) {
-    vector<uint64_t> accesses = bf_get_cache_accesses();
+    uint64_t accesses = bf_get_cache_accesses();
     vector<uint64_t> hits = bf_get_cache_hits();
     string tag(bf_output_prefix + "BYFL_SUMMARY");
-    for(uint64_t i = 1; i <= bf_cache_lines; i = i * 2){
-      auto access = accesses[i-1];
+    *bfout << tag << ": " << setw(25) << accesses << " Total cache accesses\n";
+    for(uint64_t i = 1; i <= hits.size(); i = i * 2){
       auto hit = hits[i-1];
       *bfout << tag << ": " << setw(25) << i * bf_line_size << " Total cache size in bytes\n";
-      *bfout << tag << ": " << setw(25) << access << " Total cache accesses\n";
       *bfout << tag << ": " << setw(25) << hit << " Total cache hits\n";
-      *bfout << tag << ": " << setw(25) << (double) hit / access << " Cache hit rate\n";
-      *bfout << tag << ": " << setw(25) << 1.0 - (double) hit / access << " Cache miss rate\n";
+      *bfout << tag << ": " << setw(25) << (double) hit / accesses << " Cache hit rate\n";
+      *bfout << tag << ": " << setw(25) << 1.0 - (double) hit / accesses << " Cache miss rate\n";
       *bfout << tag << ": " << separator << '\n';
     }
   }
