@@ -28,7 +28,6 @@ class Cache {
 };
 
 void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
-  accesses_ += numaddrs;
   for(uint64_t addr = baseaddr / line_size_ * line_size_;
       addr <= (baseaddr + numaddrs ) / line_size_ * line_size_;
       addr += line_size_){
@@ -51,13 +50,15 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
 
     if(!found){
       // make a new entry containing all previous hits plus this one
-      auto back_val = hits_.size() > 0 ? hits_.back() : 0;
-      hits_.push_back(back_val + last - first);
+      hits_.push_back(accesses_ + last - first);
     }
 
     // move up this address to mru position
     lines_.push_back(addr);
   }
+
+  // we've made all our accesses
+  accesses_ += numaddrs;
 }
 
 static Cache* cache = NULL;
