@@ -83,6 +83,9 @@ namespace bytesflops_pass {
     // Assign a value to bf_line_size.
     create_global_constant(module, "bf_line_size", uint64_t(CacheLineBytes));
 
+    // Assign a value to bf_dump_cache.
+    create_global_constant(module, "bf_dump_cache", bool(DumpCache));
+
     // Create a global string that stores all of our command-line options.
     ifstream cmdline("/proc/self/cmdline");   // Full command line passed to opt
     string bf_cmdline("[failed to read /proc/self/cmdline]");  // Reconstructed command line with -bf-* options only

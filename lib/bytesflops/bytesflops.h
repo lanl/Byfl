@@ -96,6 +96,9 @@ namespace bytesflops_pass {
   // Define a command-line option for cache line size in bytes.
   extern cl::opt<unsigned long long> CacheLineBytes;
 
+  // Define a command-line option for dumping cache data to file.
+  extern cl::opt<bool> DumpCache;
+
   // Destructively remove all instances of a given character from a string.
   extern void remove_all_instances(string& some_string, char some_char);
 

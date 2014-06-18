@@ -109,6 +109,11 @@ namespace bytesflops_pass {
                  cl::desc("Size, in bytes, of the cache lines used by the simple cache model."),
                  cl::value_desc("size"));
 
+  // Define a command-line option to dump out the raw cache data to file.
+  cl::opt<bool>
+  DumpCache("bf-dump-cache", cl::init(false), cl::NotHidden,
+            cl::desc("Dump out cache data to file."));
+
   static RegisterPass<BytesFlops> H("bytesflops", "Bytes:flops instrumentation");
 
 }  // namespace bytesflops_pass

@@ -42,6 +42,7 @@ extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
 extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
 extern uint8_t  bf_cache_model;      // 1=use the simple cache model
 extern uint64_t bf_line_size;        // cache line size in bytes
+extern uint8_t  bf_dump_cache;       // 1=dump all cache information to a file
 
 // The following function is expected to be overridden by user code.
 extern "C" {

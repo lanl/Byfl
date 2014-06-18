@@ -1087,6 +1087,14 @@ private:
   void report_cache (void) {
     uint64_t accesses = bf_get_cache_accesses();
     vector<uint64_t> hits = bf_get_cache_hits();
+
+    ofstream dumpfile;
+    if (bf_dump_cache){
+      dumpfile.open("cache.dump");
+      dumpfile << "Total cache accesses\t" << accesses << endl;
+      dumpfile << "Size\tHits" << endl;
+    }
+
     string tag(bf_output_prefix + "BYFL_SUMMARY");
     *bfout << tag << ": " << setw(25) << accesses << " Total cache accesses\n";
 
@@ -1103,8 +1111,16 @@ private:
                << "% of cache accesses\n";
       }
       last_hitrate = cur_hitrate;
+
+      if (bf_dump_cache){
+        dumpfile << cur_size << "\t" << hit << endl;
+      }
     }
     *bfout << tag << ": " << separator << '\n';
+
+    if (bf_dump_cache ){
+      dumpfile.close();
+    }
   }
 
 public:
