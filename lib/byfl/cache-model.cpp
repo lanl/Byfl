@@ -28,11 +28,11 @@ class Cache {
 };
 
 void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
+  uint64_t num_accesses = 0; // running total of number of lines accessed
   for(uint64_t addr = baseaddr / line_size_ * line_size_;
       addr <= (baseaddr + numaddrs ) / line_size_ * line_size_;
       addr += line_size_){
-    auto first = max(baseaddr, addr);
-    auto last = min(baseaddr + numaddrs, addr + line_size_);
+    ++num_accesses;
     auto line = lines_.rbegin();
     auto hit = begin(hits_);
     bool found = false;
@@ -40,7 +40,7 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
       if(addr == *line){
         found = true;
         transform(hit, end(hits_), hit,
-                  [=](const uint64_t cur_hits){return cur_hits + last - first;});
+                  [=](const uint64_t cur_hits){return cur_hits + 1;});
         // erase the line pointed to by this reverse iterator. see
         // stackoverflow.com/questions/1830158/how-to-call-erase-with-a-reverse-iterator
         lines_.erase((line + 1).base());
@@ -49,8 +49,9 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
     }
 
     if(!found){
-      // make a new entry containing all previous hits plus this one
-      hits_.push_back(accesses_ + last - first);
+      // make a new entry containing all previous hits plus any that occur 
+      // this time
+      hits_.push_back(accesses_ + num_accesses);
     }
 
     // move up this address to mru position
@@ -58,7 +59,7 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
   }
 
   // we've made all our accesses
-  accesses_ += numaddrs;
+  ++accesses_;
 }
 
 static Cache* cache = NULL;
