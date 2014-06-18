@@ -59,7 +59,7 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
   }
 
   // we've made all our accesses
-  ++accesses_;
+  accesses_ += num_accesses;
 }
 
 static Cache* cache = NULL;
