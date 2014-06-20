@@ -39,8 +39,7 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
     for(; line != lines_.rend(); ++line, ++hit){
       if(addr == *line){
         found = true;
-        transform(hit, end(hits_), hit,
-                  [=](const uint64_t cur_hits){return cur_hits + 1;});
+        ++(*hit);
         // erase the line pointed to by this reverse iterator. see
         // stackoverflow.com/questions/1830158/how-to-call-erase-with-a-reverse-iterator
         lines_.erase((line + 1).base());
@@ -51,7 +50,7 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
     if(!found){
       // make a new entry containing all previous hits plus any that occur 
       // this time
-      hits_.push_back(accesses_ + num_accesses);
+      hits_.push_back(num_accesses);
     }
 
     // move up this address to mru position
@@ -82,7 +81,16 @@ uint64_t bf_get_cache_accesses(void){
 
 // Get cache hits
 vector<uint64_t> bf_get_cache_hits(void){
-  return cache->getHits();
+  // The total hits to a cache size N is equal to the sum of unique hits to 
+  // all caches sized N or smaller.
+  auto hits = cache->getHits();
+  vector<uint64_t> tot_hits(hits.size());
+  uint64_t prev_hits = hits[0];
+  for(uint64_t i = 0; i < hits.size(); ++i){
+    tot_hits[i] = hits[i] + prev_hits;
+    prev_hits = tot_hits[i];
+  }
+  return tot_hits;
 }
 
 } // namespace bytesflops
