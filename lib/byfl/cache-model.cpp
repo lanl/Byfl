@@ -50,7 +50,7 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
     if(!found){
       // make a new entry containing all previous hits plus any that occur 
       // this time
-      hits_.push_back(num_accesses);
+      hits_.push_back(1); ////TODO I think this is the broke part. Should just be one?
     }
 
     // move up this address to mru position
@@ -85,7 +85,7 @@ vector<uint64_t> bf_get_cache_hits(void){
   // all caches sized N or smaller.
   auto hits = cache->getHits();
   vector<uint64_t> tot_hits(hits.size());
-  uint64_t prev_hits = hits[0];
+  uint64_t prev_hits = 0;
   for(uint64_t i = 0; i < hits.size(); ++i){
     tot_hits[i] = hits[i] + prev_hits;
     prev_hits = tot_hits[i];
