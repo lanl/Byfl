@@ -1087,11 +1087,13 @@ private:
   void report_cache (void) {
     uint64_t accesses = bf_get_cache_accesses();
     vector<uint64_t> hits = bf_get_cache_hits();
+    uint64_t cold_misses = bf_get_cold_misses();
 
     ofstream dumpfile;
     if (bf_dump_cache){
       dumpfile.open("cache.dump");
       dumpfile << "Total cache accesses\t" << accesses << endl;
+      dumpfile << "Cold misses\t" << cold_misses << endl;
       dumpfile << "Size\tHits" << endl;
     }
 

@@ -102,4 +102,8 @@ vector<uint64_t> bf_get_cache_hits(void){
   return tot_hits;
 }
 
+uint64_t bf_get_cold_misses(void){
+  return cache->getColdMisses();
+}
+
 } // namespace bytesflops
