@@ -742,4 +742,13 @@ namespace bytesflops_pass {
     return false;
   }
 
+  // Count the number of "real" instructions in a basic block.
+  size_t BytesFlops::bb_size(const BasicBlock& bb) {
+    size_t tally = 0;
+    BasicBlock::const_iterator inst;
+    for (inst = bb.getFirstInsertionPt(); inst != bb.end(); inst++)
+      tally++;
+    return tally;
+  }
+
 } // namespace bytesflops_pass
