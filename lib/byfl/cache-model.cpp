@@ -16,17 +16,15 @@ using namespace std;
 class Cache {
   public:
     void access(uint64_t baseaddr, uint64_t numaddrs);
-    Cache(uint64_t line_size) : line_size_{line_size}, accesses_{0},
-      cold_misses_{0} {}
+    Cache(uint64_t line_size) : line_size_{line_size}, accesses_{0} {}
     uint64_t getAccesses() const { return accesses_; }
     vector<uint64_t> getHits() const { return hits_; }
-    uint64_t getColdMisses() const { return cold_misses_; }
+    uint64_t getColdMisses() const { return hits_.size(); }
 
   private:
     vector<uint64_t> lines_; // back is mru, front is lru
     uint64_t line_size_;
     uint64_t accesses_;
-    uint64_t cold_misses_;
     vector<uint64_t> hits_;  // back is lru, front is mru
 };
 
@@ -51,10 +49,8 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
     }
 
     if(!found){
-      // add a new hit entry with this hit
-      hits_.push_back(1);
-      // this is a cold miss since we've never seen the line before.
-      ++cold_misses_;
+      // add a new hit entry
+      hits_.push_back(0);
     }
 
     // move up this address to mru position
@@ -88,15 +84,10 @@ vector<uint64_t> bf_get_cache_hits(void){
   // The total hits to a cache size N is equal to the sum of unique hits to 
   // all caches sized N or smaller.
   auto hits = cache->getHits();
-  auto cold_misses = cache->getColdMisses();
   vector<uint64_t> tot_hits(hits.size());
   uint64_t prev_hits = 0;
   for(uint64_t i = 0; i < hits.size(); ++i){
     tot_hits[i] = hits[i] + prev_hits;
-    if(i == 0){
-      // remove cold misses from all cache sizes
-      tot_hits[i] -= cold_misses;
-    }
     prev_hits = tot_hits[i];
   }
   return tot_hits;
