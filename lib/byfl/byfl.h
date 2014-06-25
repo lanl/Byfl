@@ -29,6 +29,9 @@
 #include "opcode2name.h"
 
 // The following constants are defined by the instrumented code.
+extern const char * bf_foofoo;
+extern uint64_t * testkey;
+extern uint64_t * bf_keys;
 extern uint64_t bf_bb_merge;         // Number of basic blocks to merge to compress the output
 extern uint8_t  bf_call_stack;       // 1=maintain a function call stack
 extern uint8_t  bf_every_bb;         // 1=tally and output per-basic-block data
@@ -40,6 +43,9 @@ extern uint8_t  bf_tally_inst_mix;   // 1=maintain instruction mix histogram
 extern uint8_t  bf_types;            // 1=count loads/stores per type
 extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
 extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
+
+// The following globals are defined by the instrumented code.
+extern uint64_t bf_fmap_cnt;
 
 // The following function is expected to be overridden by user code.
 extern "C" {
@@ -59,13 +65,13 @@ namespace bytesflops {
   extern void bf_get_reuse_distance(vector<uint64_t>** hist, uint64_t* unique_addrs);
   extern void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
   extern void bf_get_vector_statistics(uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
-  extern void bf_push_basic_block(void);
+  extern "C" void bf_push_basic_block(void);
   extern void bf_report_vector_operations(size_t call_stack_depth);
   extern uint64_t bf_tally_unique_addresses(const char* funcname);
   extern uint64_t bf_tally_unique_addresses_tb(const char* funcname);
   extern uint64_t bf_tally_unique_addresses_tb(void);
   extern uint64_t bf_tally_unique_addresses(void);
-  extern const char* bf_string_to_symbol(const char *nonunique);
+  extern "C" const char* bf_string_to_symbol(const char *nonunique);
   extern void initialize_byfl(void);
   extern void initialize_reuse(void);
   extern void initialize_symtable(void);

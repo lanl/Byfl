@@ -13,6 +13,8 @@
 
 using namespace std;
 
+typedef uint64_t    KeyType_t;
+
 enum {
   BF_OP_LOAD,
   BF_OP_STORE,

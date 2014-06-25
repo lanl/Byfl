@@ -6,6 +6,9 @@
  * and Pat McCormick <pat@lanl.gov>
  */
 
+#ifndef BYTES_FLOPS_H_
+#define BYTES_FLOPS_H_
+
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/DebugInfo.h"
@@ -22,13 +25,17 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <memory>
 #include <set>
 #include <iomanip>
 #include <unordered_map>
 #include "byfl-common.h"
+#include "FunctionKeyGen.h"
 
 using namespace std;
 using namespace llvm;
@@ -100,7 +107,8 @@ namespace bytesflops_pass {
 
 
   // Define a pass over each basic block in the module.
-  struct BytesFlops : public FunctionPass {
+//  struct BytesFlops : public FunctionPass {
+  struct BytesFlops : public ModulePass {
 
   private:
     static const int CLEAR_LOADS;
@@ -142,6 +150,7 @@ namespace bytesflops_pass {
     uint64_t static_ops;     // Number of static instructions of any type (except no-ops)
     uint64_t static_cond_brs;  // Number of static conditional or indirect branch instructions
     uint64_t static_bblocks;   // Number of static basic blocks
+    Function* init_func_map;
     Function* init_if_necessary;  // Pointer to bf_initialize_if_necessary()
     Function* accum_bb_tallies;   // Pointer to bf_accumulate_bb_tallies()
     Function* report_bb_tallies;  // Pointer to bf_report_bb_tallies()
@@ -189,6 +198,14 @@ namespace bytesflops_pass {
       }
     };
 
+    Function* record_funcs2keys;     // Pointer to bf_record_funcs2keys()
+    Function* func_map_ctor;  // static constructor for the function keys
+    std::unique_ptr<FunctionKeyGen>    m_keygen;
+    std::map<std::string, KeyType_t>   func_key_map;
+    std::vector<KeyType_t>             recorded;
+
+    GlobalVariable * byfl_fmap_cnt;
+
     // Insert after a given instruction some code to increment a
     // global variable.
     void increment_global_variable(BasicBlock::iterator& iter,
@@ -204,6 +221,13 @@ namespace bytesflops_pass {
 
     // Mark a variable as "used" (not eligible for dead-code elimination).
     void mark_as_used(Module& module, Constant* protected_var);
+
+    // Create and initialize a global variable in the
+    // instrumented code.
+    GlobalVariable* create_global_variable(Module& module,
+                                                         Type* var_type,
+                                                         Constant * init_value,
+                                                         const char* name);
 
     // Create and initialize a global uint64_t constant in the
     // instrumented code.
@@ -254,6 +278,11 @@ namespace bytesflops_pass {
     GlobalVariable* declare_global_var(Module& module, Type* var_type,
                                        StringRef var_name, bool is_const=false);
 
+    GlobalVariable* create_global_var(Module& module,
+                                                   Type* var_type,
+                                                   StringRef var_name,
+                                                   size_t nelts);
+
     // Insert code to set every element of a given array to zero.
     void insert_zero_array_code(Module* module,
                                 GlobalVariable* array_to_zero,
@@ -261,7 +290,7 @@ namespace bytesflops_pass {
                                 BasicBlock::iterator& insert_before);
 
     // Insert code at the end of a basic block.
-    void insert_end_bb_code (Module* module, StringRef function_name,
+    void insert_end_bb_code (Module* module, KeyType_t funcKey,
                              int& must_clear, BasicBlock::iterator& insert_before);
 
     // Wrap CallInst::Create() with code to acquire and release the
@@ -358,9 +387,20 @@ namespace bytesflops_pass {
       AU.addRequired<LoopInfo>();
     }
 
+    void initializeKeyMap(Module& module);
+
+    void create_func_map_ctor(Module & module, uint32_t nkeys,
+            Constant * keys, Constant * fnames);
   public:
     static char ID;
-    BytesFlops() : FunctionPass(ID) { }
+//    BytesFlops() : FunctionPass(ID) { }
+    BytesFlops() : ModulePass(ID) { }
+//    BytesFlops(BytesMP * bmp);
+
+    const std::map<std::string, KeyType_t> &
+    getFuncKeyMap() const {return func_key_map;}
+
+    FunctionKeyGen::KeyID record_func(const std::string & fname);
 
     // Initialize the BytesFlops pass.
     virtual bool doInitialization(Module& module);
@@ -368,8 +408,16 @@ namespace bytesflops_pass {
     // Insert code for incrementing our byte, flop, etc. counters.
     virtual bool runOnFunction(Function& function);
 
+    virtual bool runOnModule(Module & module);
+
+    // Insert code for incrementing our byte, flop, etc. counters.
+    virtual bool doFinalization(Module& module);
+
     // Output what we instrumented.
     virtual void print(raw_ostream &outfile, const Module *module) const;
   };
 
 }  // namespace bytesflops_pass
+
+
+#endif   //BYTES_FLOPS_H_

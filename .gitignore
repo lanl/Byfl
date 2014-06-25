@@ -1,7 +1,9 @@
-# Ignore some autoconf generated files. 
-autoconf/aclocal.m4
-autoconf/autom4te.cache/
-/configure
-/build
-*~ 
-/examples
+syntax: glob
+
+*.*project
+*~
+build
+byfl-build-only
+*.swp
+configure
+*.cache
