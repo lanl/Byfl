@@ -1088,12 +1088,14 @@ private:
     uint64_t accesses = bf_get_cache_accesses();
     vector<uint64_t> hits = bf_get_cache_hits();
     uint64_t cold_misses = bf_get_cold_misses();
+    uint64_t split_accesses = bf_get_split_accesses();
 
     ofstream dumpfile;
     if (bf_dump_cache){
       dumpfile.open("cache.dump");
       dumpfile << "Total cache accesses\t" << accesses << endl;
       dumpfile << "Cold misses\t" << cold_misses << endl;
+      dumpfile << "Split accesses\t" << split_accesses << endl;
       dumpfile << "Size\tHits" << endl;
     }
 

@@ -16,16 +16,19 @@ using namespace std;
 class Cache {
   public:
     void access(uint64_t baseaddr, uint64_t numaddrs);
-    Cache(uint64_t line_size) : line_size_{line_size}, accesses_{0} {}
+    Cache(uint64_t line_size) : line_size_{line_size}, accesses_{0},
+      split_accesses_{0} {}
     uint64_t getAccesses() const { return accesses_; }
     vector<uint64_t> getHits() const { return hits_; }
     uint64_t getColdMisses() const { return hits_.size(); }
+    uint64_t getSplitAccesses() const { return split_accesses_; }
 
   private:
     vector<uint64_t> lines_; // back is mru, front is lru
     uint64_t line_size_;
     uint64_t accesses_;
     vector<uint64_t> hits_;  // back is lru, front is mru
+    uint64_t split_accesses_;
 };
 
 void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
@@ -59,6 +62,9 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
 
   // we've made all our accesses
   accesses_ += num_accesses;
+  if(num_accesses != 1){
+    ++split_accesses_;
+  }
 }
 
 static Cache* cache = NULL;
@@ -95,6 +101,10 @@ vector<uint64_t> bf_get_cache_hits(void){
 
 uint64_t bf_get_cold_misses(void){
   return cache->getColdMisses();
+}
+
+uint64_t bf_get_split_accesses(void){
+  return cache->getSplitAccesses();
 }
 
 } // namespace bytesflops
