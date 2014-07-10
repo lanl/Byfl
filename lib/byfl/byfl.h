@@ -78,11 +78,14 @@ namespace bytesflops {
   extern void initialize_ubytes(void);
   extern void initialize_vectors(void);
   extern void initialize_cache(void);
-  extern uint64_t bf_get_cache_accesses(void);
-  extern vector<unordered_map<uint64_t,uint64_t> > bf_get_cache_hits(void);
-  extern uint64_t bf_get_cold_misses(void);
-  extern uint64_t bf_get_split_accesses(void);
-  extern uint64_t bf_get_assoc_bits(void);
+  extern uint64_t bf_get_private_cache_accesses(void);
+  extern vector<unordered_map<uint64_t,uint64_t> > bf_get_private_cache_hits(void);
+  extern uint64_t bf_get_private_cold_misses(void);
+  extern uint64_t bf_get_private_split_accesses(void);
+  extern uint64_t bf_get_shared_cache_accesses(void);
+  extern vector<unordered_map<uint64_t,uint64_t> > bf_get_shared_cache_hits(void);
+  extern uint64_t bf_get_shared_cold_misses(void);
+  extern uint64_t bf_get_shared_split_accesses(void);
 
   // The following library variables are used in files other than the
   // one in which they're defined.
