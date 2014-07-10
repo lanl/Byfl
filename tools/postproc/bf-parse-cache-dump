@@ -8,10 +8,15 @@
 #   to filter before hitting higher levels.
 
 from argparse import ArgumentParser,FileType
+import numpy as np
 
 parser = ArgumentParser(description='Process a Byfl cache dump to get access counts.')
-parser.add_argument('filename', type=FileType('r'), help='Path to filename for processing.')
-parser.add_argument('sizes', nargs='*', type=str, help='List of cache sizes. Must increase monotonically.')
+parser.add_argument('--assoc', nargs='*', type=int, 
+                    help='List of associativities. Default to fully associative.')
+parser.add_argument('--sizes', nargs='*', type=str, 
+                    help='List of cache sizes. Must increase monotonically.')
+parser.add_argument('filename', type=FileType('r'), default='-',
+                    help='Path to filename for processing.')
 
 args = vars(parser.parse_args())
 
@@ -20,9 +25,15 @@ lines = args['filename'].readlines()
 total = int(lines[0].split()[3])
 #cold misses
 cold = int(lines[1].split()[2])
-#convert all size->hit mappings into a dict
-vals = dict(line.split() for line in lines[4:])
+# convert lines to 2d vector
+string_vals = [line.split() for line in lines[4:]]
+# convert strings to integers
+int_vals = [map(int, val) for val in string_vals]
+# convert 2d vector to map from cache size to list of counters per assoc
+vals = dict([[x[0], [y for y in x[1:]]] for x in int_vals])
 
+assocs = args['assoc']
+assocs = [args['assoc'][i] if len(args['assoc']) > i else len(string_vals[0] - 2) for i in range(args[
 accesses = [total] + [total - int(vals.get(size, total - cold)) for size in args['sizes']]
 
 print "\t".join([str(access) for access in accesses])

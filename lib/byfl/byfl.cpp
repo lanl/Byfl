@@ -1086,9 +1086,10 @@ private:
   // Report cache performance if it was used.
   void report_cache (void) {
     uint64_t accesses = bf_get_cache_accesses();
-    vector<uint64_t> hits = bf_get_cache_hits();
+    vector<vector<uint64_t> > hits = bf_get_cache_hits();
     uint64_t cold_misses = bf_get_cold_misses();
     uint64_t split_accesses = bf_get_split_accesses();
+    uint64_t assoc_bits = bf_get_assoc_bits();
 
     ofstream dumpfile;
     if (bf_dump_cache){
@@ -1102,22 +1103,15 @@ private:
     string tag(bf_output_prefix + "BYFL_SUMMARY");
     *bfout << tag << ": " << setw(25) << accesses << " Total cache accesses\n";
 
-    const double pct_change = 0.05;   // Minimum percentage-point change to output
-    double last_hitrate = 0;
-    uint64_t cur_size = 0;
-    for(auto& hit : hits){
-      cur_size += bf_line_size;
-      auto cur_hitrate = hit / (double) accesses;
-      if(cur_hitrate - last_hitrate > pct_change || 
-         hit == accesses){
-        *bfout << tag << ": " << setw(25) << cur_size << " byte cache covers "
-               << fixed << setw(5) << setprecision(1) << cur_hitrate * 100.0 
-               << "% of cache accesses\n";
-      }
-      last_hitrate = cur_hitrate;
-
-      if (bf_dump_cache){
-        dumpfile << cur_size << "\t" << hit << endl;
+    if (bf_dump_cache){
+      uint64_t cur_size = 0;
+      for(auto& hit : hits){
+        cur_size += bf_line_size;
+        dumpfile << cur_size;
+        for(uint64_t i = 0; i < assoc_bits; ++i){
+          dumpfile << "\t" << hit[i];
+        }
+        dumpfile << endl;
       }
     }
     *bfout << tag << ": " << separator << '\n';

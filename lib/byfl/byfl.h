@@ -78,9 +78,10 @@ namespace bytesflops {
   extern void initialize_vectors(void);
   extern void initialize_cache(void);
   extern uint64_t bf_get_cache_accesses(void);
-  extern vector<uint64_t> bf_get_cache_hits(void);
+  extern vector<vector<uint64_t> > bf_get_cache_hits(void);
   extern uint64_t bf_get_cold_misses(void);
   extern uint64_t bf_get_split_accesses(void);
+  extern uint64_t bf_get_assoc_bits(void);
 
   // The following library variables are used in files other than the
   // one in which they're defined.
