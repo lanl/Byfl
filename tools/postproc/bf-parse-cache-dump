@@ -18,9 +18,11 @@ args = vars(parser.parse_args())
 lines = args['filename'].readlines()
 #total hits
 total = int(lines[0].split()[3])
+#cold misses
+cold = int(lines[1].split()[2])
 #convert all size->hit mappings into a dict
-vals = dict(line.split() for line in lines[2:])
+vals = dict(line.split() for line in lines[4:])
 
-accesses = [total] + [total - int(vals.get(size, total)) for size in args['sizes']]
+accesses = [total] + [total - int(vals.get(size, total - cold)) for size in args['sizes']]
 
 print "\t".join([str(access) for access in accesses])
