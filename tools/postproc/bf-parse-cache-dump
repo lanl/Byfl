@@ -11,8 +11,6 @@ from argparse import ArgumentParser,FileType
 import math
 
 parser = ArgumentParser(description='Process a Byfl cache dump to get access counts.')
-parser.add_argument('--sets', nargs='*', type=int, 
-                    help='List of number of sets.')
 parser.add_argument('--sizes', nargs='*', type=str, 
                     help='List of cache sizes.')
 parser.add_argument('filename', type=FileType('r'), default='-', nargs='?',
@@ -26,17 +24,18 @@ total = int(lines[0].split()[3])
 #cold misses
 cold = int(lines[1].split()[2])
 #line size
-line_size = int(lines[4].split()[0])
+line_size = int(lines[3].split()[2])
 
-sets = [int(math.log(set, 2)) for set in args['sets']]
+# get all distance->count pairings in order
+vals = sorted([map(int, line.split()) for line in lines[5:]], 
+              key=lambda x: x[0])
+
 accesses = [total]
-for size, set in zip(map(int,args['sizes']), sets):
-    try:
-        # get this line only, disregarding cache size
-        line = [int(x) for x in lines[int(size / line_size) + 3].split()][1:]
-        val = line[set]
-    except KeyError:
-        val = total - cold
-    accesses.append(val)
+for size in map(int, args['sizes']):
+    distance = int(size / line_size)
+    cur_accesses = 0
+    for (dist, count) in [val for val in vals if val[0] <= distance]:
+        cur_accesses = cur_accesses + count
+    accesses.append(total - cur_accesses)
 
 print "\t".join([str(access) for access in accesses])

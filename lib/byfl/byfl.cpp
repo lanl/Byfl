@@ -5,6 +5,7 @@
  * By Scott Pakin <pakin@lanl.gov>
  *    Pat McCormick <pat@lanl.gov>
  */
+#include <sstream>
 
 #include "byfl.h"
 
@@ -1086,39 +1087,31 @@ private:
   // Report cache performance if it was used.
   void report_cache (void) {
     uint64_t accesses = bf_get_cache_accesses();
-    vector<vector<uint64_t> > hits = bf_get_cache_hits();
+    auto hits = bf_get_cache_hits();
     uint64_t cold_misses = bf_get_cold_misses();
     uint64_t split_accesses = bf_get_split_accesses();
-    uint64_t assoc_bits = bf_max_set_bits;
-
-    ofstream dumpfile;
-    if (bf_dump_cache){
-      dumpfile.open("cache.dump");
-      dumpfile << "Total cache accesses\t" << accesses << endl;
-      dumpfile << "Cold misses\t" << cold_misses << endl;
-      dumpfile << "Split accesses\t" << split_accesses << endl;
-      dumpfile << "Size\tHits" << endl;
-    }
 
     string tag(bf_output_prefix + "BYFL_SUMMARY");
     *bfout << tag << ": " << setw(25) << accesses << " Total cache accesses\n";
 
     if (bf_dump_cache){
-      uint64_t cur_size = 0;
-      for(auto& hit : hits){
-        cur_size += bf_line_size;
-        dumpfile << cur_size;
-        for(uint64_t i = 0; i < assoc_bits; ++i){
-          dumpfile << "\t" << hit[i];
+      ofstream dumpfile;
+      for(uint64_t set = 0; set < bf_max_set_bits; ++set){
+        stringstream fname;
+        fname << "cache." << (1 << set) << "sets.dump";
+        dumpfile.open(fname.str());
+        dumpfile << "Total cache accesses\t" << accesses << endl;
+        dumpfile << "Cold misses\t" << cold_misses << endl;
+        dumpfile << "Split accesses\t" << split_accesses << endl;
+        dumpfile << "Line size\t" << bf_line_size << endl;
+        dumpfile << "Distance\tCount" << endl;
+        for(const auto& elem : hits[set]){
+          dumpfile << elem.first * bf_line_size << "\t" << elem.second << endl;
         }
-        dumpfile << endl;
+        dumpfile.close();
       }
     }
     *bfout << tag << ": " << separator << '\n';
-
-    if (bf_dump_cache ){
-      dumpfile.close();
-    }
   }
 
 public:

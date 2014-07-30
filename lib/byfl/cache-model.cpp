@@ -21,12 +21,12 @@ class Cache {
     void access(uint64_t baseaddr, uint64_t numaddrs);
     Cache(uint64_t line_size, uint64_t max_set_bits) : line_size_{line_size},
       accesses_{0}, split_accesses_{0}, log2_line_size_{0},
-      max_set_bits_{max_set_bits}, cold_misses_{0} {
+      max_set_bits_{max_set_bits}, cold_misses_{0}, hits_(max_set_bits_) {
         auto lsize = line_size_;
         while(lsize >>= 1) ++log2_line_size_;
     }
     uint64_t getAccesses() const { return accesses_; }
-    vector<vector<uint64_t> > getHits() const { return hits_; }
+    vector<unordered_map<uint64_t,uint64_t> > getHits() const { return hits_; }
     uint64_t getColdMisses() const { return cold_misses_; }
     uint64_t getSplitAccesses() const { return split_accesses_; }
     int getRightMatch(uint64_t a, uint64_t b);
@@ -35,11 +35,11 @@ class Cache {
     vector<uint64_t> lines_; // back is mru, front is lru
     uint64_t line_size_;
     uint64_t accesses_;
-    vector<vector<uint64_t> > hits_;  // back is lru, front is mru
     uint64_t split_accesses_;
     uint64_t log2_line_size_; // log base 2 of line size
     uint64_t max_set_bits_; // log base 2 of max number of sets
     uint64_t cold_misses_;
+    vector<unordered_map<uint64_t,uint64_t> > hits_;  // back is lru, front is mru
 };
 
 inline int Cache::getRightMatch(uint64_t a, uint64_t b){
@@ -78,12 +78,9 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
         *tally += sum;
         sum = *tally;
       }
-      for(uint64_t i = 0; i < max_set_bits_; ++i){
-        auto idx = right_match_tally[i] * (1 << i);
-        if(hits_.size() < (idx + 1) ){
-          hits_.resize(idx + 1, vector<uint64_t>(max_set_bits_, 0));
-        }
-        ++hits_[idx][i];
+      for(uint64_t set = 0; set < max_set_bits_; ++set){
+        auto idx = right_match_tally[set] * (1 << set);
+        ++hits_[set][idx];
       }
     } else {
       ++cold_misses_;
@@ -140,32 +137,25 @@ vector<T> vecsum(const vector<T>& a, const vector<T>& b){
   return out;
 }
 
+template<typename T>
+T mapsum(const T& a, const T& b){
+  T out(a);
+  for(const auto& elem : b){
+    out[elem.first] += elem.second;
+  }
+  return out;
+}
+
 // Get cache hits
-vector<vector<uint64_t> > bf_get_cache_hits(void){
+vector<unordered_map<uint64_t,uint64_t> > bf_get_cache_hits(void){
   // The total hits to a cache size N is equal to the sum of unique hits to all
   // caches sized N or smaller.  We'll aggregate the cache performance across
   // all threads; global L1 accesses is equivalent to the sum of individual L1
   // accesses, etc.
-  size_t longest = 0;
-  for(auto& cache: *caches){
-    auto cur_size = cache->getHits().size();
-    if(cur_size > longest){
-      longest = cur_size;
-    }
-  }
-  auto assoc_bits = bf_max_set_bits;
-
-  // Initialize all to zero. As long as the longest thread cache.
-  vector<vector<uint64_t> > tot_hits(longest, vector<uint64_t>(assoc_bits + 1, 0));
+  vector<unordered_map<uint64_t,uint64_t> > tot_hits(bf_max_set_bits + 1);
   for(auto& cache: *caches){
     auto hits = cache->getHits();
-    transform(begin(hits), end(hits), begin(tot_hits), begin(tot_hits), vecsum<uint64_t>);
-  }
-
-  vector<uint64_t> prev_hits(assoc_bits + 1, 0);
-  for(auto& hits : tot_hits){
-    hits = vecsum(hits, prev_hits);
-    prev_hits = hits;
+    transform(begin(hits), end(hits), begin(tot_hits), begin(tot_hits), mapsum<unordered_map<uint64_t,uint64_t> >);
   }
 
   return tot_hits;
