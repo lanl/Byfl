@@ -1089,7 +1089,7 @@ private:
     vector<vector<uint64_t> > hits = bf_get_cache_hits();
     uint64_t cold_misses = bf_get_cold_misses();
     uint64_t split_accesses = bf_get_split_accesses();
-    uint64_t assoc_bits = bf_get_assoc_bits();
+    uint64_t assoc_bits = bf_max_set_bits;
 
     ofstream dumpfile;
     if (bf_dump_cache){

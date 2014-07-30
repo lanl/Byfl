@@ -99,6 +99,9 @@ namespace bytesflops_pass {
   // Define a command-line option for dumping cache data to file.
   extern cl::opt<bool> DumpCache;
 
+  // Define a command-line option for log2 of the maximum number of sets to model.
+  extern cl::opt<unsigned long long> CacheMaxSetBits;
+
   // Destructively remove all instances of a given character from a string.
   extern void remove_all_instances(string& some_string, char some_char);
 

@@ -114,6 +114,12 @@ namespace bytesflops_pass {
   DumpCache("bf-dump-cache", cl::init(false), cl::NotHidden,
             cl::desc("Dump out cache data to file."));
 
+  // Define a command-line option to specify the maximum number of sets.
+  cl::opt<unsigned long long>
+  CacheMaxSetBits("bf-max-set-bits", cl::init(16), cl::NotHidden,
+               cl::desc("Log base 2 of the maximum number of sets modeled at the same time."),
+               cl::value_desc("bits"));
+
   static RegisterPass<BytesFlops> H("bytesflops", "Bytes:flops instrumentation");
 
 }  // namespace bytesflops_pass
