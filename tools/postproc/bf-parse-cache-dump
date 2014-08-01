@@ -11,9 +11,9 @@ from argparse import ArgumentParser,FileType
 import math
 
 parser = ArgumentParser(description='Process a Byfl cache dump to get access counts.')
-parser.add_argument('--sizes', nargs='*', type=str, 
+parser.add_argument('--ways', nargs='*', type=str, 
                     help='List of cache sizes.')
-parser.add_argument('filename', type=FileType('r'), default='-', nargs='?',
+parser.add_argument('--filename', type=FileType('r'), default='-', nargs='?',
                     help='Path to filename for processing.')
 
 args = vars(parser.parse_args())
@@ -31,10 +31,9 @@ vals = sorted([map(int, line.split()) for line in lines[5:]],
               key=lambda x: x[0])
 
 accesses = [total]
-for size in map(int, args['sizes']):
-    distance = int(size / line_size)
+for ways in map(int, args['ways']):
     cur_accesses = 0
-    for (dist, count) in [val for val in vals if val[0] <= distance]:
+    for (dist, count) in [val for val in vals if val[0] <= ways]:
         cur_accesses = cur_accesses + count
     accesses.append(total - cur_accesses)
 

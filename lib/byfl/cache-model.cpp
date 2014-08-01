@@ -79,7 +79,7 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
         sum = *tally;
       }
       for(uint64_t set = 0; set < max_set_bits_; ++set){
-        auto idx = right_match_tally[set] * (1 << set);
+        auto idx = right_match_tally[set];
         ++hits_[set][idx];
       }
     } else {

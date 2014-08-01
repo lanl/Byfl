@@ -1106,7 +1106,7 @@ private:
         dumpfile << "Line size\t" << bf_line_size << endl;
         dumpfile << "Distance\tCount" << endl;
         for(const auto& elem : hits[set]){
-          dumpfile << elem.first * bf_line_size << "\t" << elem.second << endl;
+          dumpfile << elem.first << "\t" << elem.second << endl;
         }
         dumpfile.close();
       }
