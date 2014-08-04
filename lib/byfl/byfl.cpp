@@ -1086,18 +1086,29 @@ private:
     //       << fixed << setw(5) << setprecision(1) << hit_rate*100.0 << "% of memory accesses\n";
   // Report cache performance if it was used.
   void report_cache (void) {
-    uint64_t accesses[2] = {bf_get_private_cache_accesses(), bf_get_shared_cache_accesses()};
-    vector<unordered_map<uint64_t,uint64_t> > hits[2] = {bf_get_private_cache_hits(), bf_get_shared_cache_hits()};
-    uint64_t cold_misses[2] = {bf_get_private_cold_misses(), bf_get_shared_cold_misses()};
-    uint64_t split_accesses[2] = {bf_get_private_split_accesses(), bf_get_shared_split_accesses()};
+    /* where n different dump files are created. */
+    const int n = 3;
+    uint64_t accesses[n] = {bf_get_private_cache_accesses(), 
+                            bf_get_shared_cache_accesses(),
+                            bf_get_shared_cache_accesses()};
+    vector<unordered_map<uint64_t,uint64_t> > hits[n] = {bf_get_private_cache_hits(), 
+                                                         bf_get_shared_cache_hits(),
+                                                         bf_get_remote_shared_cache_hits()};
+    uint64_t cold_misses[n] = {bf_get_private_cold_misses(), 
+                               bf_get_shared_cold_misses(),
+                               bf_get_shared_cold_misses()};
+    uint64_t split_accesses[n] = {bf_get_private_split_accesses(), 
+                                  bf_get_shared_split_accesses(),
+                                  bf_get_shared_split_accesses()};
 
     if (bf_dump_cache){
       for(uint64_t set = 0; set < bf_max_set_bits; ++set){
-        stringstream fname[2];
+        stringstream fname[n];
         fname[0] << "private-cache." << (1 << set) << "sets.dump";
         fname[1] << "shared-cache." << (1 << set) << "sets.dump";
+        fname[2] << "remote-shared-cache." << (1 << set) << "sets.dump";
         // dump the same things for both shared and private caches
-        for(int i = 0; i < 2; ++i){
+        for(int i = 0; i < n; ++i){
           ofstream dumpfile(fname[i].str());
           dumpfile << "Total cache accesses\t" << accesses[i] << endl;
           dumpfile << "Cold misses\t" << cold_misses[i] << endl;

@@ -12,16 +12,20 @@
 
 #include "byfl.h"
 
-namespace bytesflops {}
+namespace bytesflops {
+static __thread unsigned cache_id = 0;
+}
 using namespace bytesflops;
 using namespace std;
 
 class Cache {
   public:
     void access(uint64_t baseaddr, uint64_t numaddrs);
-    Cache(uint64_t line_size, uint64_t max_set_bits) : line_size_{line_size},
-      accesses_{0}, split_accesses_{0}, log2_line_size_{0},
-      max_set_bits_{max_set_bits}, cold_misses_{0}, hits_(max_set_bits_) {
+    Cache(uint64_t line_size, uint64_t max_set_bits, bool record_thread_id) :
+      line_size_{line_size}, accesses_{0}, split_accesses_{0},
+      log2_line_size_{0}, max_set_bits_{max_set_bits}, cold_misses_{0},
+      hits_(max_set_bits_), record_thread_id_{record_thread_id},
+      remote_hits_(max_set_bits_) {
         auto lsize = line_size_;
         while(lsize >>= 1) ++log2_line_size_;
     }
@@ -30,6 +34,7 @@ class Cache {
     uint64_t getColdMisses() const { return cold_misses_; }
     uint64_t getSplitAccesses() const { return split_accesses_; }
     int getRightMatch(uint64_t a, uint64_t b);
+    vector<unordered_map<uint64_t,uint64_t> > getRemoteHits() const { return remote_hits_; }
 
   private:
     vector<uint64_t> lines_; // back is mru, front is lru
@@ -39,7 +44,13 @@ class Cache {
     uint64_t log2_line_size_; // log base 2 of line size
     uint64_t max_set_bits_; // log base 2 of max number of sets
     uint64_t cold_misses_;
+    // for each set count, a map of distance to access count
     vector<unordered_map<uint64_t,uint64_t> > hits_;  // back is lru, front is mru
+    bool record_thread_id_;
+    // associate thread id with each line in cache. only used if record_thread_id_.
+    vector<unsigned> thread_ids_;
+    // for each set count, a map of distance to access count
+    vector<unordered_map<uint64_t,uint64_t> > remote_hits_;  // back is lru, front is mru
 };
 
 inline int Cache::getRightMatch(uint64_t a, uint64_t b){
@@ -56,15 +67,20 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
       addr += line_size_){
     ++num_accesses;
     bool found = false;
+    unsigned last_thread = 0;
     vector<uint64_t> right_match_tally(max_set_bits_, 0);
-    for(auto line = lines_.rbegin(); line != lines_.rend(); ++line){
-      int right_match = getRightMatch(addr, *line); // returns 0 <= val = max_set_bits_
+    for(int line_idx = lines_.size() - 1; line_idx >= 0; --line_idx){
+      auto& line = lines_[line_idx];
+      int right_match = getRightMatch(addr, line); // returns 0 <= val = max_set_bits_
       ++right_match_tally[right_match];
-      if(addr == *line){
+      if(addr == line){
         found = true;
-        // erase the line pointed to by this reverse iterator. see
-        // stackoverflow.com/questions/1830158/how-to-call-erase-with-a-reverse-iterator
-        lines_.erase((line + 1).base());
+        // erase this line.
+        lines_.erase(begin(lines_) + line_idx);
+        if(record_thread_id_){
+          last_thread = thread_ids_[line_idx];
+          thread_ids_.erase(begin(thread_ids_) + line_idx);
+        }
         break;
       }
     }
@@ -81,6 +97,10 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
       for(uint64_t set = 0; set < max_set_bits_; ++set){
         auto idx = right_match_tally[set];
         ++hits_[set][idx];
+        if(record_thread_id_ && 
+           last_thread != cache_id){
+          ++remote_hits_[set][idx];
+        }
       }
     } else {
       ++cold_misses_;
@@ -88,6 +108,9 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
 
     // move up this address to mru position
     lines_.push_back(addr);
+    if(record_thread_id_){
+      thread_ids_.push_back(cache_id);
+    }
   }
 
   // we've made all our accesses
@@ -103,12 +126,13 @@ static __thread Cache* cache = nullptr;
 static vector<Cache*>* caches = nullptr;
 static Cache* global_cache = nullptr;
 static mutex cache_vector_mutex, global_cache_mutex;
+static unsigned thread_counter = 0;
 
 void initialize_cache(void){
   if(caches == nullptr){
     caches = new vector<Cache*>();
   }
-  global_cache = new Cache(bf_line_size, bf_max_set_bits);
+  global_cache = new Cache(bf_line_size, bf_max_set_bits, true);
 }
 
 // Access the cache model with this address.
@@ -116,8 +140,9 @@ void bf_touch_cache(uint64_t baseaddr, uint64_t numaddrs){
   if(cache == nullptr){
     // Only let one thread update caches at a time.
     lock_guard<mutex> guard(cache_vector_mutex);
-    cache = new Cache(bf_line_size, bf_max_set_bits);
+    cache = new Cache(bf_line_size, bf_max_set_bits, false);
     caches->push_back(cache);
+    cache_id = thread_counter++;
   }
   cache->access(baseaddr, numaddrs);
   lock_guard<mutex> guard(global_cache_mutex);
@@ -172,6 +197,10 @@ vector<unordered_map<uint64_t,uint64_t> > bf_get_private_cache_hits(void){
 
 vector<unordered_map<uint64_t,uint64_t> > bf_get_shared_cache_hits(void){
   return global_cache->getHits();
+}
+
+vector<unordered_map<uint64_t,uint64_t> > bf_get_remote_shared_cache_hits(void){
+  return global_cache->getRemoteHits();
 }
 
 uint64_t bf_get_private_cold_misses(void){
