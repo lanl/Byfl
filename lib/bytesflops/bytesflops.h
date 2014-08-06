@@ -90,6 +90,18 @@ namespace bytesflops_pass {
   // Define a command-line option for pruning reuse distance.
   extern cl::opt<unsigned long long> MaxReuseDist;
 
+  // Define a command-line option for turning on the cache model.
+  extern cl::opt<bool> CacheModel;
+
+  // Define a command-line option for cache line size in bytes.
+  extern cl::opt<unsigned long long> CacheLineBytes;
+
+  // Define a command-line option for dumping cache data to file.
+  extern cl::opt<bool> DumpCache;
+
+  // Define a command-line option for log2 of the maximum number of sets to model.
+  extern cl::opt<unsigned long long> CacheMaxSetBits;
+
   // Destructively remove all instances of a given character from a string.
   extern void remove_all_instances(string& some_string, char some_char);
 
@@ -159,6 +171,7 @@ namespace bytesflops_pass {
     Function* tally_vector;      // Pointer to bf_tally_vector_operation()
     Function* reuse_dist_prog;   // Pointer to bf_reuse_dist_addrs_prog()
     Function* memset_intrinsic;  // Pointer to LLVM's memset() intrinsic
+    Function* access_cache;      // Pointer to bf_touch_cache()
     StringMap<Constant*> func_name_to_arg;   // Map from a function name to an IR function argument
     set<string>* instrument_only;   // Set of functions to instrument; NULL=all
     set<string>* dont_instrument;   // Set of functions not to instrument; NULL=none

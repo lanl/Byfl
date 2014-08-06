@@ -414,7 +414,7 @@ if (defined $build_type{"compile"}) {
             execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
                             "-bytesflops", @bf_options,
                             $infile, "-o", $byfl_bcfile);
-            if ($optlevel =~ /^\d+$/) {
+            if ($optlevel =~ /^\d+$/ && $optlevel ne "0" ) {
                 # Numeric optimization level -- round to -O3 or higher
                 # then run the bitcode through opt.
                 my $post_byfl_opt = $optlevel;

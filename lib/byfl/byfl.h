@@ -40,6 +40,10 @@ extern uint8_t  bf_tally_inst_mix;   // 1=maintain instruction mix histogram
 extern uint8_t  bf_types;            // 1=count loads/stores per type
 extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
 extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
+extern uint8_t  bf_cache_model;      // 1=use the simple cache model
+extern uint64_t bf_line_size;        // cache line size in bytes
+extern uint8_t  bf_dump_cache;       // 1=dump all cache information to a file
+extern uint64_t bf_max_set_bits;     // log base 2 of max number of sets to model
 
 // The following function is expected to be overridden by user code.
 extern "C" {
@@ -73,6 +77,16 @@ namespace bytesflops {
   extern void initialize_threading(void);
   extern void initialize_ubytes(void);
   extern void initialize_vectors(void);
+  extern void initialize_cache(void);
+  extern uint64_t bf_get_private_cache_accesses(void);
+  extern vector<unordered_map<uint64_t,uint64_t> > bf_get_private_cache_hits(void);
+  extern uint64_t bf_get_private_cold_misses(void);
+  extern uint64_t bf_get_private_split_accesses(void);
+  extern uint64_t bf_get_shared_cache_accesses(void);
+  extern vector<unordered_map<uint64_t,uint64_t> > bf_get_shared_cache_hits(void);
+  extern uint64_t bf_get_shared_cold_misses(void);
+  extern uint64_t bf_get_shared_split_accesses(void);
+  extern vector<unordered_map<uint64_t,uint64_t> > bf_get_remote_shared_cache_hits(void);
 
   // The following library variables are used in files other than the
   // one in which they're defined.

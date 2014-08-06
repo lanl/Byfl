@@ -5,6 +5,7 @@
  * By Scott Pakin <pakin@lanl.gov>
  *    Pat McCormick <pat@lanl.gov>
  */
+#include <sstream>
 
 #include "byfl.h"
 
@@ -435,6 +436,7 @@ void bf_initialize_if_necessary (void)
     initialize_ubytes();
     initialize_tallybytes();
     initialize_vectors();
+    initialize_cache();
     initialized = true;
   }
 }
@@ -1079,6 +1081,58 @@ private:
       *bfout << tag << ": " << separator << '\n';
   }
 
+    // *bfout << tag << ": "
+    //       << setw(25) << running_total_bytes << " bytes cover "
+    //       << fixed << setw(5) << setprecision(1) << hit_rate*100.0 << "% of memory accesses\n";
+  // Report cache performance if it was used.
+  void report_cache (void) {
+    /* where n different dump files are created. */
+    const int n = 3;
+    uint64_t accesses[n] = {bf_get_private_cache_accesses(), 
+                            bf_get_shared_cache_accesses(),
+                            bf_get_shared_cache_accesses()};
+    vector<unordered_map<uint64_t,uint64_t> > hits[n] = {bf_get_private_cache_hits(), 
+                                                         bf_get_shared_cache_hits(),
+                                                         bf_get_remote_shared_cache_hits()};
+    uint64_t cold_misses[n] = {bf_get_private_cold_misses(), 
+                               bf_get_shared_cold_misses(),
+                               bf_get_shared_cold_misses()};
+    uint64_t split_accesses[n] = {bf_get_private_split_accesses(), 
+                                  bf_get_shared_split_accesses(),
+                                  bf_get_shared_split_accesses()};
+
+    if (bf_dump_cache){
+      string names[n]{"private-cache.dump",
+                      "shared-cache.dump",
+                      "remote-shared-cache.dump"};
+      ofstream dumpfiles[n];
+      for(int i = 0; i < n; ++i){
+        dumpfiles[i].open(names[i]);
+        dumpfiles[i] << "Total cache accesses\t" << accesses[i] << endl;
+        dumpfiles[i] << "Cold misses\t" << cold_misses[i] << endl;
+        dumpfiles[i] << "Split accesses\t" << split_accesses[i] << endl;
+        dumpfiles[i] << "Line size\t" << bf_line_size << endl;
+      }
+      for(uint64_t set = 0; set < bf_max_set_bits; ++set){
+        // dump the same things for both shared and private caches
+        for(int i = 0; i < n; ++i){
+          dumpfiles[i] << "Sets\t" << (1 << set) << endl;
+          for(const auto& elem : hits[i][set]){
+            dumpfiles[i] << elem.first << "\t" << elem.second << endl;
+          }
+        }
+      }
+      for(int i = 0; i < n; ++i){
+        dumpfiles[i].close();
+      }
+    }
+
+    string tag(bf_output_prefix + "BYFL_SUMMARY");
+    *bfout << tag << ": " << setw(25) << accesses[0] << " Total cache accesses\n";
+    *bfout << tag << ": " << separator << '\n';
+
+  }
+
 public:
   RunAtEndOfProgram() {
     separator = "-----------------------------------------------------------------";
@@ -1136,6 +1190,12 @@ public:
 
     // Report the global counter totals across all basic blocks.
     report_totals(NULL, global_totals);
+
+    // Report the cache performance if it was turned on.
+    if (bf_cache_model) {
+      report_cache();
+    }
+
     bfout->flush();
   }
 } run_at_end_of_program;
