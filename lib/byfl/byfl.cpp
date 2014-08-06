@@ -1102,24 +1102,28 @@ private:
                                   bf_get_shared_split_accesses()};
 
     if (bf_dump_cache){
+      string names[n]{"private-cache.dump",
+                      "shared-cache.dump",
+                      "remote-shared-cache.dump"};
+      ofstream dumpfiles[n];
+      for(int i = 0; i < n; ++i){
+        dumpfiles[i].open(names[i]);
+        dumpfiles[i] << "Total cache accesses\t" << accesses[i] << endl;
+        dumpfiles[i] << "Cold misses\t" << cold_misses[i] << endl;
+        dumpfiles[i] << "Split accesses\t" << split_accesses[i] << endl;
+        dumpfiles[i] << "Line size\t" << bf_line_size << endl;
+      }
       for(uint64_t set = 0; set < bf_max_set_bits; ++set){
-        stringstream fname[n];
-        fname[0] << "private-cache." << (1 << set) << "sets.dump";
-        fname[1] << "shared-cache." << (1 << set) << "sets.dump";
-        fname[2] << "remote-shared-cache." << (1 << set) << "sets.dump";
         // dump the same things for both shared and private caches
         for(int i = 0; i < n; ++i){
-          ofstream dumpfile(fname[i].str());
-          dumpfile << "Total cache accesses\t" << accesses[i] << endl;
-          dumpfile << "Cold misses\t" << cold_misses[i] << endl;
-          dumpfile << "Split accesses\t" << split_accesses[i] << endl;
-          dumpfile << "Line size\t" << bf_line_size << endl;
-          dumpfile << "Distance\tCount" << endl;
+          dumpfiles[i] << "Sets\t" << (1 << set) << endl;
           for(const auto& elem : hits[i][set]){
-            dumpfile << elem.first << "\t" << elem.second << endl;
+            dumpfiles[i] << elem.first << "\t" << elem.second << endl;
           }
-          dumpfile.close();
         }
+      }
+      for(int i = 0; i < n; ++i){
+        dumpfiles[i].close();
       }
     }
 

@@ -11,30 +11,65 @@ from argparse import ArgumentParser,FileType
 import math
 
 parser = ArgumentParser(description='Process a Byfl cache dump to get access counts.')
-parser.add_argument('--ways', nargs='*', type=str, 
-                    help='List of cache sizes.')
-parser.add_argument('--filename', type=FileType('r'), default='-', nargs='?',
-                    help='Path to filename for processing.')
+parser.add_argument('--sizes', nargs='*', type=int,
+                    help='List of cache sizes, per thread.')
+parser.add_argument('--ways', nargs='*', type=int, 
+                    help='List of cache associativities.')
+parser.add_argument('--shared-llc', action='store_true', default=False,
+                    help='If set, the last level cache is shared among all threads.')
+parser.add_argument('--threads', nargs='?', default=1, type=int,
+                    help='Number of private domains. Default of 1.')
+parser.add_argument('privatefile', type=FileType('r'),
+                    help='Path to private cache dump file.')
+parser.add_argument('sharedfile', type=FileType('r'),
+                    help='Path to shared cache dump file.')
 
-args = vars(parser.parse_args())
+args = parser.parse_args()
 
-lines = args['filename'].readlines()
+lines = [args.privatefile.readlines(), args.sharedfile.readlines()]
 #total hits
-total = int(lines[0].split()[3])
+total = int(lines[0][0].split()[3])
 #cold misses
-cold = int(lines[1].split()[2])
+cold = int(lines[0][1].split()[2])
 #line size
-line_size = int(lines[3].split()[2])
+line_size = int(lines[0][3].split()[2])
 
-# get all distance->count pairings in order
-vals = sorted([map(int, line.split()) for line in lines[5:]], 
-              key=lambda x: x[0])
+sets = [size / line_size / ways for size,ways in zip(args.sizes, args.ways)]
+
+# for each set count, get a vector of distance-count pairings
+# hits = {set_size: [distance, count]}
+hits = [{}, {}]
+cur_set = 0
+for i,l in enumerate(lines):
+    for line in l[4:]:
+        line_vals = line.split()
+        if line_vals[0] == 'Sets':
+            cur_set = int(line_vals[1])
+            hits[i][cur_set] = []
+        else:
+            hits[i][cur_set].append([int(line_vals[0]), int(line_vals[1])])
+cum_hits = [{}, {}]
+for i,hit in enumerate(hits):
+    for key in hit:
+        hit[key].sort(key=lambda x: x[0])
+        cum_hits[i][key] = []
+        cur_hits = 0
+        for dist, count in hit[key]:
+            cum_hits[i][key].append([dist, count + cur_hits])
+            cur_hits = count + cur_hits
 
 accesses = [total]
-for ways in map(int, args['ways']):
-    cur_accesses = 0
-    for (dist, count) in [val for val in vals if val[0] <= ways]:
-        cur_accesses = cur_accesses + count
-    accesses.append(total - cur_accesses)
+
+for size, ways in zip(sets, args.ways):
+    accesses.append(total - sum([val[1] for val in hits[0][size] 
+                                        if val[0] <= ways]))
+
+if args.shared_llc:
+    per_core_size = sets[1]
+    cum_size = per_core_size * args.threads
+    remote_private_hits = sum([val[1] for val in hits[1][per_core_size] if val[0] <= args.ways[1]])
+    remote_total_hits = sum([val[1] for val in hits[1][cum_size] if val[0] <= args.ways[1]])
+    accesses[1] = accesses[1] - (remote_private_hits - remote_total_hits)
+    accesses[2] = accesses[2] + (remote_private_hits - remote_total_hits)
 
 print "\t".join([str(access) for access in accesses])
