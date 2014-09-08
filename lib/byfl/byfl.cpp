@@ -428,6 +428,7 @@ void bf_initialize_if_necessary (void)
 {
   static bool initialized = false;
   if (!__builtin_expect(initialized, true)) {
+    bf_acquire_mega_lock();
     initialize_byfl();
     initialize_reuse();
     initialize_symtable();
@@ -436,6 +437,7 @@ void bf_initialize_if_necessary (void)
     initialize_tallybytes();
     initialize_vectors();
     initialized = true;
+    bf_release_mega_lock();
   }
 }
 
@@ -1090,6 +1092,16 @@ public:
     if (suppress_output())
       return;
 
+    // Ensure that only one thread outputs anything.
+    bf_acquire_mega_lock();
+    static bool already_output = false;
+    if (already_output) {
+      bf_release_mega_lock();
+      while (1)
+	;
+      return;
+    }
+
     // Report per-function counter totals.
     if (bf_per_func)
       report_by_function();
@@ -1137,6 +1149,9 @@ public:
     // Report the global counter totals across all basic blocks.
     report_totals(NULL, global_totals);
     bfout->flush();
+
+    // Release the mega-lock.
+    bf_release_mega_lock();
   }
 } run_at_end_of_program;
 

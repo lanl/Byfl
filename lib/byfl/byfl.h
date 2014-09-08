@@ -66,6 +66,8 @@ namespace bytesflops {
   extern uint64_t bf_tally_unique_addresses_tb(void);
   extern uint64_t bf_tally_unique_addresses(void);
   extern const char* bf_string_to_symbol(const char *nonunique);
+  extern void bf_acquire_mega_lock(void);
+  extern void bf_release_mega_lock(void);
   extern void initialize_byfl(void);
   extern void initialize_reuse(void);
   extern void initialize_symtable(void);
