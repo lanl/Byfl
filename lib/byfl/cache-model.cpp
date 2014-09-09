@@ -63,7 +63,7 @@ inline int Cache::getRightMatch(uint64_t a, uint64_t b){
 void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
   uint64_t num_accesses = 0; // running total of number of lines accessed
   for(uint64_t addr = baseaddr / line_size_ * line_size_;
-      addr <= (baseaddr + numaddrs ) / line_size_ * line_size_;
+      addr <= (baseaddr + numaddrs - 1) / line_size_ * line_size_;
       addr += line_size_){
     ++num_accesses;
     bool found = false;
