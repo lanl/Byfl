@@ -1101,7 +1101,7 @@ private:
                                   bf_get_shared_split_accesses(),
                                   bf_get_shared_split_accesses()};
 
-    if (bf_dump_cache){
+    if (bf_cache_model){
       string names[n]{"private-cache.dump",
                       "shared-cache.dump",
                       "remote-shared-cache.dump"};

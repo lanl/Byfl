@@ -98,6 +98,9 @@ namespace bytesflops_pass {
                cl::value_desc("accesses"));
 
   // Define a command-line option for turning on the cache model.
+  // Doing so will create private-cache.dump,
+  // remote-shared-cache.dump, and shared-cache.dump files on each
+  // run.
   cl::opt<bool>
   CacheModel("bf-cache-model", cl::init(false), cl::NotHidden,
              cl::desc("Model memory accesses to a simple cache."));
@@ -108,11 +111,6 @@ namespace bytesflops_pass {
   CacheLineBytes("bf-line-size", cl::init(64), cl::NotHidden,
                  cl::desc("Size, in bytes, of the cache lines used by the simple cache model."),
                  cl::value_desc("size"));
-
-  // Define a command-line option to dump out the raw cache data to file.
-  cl::opt<bool>
-  DumpCache("bf-dump-cache", cl::init(false), cl::NotHidden,
-            cl::desc("Dump out cache data to file."));
 
   // Define a command-line option to specify the maximum number of sets.
   cl::opt<unsigned long long>
