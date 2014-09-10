@@ -1088,18 +1088,21 @@ private:
   void report_cache (void) {
     /* where n different dump files are created. */
     const int n = 3;
-    uint64_t accesses[n] = {bf_get_private_cache_accesses(), 
+    uint64_t accesses[n] = {bf_get_private_cache_accesses(),
                             bf_get_shared_cache_accesses(),
                             bf_get_shared_cache_accesses()};
-    vector<unordered_map<uint64_t,uint64_t> > hits[n] = {bf_get_private_cache_hits(), 
+    vector<unordered_map<uint64_t,uint64_t> > hits[n] = {bf_get_private_cache_hits(),
                                                          bf_get_shared_cache_hits(),
                                                          bf_get_remote_shared_cache_hits()};
-    uint64_t cold_misses[n] = {bf_get_private_cold_misses(), 
+    uint64_t cold_misses[n] = {bf_get_private_cold_misses(),
                                bf_get_shared_cold_misses(),
                                bf_get_shared_cold_misses()};
-    uint64_t split_accesses[n] = {bf_get_private_split_accesses(), 
+    uint64_t split_accesses[n] = {bf_get_private_split_accesses(),
                                   bf_get_shared_split_accesses(),
                                   bf_get_shared_split_accesses()};
+    uint64_t unaligned_accesses[n] = {bf_get_private_unaligned_accesses(),
+                                      bf_get_shared_unaligned_accesses(),
+                                      bf_get_shared_unaligned_accesses()};
 
     if (bf_cache_model){
       string names[n]{"private-cache.dump",
@@ -1128,7 +1131,11 @@ private:
     }
 
     string tag(bf_output_prefix + "BYFL_SUMMARY");
-    *bfout << tag << ": " << setw(25) << accesses[0] << " Total cache accesses\n";
+    *bfout << tag << ": " << setw(25)
+           << accesses[0] << " cache accesses ("
+           << accesses[0] - unaligned_accesses[0] << " aligned + "
+           << unaligned_accesses[0] << " unaligned) with a line size of "
+           << bf_line_size << " bytes\n";
     *bfout << tag << ": " << separator << '\n';
 
   }
