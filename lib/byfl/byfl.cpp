@@ -1081,11 +1081,8 @@ private:
       *bfout << tag << ": " << separator << '\n';
   }
 
-    // *bfout << tag << ": "
-    //       << setw(25) << running_total_bytes << " bytes cover "
-    //       << fixed << setw(5) << setprecision(1) << hit_rate*100.0 << "% of memory accesses\n";
   // Report cache performance if it was used.
-  void report_cache (void) {
+  void report_cache (ByteFlopCounters& counter_totals) {
     /* where n different dump files are created. */
     const int n = 3;
     uint64_t accesses[n] = {bf_get_private_cache_accesses(),
@@ -1097,9 +1094,9 @@ private:
     uint64_t cold_misses[n] = {bf_get_private_cold_misses(),
                                bf_get_shared_cold_misses(),
                                bf_get_shared_cold_misses()};
-    uint64_t unaligned_accesses[n] = {bf_get_private_unaligned_accesses(),
-                                      bf_get_shared_unaligned_accesses(),
-                                      bf_get_shared_unaligned_accesses()};
+    uint64_t misaligned_mem_ops[n] = {bf_get_private_misaligned_mem_ops(),
+                                      bf_get_shared_misaligned_mem_ops(),
+                                      bf_get_shared_misaligned_mem_ops()};
 
     if (bf_cache_model){
       string names[n]{"private-cache.dump",
@@ -1127,11 +1124,12 @@ private:
     }
 
     string tag(bf_output_prefix + "BYFL_SUMMARY");
+    uint64_t global_mem_ops = counter_totals.load_ins + counter_totals.store_ins;
     *bfout << tag << ": " << setw(25)
-           << accesses[0] << " cache lines accessed ("
-           << accesses[0] - unaligned_accesses[0] << " aligned + "
-           << unaligned_accesses[0] << " unaligned loads/stores) with a line size of "
-           << bf_line_size << " bytes\n";
+           << accesses[0] << " cache lines accessed (due to "
+           << global_mem_ops - misaligned_mem_ops[0] << " aligned + "
+           << misaligned_mem_ops[0] << " misaligned memory ops; "
+           << "line size = " << bf_line_size << " bytes)\n";
     *bfout << tag << ": " << separator << '\n';
 
   }
@@ -1196,7 +1194,7 @@ public:
 
     // Report the cache performance if it was turned on.
     if (bf_cache_model) {
-      report_cache();
+      report_cache(global_totals);
     }
 
     bfout->flush();
