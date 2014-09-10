@@ -180,7 +180,7 @@ sub convert_archive_file ($)
 
     # Extract a .bc file from each .o file.
     my @bcfiles;
-    foreach my $ofile (<*.o>) {
+    foreach my $ofile (<*.o .*.o>) {
         my $bcfile = extract_bitcode $ofile;
         push @bcfiles, $bcfile if $bcfile ne $ofile;
     }
@@ -196,7 +196,7 @@ sub convert_archive_file ($)
     }
 
     # Re-archive the real .o files into a single .a file.
-    execute_command("ar", $verbosity > 0 ? "rv" : "r", $afile, glob "*.o");
+    execute_command("ar", $verbosity > 0 ? "rv" : "r", $afile, glob "*.o .*.o");
 
     # Leave the work directory so it can be removed.
     chdir "..";

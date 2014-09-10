@@ -191,12 +191,12 @@ sub apply_byfl_to_archive ($$)
     execute_command("ar", "x$vflag", $infile);
 
     # Apply Byfl to each file in turn.
-    foreach my $ofile (glob "*") {
+    foreach my $ofile (glob "*.o .*.o") {
         apply_byfl $ofile, $ofile;
     }
 
     # Replace the archive's contents with the instrumented files.
-    execute_command("ar", "r$vflag", $outfile, glob "*");
+    execute_command("ar", "r$vflag", $outfile, glob "*.o .*.o");
 
     # Let File::Temp remove the temporary directory.
     print STDERR "cd $cwd\n" if $verbosity > 0;
