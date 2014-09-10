@@ -1097,9 +1097,6 @@ private:
     uint64_t cold_misses[n] = {bf_get_private_cold_misses(),
                                bf_get_shared_cold_misses(),
                                bf_get_shared_cold_misses()};
-    uint64_t split_accesses[n] = {bf_get_private_split_accesses(),
-                                  bf_get_shared_split_accesses(),
-                                  bf_get_shared_split_accesses()};
     uint64_t unaligned_accesses[n] = {bf_get_private_unaligned_accesses(),
                                       bf_get_shared_unaligned_accesses(),
                                       bf_get_shared_unaligned_accesses()};
@@ -1113,7 +1110,6 @@ private:
         dumpfiles[i].open(names[i]);
         dumpfiles[i] << "Total cache accesses\t" << accesses[i] << endl;
         dumpfiles[i] << "Cold misses\t" << cold_misses[i] << endl;
-        dumpfiles[i] << "Split accesses\t" << split_accesses[i] << endl;
         dumpfiles[i] << "Line size\t" << bf_line_size << endl;
       }
       for(uint64_t set = 0; set < bf_max_set_bits; ++set){
@@ -1132,9 +1128,9 @@ private:
 
     string tag(bf_output_prefix + "BYFL_SUMMARY");
     *bfout << tag << ": " << setw(25)
-           << accesses[0] << " cache accesses ("
+           << accesses[0] << " cache lines accessed ("
            << accesses[0] - unaligned_accesses[0] << " aligned + "
-           << unaligned_accesses[0] << " unaligned) with a line size of "
+           << unaligned_accesses[0] << " unaligned loads/stores) with a line size of "
            << bf_line_size << " bytes\n";
     *bfout << tag << ": " << separator << '\n';
 

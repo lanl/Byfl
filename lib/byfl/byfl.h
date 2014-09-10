@@ -80,12 +80,10 @@ namespace bytesflops {
   extern uint64_t bf_get_private_cache_accesses(void);
   extern vector<unordered_map<uint64_t,uint64_t> > bf_get_private_cache_hits(void);
   extern uint64_t bf_get_private_cold_misses(void);
-  extern uint64_t bf_get_private_split_accesses(void);
   extern uint64_t bf_get_private_unaligned_accesses(void);
   extern uint64_t bf_get_shared_cache_accesses(void);
   extern vector<unordered_map<uint64_t,uint64_t> > bf_get_shared_cache_hits(void);
   extern uint64_t bf_get_shared_cold_misses(void);
-  extern uint64_t bf_get_shared_split_accesses(void);
   extern uint64_t bf_get_shared_unaligned_accesses(void);
   extern vector<unordered_map<uint64_t,uint64_t> > bf_get_remote_shared_cache_hits(void);
 

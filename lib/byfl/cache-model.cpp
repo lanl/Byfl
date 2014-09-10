@@ -22,7 +22,7 @@ class Cache {
   public:
     void access(uint64_t baseaddr, uint64_t numaddrs);
     Cache(uint64_t line_size, uint64_t max_set_bits, bool record_thread_id) :
-      line_size_{line_size}, accesses_{0}, split_accesses_{0}, unaligned_accesses_{0},
+      line_size_{line_size}, accesses_{0}, unaligned_accesses_{0},
       log2_line_size_{0}, max_set_bits_{max_set_bits}, cold_misses_{0},
       hits_(max_set_bits_), record_thread_id_{record_thread_id},
       remote_hits_(max_set_bits_) {
@@ -32,7 +32,6 @@ class Cache {
     uint64_t getAccesses() const { return accesses_; }
     vector<unordered_map<uint64_t,uint64_t> > getHits() const { return hits_; }
     uint64_t getColdMisses() const { return cold_misses_; }
-    uint64_t getSplitAccesses() const { return split_accesses_; }
     uint64_t getUnalignedAccesses() const { return unaligned_accesses_; }
     int getRightMatch(uint64_t a, uint64_t b);
     vector<unordered_map<uint64_t,uint64_t> > getRemoteHits() const { return remote_hits_; }
@@ -41,7 +40,6 @@ class Cache {
     vector<uint64_t> lines_; // back is mru, front is lru
     uint64_t line_size_;
     uint64_t accesses_;
-    uint64_t split_accesses_;
     uint64_t unaligned_accesses_;
     uint64_t log2_line_size_; // log base 2 of line size
     uint64_t max_set_bits_; // log base 2 of max number of sets
@@ -117,10 +115,8 @@ void Cache::access(uint64_t baseaddr, uint64_t numaddrs){
 
   // we've made all our accesses
   accesses_ += num_accesses;
-  if(num_accesses != 1){
-    ++split_accesses_;
+  if(num_accesses != 1)
     unaligned_accesses_ += num_accesses - (numaddrs + line_size_ - 1)/line_size_;
-  }
 }
 
 namespace bytesflops{
@@ -216,18 +212,6 @@ uint64_t bf_get_private_cold_misses(void){
 
 uint64_t bf_get_shared_cold_misses(void){
   return global_cache->getColdMisses();
-}
-
-uint64_t bf_get_private_split_accesses(void){
-  uint64_t res = 0;
-  for(auto& cache: *caches){
-    res += cache->getSplitAccesses();
-  }
-  return res;
-}
-
-uint64_t bf_get_shared_split_accesses(void){
-  return global_cache->getSplitAccesses();
 }
 
 uint64_t bf_get_private_unaligned_accesses(void){

@@ -4,7 +4,7 @@
 #   get-accesses.py <filename> l1size [l2size [l3size]]
 #   filename        - name of file to parse for total hit values
 #   lNsize          - size of lN cache
-#   Multiple levels are optional, but you must specify the smaller cache sizes 
+#   Multiple levels are optional, but you must specify the smaller cache sizes
 #   to filter before hitting higher levels.
 
 from argparse import ArgumentParser,FileType
@@ -13,7 +13,7 @@ import math
 parser = ArgumentParser(description='Process a Byfl cache dump to get access counts.')
 parser.add_argument('--sizes', nargs='*', type=int,
                     help='List of cache sizes, per thread.')
-parser.add_argument('--ways', nargs='*', type=int, 
+parser.add_argument('--ways', nargs='*', type=int,
                     help='List of cache associativities.')
 parser.add_argument('--shared-llc', action='store_true', default=False,
                     help='If set, the last level cache is shared among all threads.')
@@ -32,7 +32,7 @@ total = int(lines[0][0].split()[3])
 #cold misses
 cold = int(lines[0][1].split()[2])
 #line size
-line_size = int(lines[0][3].split()[2])
+line_size = int(lines[0][2].split()[2])
 
 sets = [size / line_size / ways for size,ways in zip(args.sizes, args.ways)]
 
@@ -41,7 +41,7 @@ sets = [size / line_size / ways for size,ways in zip(args.sizes, args.ways)]
 hits = [{}, {}]
 cur_set = 0
 for i,l in enumerate(lines):
-    for line in l[4:]:
+    for line in l[3:]:
         line_vals = line.split()
         if line_vals[0] == 'Sets':
             cur_set = int(line_vals[1])
@@ -61,7 +61,7 @@ for i,hit in enumerate(hits):
 accesses = [total]
 
 for size, ways in zip(sets, args.ways):
-    accesses.append(total - sum([val[1] for val in hits[0][size] 
+    accesses.append(total - sum([val[1] for val in hits[0][size]
                                         if val[0] <= ways]))
 
 if args.shared_llc:
