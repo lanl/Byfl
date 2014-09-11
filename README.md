@@ -39,7 +39,7 @@ Installation
 
 ### Automatic installation
 
-Byfl relies on [LLVM](http://www.llvm.org/), [Clang](http://clang.llvm.org/), and [DragonEgg](http://dragonegg.llvm.org/).  These are huge and must be built from trunk (i.e., the post-3.2-release development code).  The [`build-llvm-byfl`](https://github.com/losalamos/Byfl/blob/master/build-llvm-byfl) script automatically downloads all of these plus Byfl, configures them, builds them, and installs the result into a directory you specify.
+Byfl relies on [LLVM](http://www.llvm.org/), [Clang](http://clang.llvm.org/), and [DragonEgg](http://dragonegg.llvm.org/).  These are huge and must be built from trunk (i.e., the post-3.5-release development code).  The [`build-llvm-byfl`](https://github.com/losalamos/Byfl/blob/master/build-llvm-byfl) script automatically downloads all of these plus Byfl, configures them, builds them, and installs the result into a directory you specify.
 
 Byfl also relies on [GCC](http://gcc.gnu.org/).  You should already have GCC installed and in your path before running [`build-llvm-byfl`](https://github.com/losalamos/Byfl/blob/master/build-llvm-byfl).  The LLVM guys currently seem to do most of their testing with GCC 4.6 so that's your best bet for having everything work.
 
@@ -62,9 +62,17 @@ Byfl also relies on [GCC](http://gcc.gnu.org/).  You should already have GCC ins
   <dd>Configure, build, and install Byfl and its dependencies without re-downloading them into <em>build_dir</em>.<br/>
       <em>Default:</em> off</dd>
 
+  <dt><code>-C</code></dt>
+  <dd>Configure, build, and install Byfl and its dependencies without re-downloading them into <em>build_dir</em> and without re-running either the LLVM or the Byfl <code>configure</code> scripts.<br/>
+      <em>Default:</em> off</dd>
+
+  <dt><code>-D</code> <em>dir_prefix</em></dt>
+  <dd>Prefix the installation directory with <em>dir_prefix</em> when building and installing.  The idea is for the script to install into a temporary location with the intention that a user will manually move the files into the final installation directory.  This is sometimes called a <a href="https://www.gnu.org/prep/standards/html_node/DESTDIR.html"><em>staged install</em></a>.<br/>
+      <em>Default:</em> <code>""</code></dd>
+
   <dt><code>-t</code></dt>
   <dd>Display progress textually instead of with a GUI progress bar (<a href="https://help.gnome.org/users/zenity/stable/">Zenity</a>).<br/>
-      <em>Default:</em> GUI display if available</dd>
+      <em>Default:</em> GUI display if available, textual display otherwise</dd>
 </dl>
 
 ### Manual installation

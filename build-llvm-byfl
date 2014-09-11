@@ -18,16 +18,22 @@ fi
 # Define a function to work around OS X's lack of "readlink -f".
 function abs_dirname() {
   somedir=`echo "$1/" | sed 's,//*,/,g'`
-  mkdir -p "$somedir"
-  (cd "${somedir%/*}" && pwd -P)
+  if [ `echo "$somedir" | cut -c1` = "/" ] ; then
+      echo "$somedir"
+  else
+      mkdir -p "$somedir" > /dev/null 2>&1
+      (cd "${somedir%/*}" && pwd -P)
+  fi
 }
 
 # Determine where to build, where to install, and how many processes to use.
 gui=yes
 download=yes
+configure=yes
 compile=yes
 llvm_revision=HEAD
-while getopts j:b:r:tdc opt; do
+destdir=
+while getopts j:b:r:tdcCD: opt; do
     case $opt in
         j)
             # Parallelism
@@ -53,8 +59,20 @@ while getopts j:b:r:tdc opt; do
             ;;
         c)
             # Compile only
-            compile=yes
             download=no
+            compile=yes
+            configure=yes
+            ;;
+        C)
+            # Compile only but use the existing configuration
+            download=no
+            compile=yes
+            configure=no
+            ;;
+        D)
+            # Specify an installation prefix that's "invisible" to the
+            # installed programs.
+            destdir="$OPTARG"
             ;;
     esac
 done
@@ -106,7 +124,7 @@ if [ "$gui" = yes ] ; then
 fi
 if [ "$gui" = yes ] ; then
     coproc zproc {
-	zenity --progress --title="Byfl installation progress" --auto-kill
+        zenity --progress --title="Byfl installation progress" --auto-kill
     }
     while [ -z "$zenity_pid" ] ; do
         zenity_pid=`ps | awk '$NF == "zenity" {print $1}'`
@@ -170,7 +188,7 @@ mkdir build-logs
 if [ "$download" = yes ] ; then
     # Delete old files before downloading the new ones.
     echo "# Removing old versions of LLVM, Clang, DragonEgg, and Byfl from $builddir" 1>&4
-    run_with_progress cleanup 60000 rm -rfv byfl dragonegg llvm
+    run_with_progress cleanup 62000 rm -rfv byfl dragonegg llvm
 
     # Download LLVM trunk.
     echo "# Downloading LLVM into $builddir" 1>&4
@@ -181,7 +199,7 @@ if [ "$download" = yes ] ; then
 
     # Download Clang.
     echo "# Downloading Clang revision $llvm_revision into $builddir" 1>&4
-    run_with_progress clang-dl 12000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/trunk llvm/tools/clang
+    run_with_progress clang-dl 13000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/trunk llvm/tools/clang
 
     # Download the Clang run-time system.
     echo "# Downloading Clang RT revision $llvm_revision into $builddir" 1>&4
@@ -208,41 +226,47 @@ if [ "$compile" = yes ] ; then
     # Configure LLVM and Clang.
     echo "# Configuring LLVM and Clang" 1>&4
     cd llvm
-    run_with_progress llvm-config 270 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
+    if [ $configure = yes -o ! -e config.log ] ; then
+        run_with_progress llvm-config 270 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
+    fi
 
     # Build LLVM and Clang.
     echo "# Compiling LLVM and Clang" 1>&4
-    run_with_progress llvm-build 4200 make -j$numprocs
+    run_with_progress llvm-build 3600 make -j$numprocs
 
     # Install LLVM and Clang.
-    echo "# Installing LLVM and Clang into $installdir" 1>&4
-    run_with_progress llvm-inst 830 make install
+    echo "# Installing LLVM and Clang into $destdir$installdir" 1>&4
+    run_with_progress llvm-inst 820 make DESTDIR="$destdir" install
 
     # Build DragonEgg.
-    export PATH=$installdir/bin:$PATH
+    export PATH="$destdir$installdir/bin:$PATH"
     cd ../dragonegg
     echo "# Compiling DragonEgg" 1>&4
-    run_with_progress dregg-build 360 make -j$numprocs
+    run_with_progress dregg-build 370 make -j$numprocs
 
     # Install DragonEgg.
-    echo "# Installing DragonEgg into $installdir" 1>&4
-    run_with_progress dregg-inst 2 cp -v dragonegg.so $installdir/lib
+    echo "# Installing DragonEgg into $destdir$installdir" 1>&4
+    run_with_progress dregg-inst 2 cp -v dragonegg.so "$destdir$installdir/lib/"
 
     # Configure Byfl.
     echo "# Configuring Byfl" 1>&4
     cd ../byfl/autoconf
-    (echo $builddir_llvm ; echo $builddir_llvm) | ./AutoRegen.sh
+    if [ $configure = yes -o ! -e config.log ] ; then
+        (echo $builddir_llvm ; echo $builddir_llvm) | ./AutoRegen.sh
+    fi
     test -e ../build || mkdir ../build
     cd ../build
-    run_with_progress byfl-config 340 ../configure --disable-assertions --enable-optimized --enable-debug-runtime --enable-debug-symbols DRAGONEGG="$installdir/lib/dragonegg.so" CXX="$CXX" CXXFLAGS="-g -O2 -std=c++0x" --with-llvmsrc="$builddir/llvm" --with-llvmobj="$builddir/llvm" --prefix="$installdir"
+    if [ $configure = yes -o ! -e config.log ] ; then
+        run_with_progress byfl-config 340 ../configure --disable-assertions --enable-optimized --enable-debug-runtime --enable-debug-symbols DRAGONEGG="$installdir/lib/dragonegg.so" CXX="$CXX" CXXFLAGS="-g -O2 -std=c++0x" --with-llvmsrc="$builddir/llvm" --with-llvmobj="$builddir/llvm" --prefix="$installdir"
+    fi
 
     # Build Byfl.
     echo "# Compiling Byfl" 1>&4
-    run_with_progress byfl-build 53 make -j$numprocs
+    run_with_progress byfl-build 56 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" -j$numprocs
 
     # Install Byfl.
-    echo "# Installing Byfl into $installdir" 1>&4
-    run_with_progress byfl-inst 44 make install
+    echo "# Installing Byfl into $destdir$installdir" 1>&4
+    run_with_progress byfl-inst 44 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" DESTDIR="$destdir" install
 
     # Test the installation
     echo "# Testing the Byfl installation" 1>&4
@@ -257,8 +281,8 @@ int main (void) {
   return 0;
 }
 CFILE
-    export PERL5LIB=${byflperllib}:$PERL5LIB
-    bf-gcc $cfile -o $exefile
+    export PERL5LIB="${destdir}${byflperllib}:$PERL5LIB"
+    bf-gcc -bf-libdir="$destdir$installdir/lib" -bf-dragonegg="$destdir$installdir/lib/dragonegg.so" $cfile -o $exefile
     run_with_progress byfl-test 22 $exefile
     rm -f $cfile $exefile
 
