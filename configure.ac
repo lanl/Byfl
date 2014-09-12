@@ -34,12 +34,6 @@ fi
 if test "${CXXFLAGS:-undefined}" = undefined ; then
    CXXFLAGS=`${LLVM_CONFIG} --cxxflags`
 fi
-if test "${LDFLAGS:-undefined}" = undefined ; then
-   LDFLAGS=`${LLVM_CONFIG} --ldflags`
-fi
-if test "${LIBS:-undefined}" = undefined ; then
-   LIBS=`${LLVM_CONFIG} --libs`
-fi
 AC_SUBST([llvm_libdir], [`${LLVM_CONFIG} --libdir`])
 
 dnl Byfl requires C++11.  Abort if we don't have C++11 support.
