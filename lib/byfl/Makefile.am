@@ -23,7 +23,8 @@ libbyfl_la_LDFLAGS = -version-info 0:0:0
 
 BUILT_SOURCES = opcode2name.cpp opcode2name.h
 EXTRA_DIST = gen_opcode2name
+CLEANFILES = $(BUILT_SOURCES)
 
 # Specify how to create opcode2name.cpp and opcode2name.h
 opcode2name.cpp opcode2name.h: $(srcdir)/gen_opcode2name
-	$(PERL) $(srcdir)/gen_opcode2name '$(CPP) $(CPPFLAGS)' $(srcdir)/opcode2name.cpp $(srcdir)/opcode2name.h
+	$(AM_V_GEN) $(PERL) $(srcdir)/gen_opcode2name '$(CPP) $(CPPFLAGS)' $(srcdir)/opcode2name.cpp $(srcdir)/opcode2name.h
