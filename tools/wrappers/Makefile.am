@@ -5,7 +5,6 @@
 # By Scott Pakin <pakin@lanl.gov>	   #
 ############################################
 
-dist_bin_SCRIPTS = bf-parse-cache-dump
 nodist_bin_SCRIPTS = \
 	bf-inst \
 	bf-gcc \

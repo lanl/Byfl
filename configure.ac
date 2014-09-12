@@ -15,6 +15,11 @@ if test "$PERL" = no ; then
    AC_MSG_ERROR([Byfl can't build without Perl])
 fi
 
+dnl We need grep, sed, and make within this script.
+AC_PROG_GREP
+AC_PROG_SED
+AC_CHECK_PROGS([MAKE], [make gmake gnumake], [make])
+
 dnl Use llvm-config to set our default compiler and linker flags.
 AC_CHECK_PROGS([LLVM_CONFIG], [llvm-config], [no])
 if test "$LLVM_CONFIG" = no ; then
@@ -73,7 +78,7 @@ if test "${DRAGONEGG:-no}" = no ; then
     [dnl
   # Search for dragonegg.so in various likely places.
   ax_cv_file_dragonegg_so=no
-  for dname in `$LLVM_CONFIG --libdir` `echo $LD_LIBRARY_PATH | sed 's/:/\n/g'` /usr/local/lib* /usr/lib* ; do
+  for dname in `$LLVM_CONFIG --libdir` `echo $LD_LIBRARY_PATH | $SED 's/:/\n/g'` /usr/local/lib* /usr/lib* ; do
     if test -f "$dname/dragonegg.so" ; then
       ax_cv_file_dragonegg_so="$dname/dragonegg.so"
       break
@@ -101,10 +106,15 @@ AC_CONFIG_FILES([lib/include/Makefile])
 AC_CONFIG_FILES([tools/Makefile])
 AC_CONFIG_FILES([tools/postproc/Makefile])
 AC_CONFIG_FILES([tools/wrappers/Makefile])
-AC_CONFIG_FILES([tools/wrappers/bf-gcc], [dnl
-  cat tools/wrappers/bf-gcc | `make sed-command` > tools/wrappers/bf-gcc.tmp
-  mv tools/wrappers/bf-gcc.tmp tools/wrappers/bf-gcc])
-AC_CONFIG_FILES([tools/wrappers/bf-inst], [dnl
-  cat tools/wrappers/bf-inst | `make sed-command` > tools/wrappers/bf-inst.tmp
-  mv tools/wrappers/bf-inst.tmp tools/wrappers/bf-inst])
+AC_CONFIG_FILES([tools/wrappers/bf-gcc], [
+    cat tools/wrappers/bf-gcc | `$MAKE -s sed-command | $GREP sed` > tools/wrappers/bf-gcc.tmp
+    mv tools/wrappers/bf-gcc.tmp tools/wrappers/bf-gcc
+  ],
+  [MAKE="$MAKE"
+   GREP="$GREP"])
+AC_CONFIG_FILES([tools/wrappers/bf-inst], [
+    cat tools/wrappers/bf-inst | `$MAKE -s sed-command | $GREP sed` > tools/wrappers/bf-inst.tmp
+    mv tools/wrappers/bf-inst.tmp tools/wrappers/bf-inst],
+  [MAKE="$MAKE"
+   GREP="$GREP"])
 AC_OUTPUT
