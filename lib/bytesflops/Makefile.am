@@ -11,5 +11,5 @@ libbytesflops_la_SOURCES = \
 	helpers.cpp \
 	init.cpp \
 	bytesflops.h
-libbytesflops_la_CPPFLAGS = -I../include
+libbytesflops_la_CPPFLAGS = -I$(srcdir)/../include
 libbytesflops_la_LDFLAGS = -version-info 0:0:0

@@ -43,17 +43,24 @@ bf-mpif77: $(srcdir)/make-bf-mpi
 all-local: wrappers.mak
 
 wrappers.mak: $(srcdir)/Makefile.PL bf-gcc $(srcdir)/lib/ParseGccOpts.pm bf-inst
-	$(AM_V_GEN) $(PERL) $(srcdir)/Makefile.PL $(if $(AM_V_at),,verbose) \
+	$(AM_V_at) test -d $(builddir)/lib || mkdir $(builddir)/lib
+	$(AM_V_at) test -f $(builddir)/lib/ParseGccOpts.pm || cp $(srcdir)/lib/ParseGccOpts.pm $(builddir)/lib/
+	$(AM_V_GEN) $(PERL) $(srcdir)/Makefile.PL \
 	  FIRST_MAKEFILE=wrappers.mak PREFIX=$(prefix) \
 	  INSTALLMAN1DIR=$(mandir)/man1 INSTALLMAN3DIR=$(mandir)/man3 \
 	  INSTALLSITEMAN1DIR=$(mandir)/man1 INSTALLSITEMAN3DIR=$(mandir)/man3
 	$(AM_V_at) /bin/echo -e 'echo-%:\n\t@echo "$$($$(subst echo-,,$$@))"' >> wrappers.mak
 
 clean-local:
-	-if [ -e wrappers.mak ] ; then $(MAKE) -f wrappers.mak clean ; fi
+	-if [ -e wrappers.mak ] ; then \
+	  $(MAKE) -f wrappers.mak clean ; \
+	fi
+	if [ "$(abs_builddir)" != "$(abs_srcdir)" ] ; then $(RM) $(builddir)/lib/ParseGccOpts.pm ; fi
+	$(RM) $(builddir)/MYMETA.json
+	$(RM) $(builddir)/MYMETA.yml
 
-install-exec-local: wrappers.mak
-	$(MAKE) -f wrappers.mak \
+install-exec-local: $(builddir)/wrappers.mak
+	$(MAKE) -f $(builddir)/wrappers.mak \
 	  POD2MAN='$$(POD2MAN_EXE) --center=" " --release=v1.0' pure_install
 
 uninstall-local: wrappers.mak
