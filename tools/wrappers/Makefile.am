@@ -62,7 +62,7 @@ blib: wrappers.mak
 	$(AM_V_GEN) $(MAKE) $(SILENT_MAKE) -f wrappers.mak
 
 clean-local: wrappers.mak
-	$(MAKE) -f wrappers.mak clean
+	-$(MAKE) -f wrappers.mak clean
 	if [ "$(abs_builddir)" != "$(abs_srcdir)" ] ; then \
 	  $(RM) lib/ParseGccOpts.pm ; \
 	  $(RM) Makefile.PL ; \

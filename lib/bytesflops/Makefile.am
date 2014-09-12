@@ -21,3 +21,14 @@ install-exec-hook:
 
 uninstall-local:
 	$(RM) $(DESTDIR)$(libdir)/bytesflops.so
+
+
+# Force a shared-library build even if the user specified
+# --disable-shared to the configure script.
+
+libtool: $(top_builddir)/libtool
+	$(SED) -e 's/build_libtool_libs=no/build_libtool_libs=yes/' < $(top_builddir)/libtool > $(builddir)/libtool
+
+BUILT_SOURCES = libtool
+LIBTOOL = $(SHELL) $(builddir)/libtool
+CLEANFILES = $(BUILT_SOURCES)
