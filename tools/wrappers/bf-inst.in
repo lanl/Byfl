@@ -17,7 +17,7 @@ use strict;
 my $progname = basename $0;
 
 # Specify the Byfl installation location.
-my $byfl_libdir = '@PROJ_libdir@';
+my $byfl_libdir = '@libdir@';
 
 # Let the user increase this script's verbosity.
 my $verbosity = 0;

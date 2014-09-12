@@ -21,8 +21,8 @@ use strict;
 
 # Specify some installation locations.
 my $dragonegg = '@DRAGONEGG@';
-my $byfl_libdir = '@PROJ_libdir@';
-my $llvm_libdir = '@LLVM_INST_LIBDIR@';
+my $byfl_libdir = '@libdir@';
+my $llvm_libdir = '@llvm_libdir@';
 
 # Store the name of this script and the name of the underlying compiler.
 my $progname = basename $0;
