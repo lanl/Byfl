@@ -40,35 +40,46 @@ bf-mpif90: $(srcdir)/make-bf-mpi
 bf-mpif77: $(srcdir)/make-bf-mpi
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpif77 bf-gfortran OMPI_F77 MPICH_F77 $(bindir) > $@
 
-all-local: wrappers.mak
+all-local: wrappers.mak blib
 
 wrappers.mak: $(srcdir)/Makefile.PL bf-gcc $(srcdir)/lib/ParseGccOpts.pm bf-inst
-	$(AM_V_at) test -d $(builddir)/lib || mkdir $(builddir)/lib
-	$(AM_V_at) test -f $(builddir)/lib/ParseGccOpts.pm || cp $(srcdir)/lib/ParseGccOpts.pm $(builddir)/lib/
+	$(AM_V_at) test -d lib || mkdir lib
+	$(AM_V_at) test -f lib/ParseGccOpts.pm || cp $(srcdir)/lib/ParseGccOpts.pm lib/
 	$(AM_V_GEN) $(PERL) $(srcdir)/Makefile.PL \
 	  FIRST_MAKEFILE=wrappers.mak PREFIX=$(prefix) \
 	  INSTALLMAN1DIR=$(mandir)/man1 INSTALLMAN3DIR=$(mandir)/man3 \
 	  INSTALLSITEMAN1DIR=$(mandir)/man1 INSTALLSITEMAN3DIR=$(mandir)/man3
 	$(AM_V_at) /bin/echo -e 'echo-%:\n\t@echo "$$($$(subst echo-,,$$@))"' >> wrappers.mak
 
-clean-local:
-	-if [ -e wrappers.mak ] ; then \
-	  $(MAKE) -f wrappers.mak clean ; \
-	fi
-	if [ "$(abs_builddir)" != "$(abs_srcdir)" ] ; then $(RM) $(builddir)/lib/ParseGccOpts.pm ; fi
-	$(RM) $(builddir)/MYMETA.json
-	$(RM) $(builddir)/MYMETA.yml
+blib: wrappers.mak
+	$(AM_V_at) test -f Makefile.PL || cp $(srcdir)/Makefile.PL .
+	$(AM_V_at) touch wrappers.mak
+	$(AM_V_GEN) $(MAKE) -f wrappers.mak
 
-install-exec-local: $(builddir)/wrappers.mak
-	$(MAKE) -f $(builddir)/wrappers.mak \
+clean-local: wrappers.mak
+	$(MAKE) -f wrappers.mak clean
+	if [ "$(abs_builddir)" != "$(abs_srcdir)" ] ; then \
+	  $(RM) lib/ParseGccOpts.pm ; \
+	  $(RM) Makefile.PL ; \
+	fi
+	$(RM) MYMETA.json
+	$(RM) MYMETA.yml
+	$(RM) wrappers.mak.old
+
+install-exec-local: wrappers.mak
+	$(MAKE) -f wrappers.mak \
 	  POD2MAN='$$(POD2MAN_EXE) --center=" " --release=v1.0' pure_install
 
 uninstall-local: wrappers.mak
 	SITELIB=`$(MAKE) -f wrappers.mak echo-INSTALLSITELIB | $(GREP) "$(prefix)"` ; \
-	 $(RM) "$$SITELIB/ParseGccOpts.pm"
+	  export SITELIB ; \
+	  $(RM) "$$DESTDIR$$SITEMAN3DIR$$SITELIB/ParseGccOpts.pm"
 	SITEARCH=`$(MAKE) -f wrappers.mak echo-INSTALLSITEARCH | $(GREP) "$(prefix)"` ; \
-	 $(RM) -r "$$SITEARCH/auto/ParseGccOpts"
+	  export SITEARCH ; \
+	  $(RM) -r "$$DESTDIR$$SITEMAN3DIR$$SITEARCH/auto/ParseGccOpts"
 	SITEMAN1DIR=`$(MAKE) -f wrappers.mak echo-INSTALLSITEMAN1DIR | $(GREP) "$(prefix)"` ; \
-	 $(RM) "$$SITEMAN1DIR/bf-inst.1"
-	SITEMAN3DIR=`$(MAKE) -f wrappers.mak echo-INSTALLSITEMAN3DIR | $(GREP) "$(prefix)"` ; \
-	 $(RM) "$$SITEMAN3DIR/ParseGccOpts.3pm"
+	  export SITEMAN1DIR ; \
+	  $(RM) "$$DESTDIR$$SITEMAN3DIR$$SITEMAN1DIR/bf-inst.1"
+	SITEMAN3DIR=`$(MAKE) -f wrappers.mak echo-INSTALLSITEMAN3DIR | $(GREP) '$(prefix)'` ; \
+	  export SITEMAN3DIR ; \
+	  $(RM) "$$DESTDIR$$SITEMAN3DIR/ParseGccOpts.3pm"
