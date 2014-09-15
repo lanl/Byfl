@@ -250,14 +250,14 @@ if [ "$compile" = yes ] ; then
 
     # Configure Byfl.
     echo "# Configuring Byfl" 1>&4
-    cd ../byfl/autoconf
+    cd ../byfl
     if [ $configure = yes -o ! -e config.log ] ; then
-        (echo $builddir_llvm ; echo $builddir_llvm) | ./AutoRegen.sh
+        run_with_progress byfl-autogen 7 ./autogen.sh
     fi
-    test -e ../build || mkdir ../build
-    cd ../build
+    test -e build || mkdir build
+    cd build
     if [ $configure = yes -o ! -e config.log ] ; then
-        run_with_progress byfl-config 340 ../configure --disable-assertions --enable-optimized --enable-debug-runtime --enable-debug-symbols DRAGONEGG="$installdir/lib/dragonegg.so" CXX="$CXX" CXXFLAGS="-g -O2 -std=c++0x" --with-llvmsrc="$builddir/llvm" --with-llvmobj="$builddir/llvm" --prefix="$installdir"
+        run_with_progress byfl-config 340 ../configure DRAGONEGG="$installdir/lib/dragonegg.so" --prefix="$installdir"
     fi
 
     # Build Byfl.

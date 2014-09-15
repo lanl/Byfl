@@ -562,23 +562,23 @@ bf-gcc - Inject Byfl instrumentation while compiling a program
 =head1 SYNOPSIS
 
 bf-gcc
-[B<--bf-by-func>]
-[B<--bf-call-stack>]
-[B<--bf-types>]
-[B<--bf-inst-mix>]
-[B<--bf-vectors>]
-[B<--bf-unique-bytes>]
-[B<--bf-mem-footprint>]
-[B<--bf-every-bb>]
-[B<--bf-merge-bb>=I<count>]
-[B<--bf-include>=I<function>[,I<function>]...]
-[B<--bf-exclude>=I<function>[,I<function>]...]
-[B<--bf-thread-safe>]
-[B<--bf-verbose>]
-[B<--bf-static>]
-[B<--bf-dragonegg>=I<path/to/dragonegg.so>]
-[B<--bf-libdir>=I<path/to/byfl/lib/>]
-[B<--bf-disable>=I<feature>]
+[B<-bf-by-func>]
+[B<-bf-call-stack>]
+[B<-bf-types>]
+[B<-bf-inst-mix>]
+[B<-bf-vectors>]
+[B<-bf-unique-bytes>]
+[B<-bf-mem-footprint>]
+[B<-bf-every-bb>]
+[B<-bf-merge-bb>=I<count>]
+[B<-bf-include>=I<function>[,I<function>]...]
+[B<-bf-exclude>=I<function>[,I<function>]...]
+[B<-bf-thread-safe>]
+[B<-bf-verbose>]
+[B<-bf-static>]
+[B<-bf-dragonegg>=I<path/to/dragonegg.so>]
+[B<-bf-libdir>=I<path/to/byfl/lib/>]
+[B<-bf-disable>=I<feature>]
 [I<gcc_options>...]
 [I<file>...]
 
@@ -600,76 +600,76 @@ finally using Clang to generate a native executable.
 
 =over 4
 
-=item B<--bf-by-func>
+=item B<-bf-by-func>
 
 Report performance counters for each function individually.
 
-=item B<--bf-call-stack>
+=item B<-bf-call-stack>
 
 Report performance counters for each unique call stack.
 
-=item B<--bf-types>
+=item B<-bf-types>
 
 Tally the number of times each data type is loaded or stored.
 
-=item B<--bf-inst-mix>
+=item B<-bf-inst-mix>
 
 Tally the number of times each instruction type was executed.
 
-=item B<--bf-vectors>
+=item B<-bf-vectors>
 
 Report information about the number and type of vector operations
 performed.
 
-=item B<--bf-unique-bytes>
+=item B<-bf-unique-bytes>
 
 Report the number of unique memory addresses referenced.
 
-=item B<--bf-mem-footprint>
+=item B<-bf-mem-footprint>
 
 Report the memory capacity requires to hold various percentages of the
 dynamic memory accesses.
 
-=item B<--bf-every-bb>
+=item B<-bf-every-bb>
 
 Report performance counters at the basic-block level.
 
-=item B<--bf-merge-bb>=I<count>
+=item B<-bf-merge-bb>=I<count>
 
 Aggregate basic blocks into groups of I<count> to reduce the output
 volume.
 
-=item B<--bf-include>=I<function>[,I<function>]...
+=item B<-bf-include>=I<function>[,I<function>]...
 
 Instrument only the specified functions.
 
-=item B<--bf-exclude>=I<function>[,I<function>]...
+=item B<-bf-exclude>=I<function>[,I<function>]...
 
 Do not instrument the specified functions.
 
-=item B<--bf-thread-safe>
+=item B<-bf-thread-safe>
 
 Prevent corruption caused by simultaneous accesses to the same set of
 performance counters.
 
-=item B<--bf-verbose>
+=item B<-bf-verbose>
 
 Make B<bf-gcc> output all of the helper programs it calls.
 
-=item B<--bf-static>
+=item B<-bf-static>
 
 Output static instruction counts at compile time.
 
-=item B<--bf-dragonegg>=I<path/to/dragonegg.so>
+=item B<-bf-dragonegg>=I<path/to/dragonegg.so>
 
 Point B<bf-gcc> to the DragonEgg plugin.
 
-=item B<--bf-libdir>=I<path/to/byfl/lib/>
+=item B<-bf-libdir>=I<path/to/byfl/lib/>
 
 Point B<bf-gcc> to the directory containing the Byfl library
 (F<libbyfl.a> or F<libbyfl.so>).
 
-=item B<--bf-disable>=I<feature>
+=item B<-bf-disable>=I<feature>
 
 Disable certain aspects of B<bf-gcc>'s operation.
 
@@ -700,6 +700,11 @@ execution and a larger memory footprint:
 
 Provide a space-separated list of B<bf-gcc> command-line arguments.
 
+=item C<BF_PREFIX>
+
+Prefix each line of output with the contents of the C<BF_PREFIX>
+environment variable.
+
 =back
 
 Command-line arguments take precedence over those read from the
@@ -709,41 +714,62 @@ with different sets of performance counters without having to modify
 the project's F<Makefile>s (or analogue in another build system)
 beyond an initial modification to use B<bf-gcc> as the C compiler.
 
+An important characteristic of the C<BF_PREFIX> environment variable
+is that it honors POSIX shell-style variable expansions.  For example,
+if C<BF_PREFIX> is set to the string C<Rank ${OMPI_COMM_WORLD_RANK}>,
+then a line that would otherwise begin with C<BYFL_SUMMARY:> will
+instead begin with C<Rank 3 BYFL_SUMMARY:>, assuming that the
+C<OMPI_COMM_WORLD_RANK> environment variable has the value C<3>.
+
+Although the characters C<|>, C<&>, C<;>, C<E<lt>>, C<E<gt>>, C<(>,
+C<)>, C<{>, and C<}> are not normally allowed within C<BF_PREFIX>,
+C<BF_PREFIX> does support backquoted-command evaluation, and the child
+command can contain those characters, as in
+
+    BF_PREFIX='`if true; then (echo YES; echo MAYBE); else echo NO; fi`'
+
+(which prefixes each line with C<YES MAYBE>).
+
+As a special case, if C<BF_PREFIX> expands to a string that begins
+with C</> or C<./>, it is treated not as a prefix but as a filename.
+The Byfl-instrumented executable will redirect all of its Byfl output
+to that file instead of to the standard output device.
+
 =head1 NOTES
 
 =head2 Explanation of command-line options
 
-When B<--bf-call-stack> is specified, a function I<F> is reported
+When B<-bf-call-stack> is specified, a function I<F> is reported
 separately when called from function I<A> and when called from
-function I<B>).  B<--bf-call-stack> overrides B<--bf-by-func>.
+function I<B>).  B<-bf-call-stack> overrides B<-bf-by-func>.
 
-The B<--bf-types> option tallies, for example, the number of loads of
+The B<-bf-types> option tallies, for example, the number of loads of
 64-bit floating-point values as distinct from loads of 64-bit unsigned
 integer values.
 
 See the L<LLVM Language Reference
 Manual|http://llvm.org/docs/LangRef.html> for descriptions of the
-instructions that are tallied by B<--bf-inst-mix>.
+instructions that are tallied by B<-bf-inst-mix>.
 
-Use of B<--bf-unique-bytes> consumes one bit of memory per unique
+Use of B<-bf-unique-bytes> consumes one bit of memory per unique
 address referenced by the program.
 
-Use of B<--bf-mem-footprint> consumes S<8 bytes> of memory per unique
+Use of B<-bf-mem-footprint> consumes S<8 bytes> of memory per unique
 address referenced by the program.
 
 A I<basic block> is a unit of code that can be entered only at the
 first instruction and that branches only at the last instruction.
-Because basic blocks tend to be small, B<--bf-every-bb> produces a
+Because basic blocks tend to be small, B<-bf-every-bb> produces a
 substantial amount of output for typical programs.  It is recommended
-that B<--bf-every-bb> always be used in conjunction with
-B<--bf-merge-bb> to reduce the amount of information output.
+that B<-bf-every-bb> always be used in conjunction with
+B<-bf-merge-bb> to reduce the amount of information output.
 
-The B<--bf-static> option currently lists the static number of loads,
+The B<-bf-static> option currently lists the static number of loads,
 stores, floating-point operations, conditional and indirect branches,
 total operations, and basic blocks for each function and the number of
 instructions in each inner loop detected.
 
-The B<--bf-disable> option is quite useful for troubleshooting.  Its
+The B<-bf-disable> option is quite useful for troubleshooting.  Its
 option can be one of the following:
 
 =over 4
@@ -771,6 +797,11 @@ and transfer control to the underlying B<gcc> compiler.
 That is, if B<bf-gcc> fails to compile or link an application, try
 disabling first C<byfl>, then C<bitcode>, and finally C<dragonegg> to
 identify where the problem lies.
+
+The Byfl plugin proper (F<bytesflops.so>) honors all of the
+command-line options listed above except B<-bf-verbose>,
+B<-bf-static>, and B<-bf-disable>.  Those options are specific to the
+B<bf-gcc> script.
 
 =head2 Selective instrumentation
 
@@ -806,7 +837,7 @@ the code.
 
 =item *
 
-C<bf_categorize_counters()> works only when B<--bf-every-bb> is
+C<bf_categorize_counters()> works only when B<-bf-every-bb> is
 specified.  (B<bf-gcc> issues a warning message if the function is
 defined but the option is not specified.)  If the user is not
 interested in seeing per-basic-block counters, these can be
@@ -842,7 +873,7 @@ B<llvm-as>, B<objcopy>, and B<opt>.
 =head1 BUGS
 
 Thread safety is still quite premature.  Even with
-B<--bf-thread-safe>, instrumented code is likely to crash.
+B<-bf-thread-safe>, instrumented code is likely to crash.
 
 =head1 AUTHOR
 
