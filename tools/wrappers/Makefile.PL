@@ -15,5 +15,6 @@ WriteMakefile(
     NAME            => "ParseGccOpts",
     VERSION_FROM    => "lib/ParseGccOpts.pm",
     EXE_FILES       => \@exe_files,
-    MAN1PODS        => {"bf-inst" => "blib/man1/bf-inst.1"}
+    MAN1PODS        => {"bf-inst" => "blib/man1/bf-inst.1",
+                        "bf-gcc"  => "blib/man1/bf-gcc.1"}
 );

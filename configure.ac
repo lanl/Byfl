@@ -91,6 +91,11 @@ else
     [AC_MSG_WARN([Did you specify an incorrect file for the DRAGONEGG variable ($DRAGONEGG)?])])
 fi
 
+dnl Warn the user that we'll override --disable-shared in the plugin directory.
+if test "$enable_shared" = no ; then
+  AC_MSG_WARN([Byfl's LLVM plugin must be built as a shared object.  The build will attempt to override --disable-shared in the lib/bytesflops directory.])
+fi
+
 dnl Generate all of the Byfl Makefiles and other files.
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([lib/Makefile])

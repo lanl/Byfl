@@ -224,7 +224,7 @@ switch ($bf_disable) {
     }
     case "bitcode" {
         # Use the DragonEgg plugin for code optimization, but generate
-        # native output files.
+        # native object files.
         exit execute_command($compiler, "-fplugin=$dragonegg", grep {!m/^--?bf-/} @constructed_ARGV);
     }
     case "dragonegg" {
@@ -550,3 +550,305 @@ if (defined $build_type{"link"}) {
     # Clean up all of the .bc files we created.
     remove_files(grep(/\.bc$/, @llvm_ld_inputs));
 }
+
+###########################################################################
+
+__END__
+
+=head1 NAME
+
+bf-gcc - Inject Byfl instrumentation while compiling a program
+
+=head1 SYNOPSIS
+
+bf-gcc
+[B<--bf-by-func>]
+[B<--bf-call-stack>]
+[B<--bf-types>]
+[B<--bf-inst-mix>]
+[B<--bf-vectors>]
+[B<--bf-unique-bytes>]
+[B<--bf-mem-footprint>]
+[B<--bf-every-bb>]
+[B<--bf-merge-bb>=I<count>]
+[B<--bf-include>=I<function>[,I<function>]...]
+[B<--bf-exclude>=I<function>[,I<function>]...]
+[B<--bf-thread-safe>]
+[B<--bf-verbose>]
+[B<--bf-static>]
+[B<--bf-dragonegg>=I<path/to/dragonegg.so>]
+[B<--bf-libdir>=I<path/to/byfl/lib/>]
+[B<--bf-disable>=I<feature>]
+[I<gcc_options>...]
+[I<file>...]
+
+=head1 DESCRIPTION
+
+B<bf-gcc> is the Byfl project's C compiler.  It compiles C code,
+instrumenting it to report various I<software> performance counters at
+execution time.  Software performance counters are analogous to the
+hardware performance counters provided by modern processors but
+measure program execution in a hardware-independent fashion.  That is,
+users can expect to observe the same measurements across different
+processor architectures.
+
+B<bf-gcc> works by using the GCC DragonEgg plugin to convert GCC's
+internal representation to LLVM's, instrumenting that with Byfl, and
+finally using Clang to generate a native executable.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--bf-by-func>
+
+Report performance counters for each function individually.
+
+=item B<--bf-call-stack>
+
+Report performance counters for each unique call stack.
+
+=item B<--bf-types>
+
+Tally the number of times each data type is loaded or stored.
+
+=item B<--bf-inst-mix>
+
+Tally the number of times each instruction type was executed.
+
+=item B<--bf-vectors>
+
+Report information about the number and type of vector operations
+performed.
+
+=item B<--bf-unique-bytes>
+
+Report the number of unique memory addresses referenced.
+
+=item B<--bf-mem-footprint>
+
+Report the memory capacity requires to hold various percentages of the
+dynamic memory accesses.
+
+=item B<--bf-every-bb>
+
+Report performance counters at the basic-block level.
+
+=item B<--bf-merge-bb>=I<count>
+
+Aggregate basic blocks into groups of I<count> to reduce the output
+volume.
+
+=item B<--bf-include>=I<function>[,I<function>]...
+
+Instrument only the specified functions.
+
+=item B<--bf-exclude>=I<function>[,I<function>]...
+
+Do not instrument the specified functions.
+
+=item B<--bf-thread-safe>
+
+Prevent corruption caused by simultaneous accesses to the same set of
+performance counters.
+
+=item B<--bf-verbose>
+
+Make B<bf-gcc> output all of the helper programs it calls.
+
+=item B<--bf-static>
+
+Output static instruction counts at compile time.
+
+=item B<--bf-dragonegg>=I<path/to/dragonegg.so>
+
+Point B<bf-gcc> to the DragonEgg plugin.
+
+=item B<--bf-libdir>=I<path/to/byfl/lib/>
+
+Point B<bf-gcc> to the directory containing the Byfl library
+(F<libbyfl.a> or F<libbyfl.so>).
+
+=item B<--bf-disable>=I<feature>
+
+Disable certain aspects of B<bf-gcc>'s operation.
+
+=back
+
+In addition, B<bf-gcc> accepts all of the common B<gcc> options.
+
+=head1 EXAMPLES
+
+The simplest usage of B<bf-gcc> is to compile just like with B<gcc>:
+
+    bf-gcc -O2 -g -o myprog myprog.c
+
+The resulting F<myprog> executable will output a basic set of
+performance information at the end of the run.
+
+More performance information can be requested -- at the cost of slower
+execution and a larger memory footprint:
+
+    bf-gcc -bf-by-func -bf-types -bf-inst-mix -bf-vectors \
+      -bf-mem-footprint -O2 -g -o myprog myprog.c
+
+=head1 ENVIRONMENT
+
+=over 4
+
+=item BF_OPTS
+
+Provide a space-separated list of B<bf-gcc> command-line arguments.
+
+=back
+
+Command-line arguments take precedence over those read from the
+C<BF_OPTS> environment variable.  The advantage of using the
+environment variable, however, is that a user can rebuild a project
+with different sets of performance counters without having to modify
+the project's F<Makefile>s (or analogue in another build system)
+beyond an initial modification to use B<bf-gcc> as the C compiler.
+
+=head1 NOTES
+
+=head2 Explanation of command-line options
+
+When B<--bf-call-stack> is specified, a function I<F> is reported
+separately when called from function I<A> and when called from
+function I<B>).  B<--bf-call-stack> overrides B<--bf-by-func>.
+
+The B<--bf-types> option tallies, for example, the number of loads of
+64-bit floating-point values as distinct from loads of 64-bit unsigned
+integer values.
+
+See the L<LLVM Language Reference
+Manual|http://llvm.org/docs/LangRef.html> for descriptions of the
+instructions that are tallied by B<--bf-inst-mix>.
+
+Use of B<--bf-unique-bytes> consumes one bit of memory per unique
+address referenced by the program.
+
+Use of B<--bf-mem-footprint> consumes S<8 bytes> of memory per unique
+address referenced by the program.
+
+A I<basic block> is a unit of code that can be entered only at the
+first instruction and that branches only at the last instruction.
+Because basic blocks tend to be small, B<--bf-every-bb> produces a
+substantial amount of output for typical programs.  It is recommended
+that B<--bf-every-bb> always be used in conjunction with
+B<--bf-merge-bb> to reduce the amount of information output.
+
+The B<--bf-static> option currently lists the static number of loads,
+stores, floating-point operations, conditional and indirect branches,
+total operations, and basic blocks for each function and the number of
+instructions in each inner loop detected.
+
+The B<--bf-disable> option is quite useful for troubleshooting.  Its
+option can be one of the following:
+
+=over 4
+
+=item C<none>
+
+Don't disable any features (the default).
+
+=item C<byfl>
+
+Disable the Byfl plugin (i.e., inject no instrumentation into the code).
+
+=item C<bitcode>
+
+Use the DragonEgg plugin for code generation, but generate native
+object files.
+
+=item C<dragonegg>
+
+Disable DragonEgg entirely -- and hence all B<bf-gcc> functionality --
+and transfer control to the underlying B<gcc> compiler.
+
+=back
+
+That is, if B<bf-gcc> fails to compile or link an application, try
+disabling first C<byfl>, then C<bitcode>, and finally C<dragonegg> to
+identify where the problem lies.
+
+=head2 Selective instrumentation
+
+The simplest way to instrument only part of a program is at the module
+level.  That is, compile the "interesting" modules with B<bf-gcc> and
+the rest with B<gcc> (and link with B<bf-gcc> to pull in the Byfl
+run-time library).  However, B<bf-gcc> also supports inserting
+programmer-defined "calipers" into the code.  These can not only
+selectively enable and disable performance counters but can also
+distinguish blocks of code with a program-defined tag.  To enable this
+feature, an application must define a function with the following
+C-language prototype:
+
+    const char* bf_categorize_counters (void);
+
+That is, C<bf_categorize_counters()> takes no arguments and returns a
+short tag describing the current phase of the application.  A return
+value of C<NULL> disables logging of performance counters.
+
+Application developers should be aware of the following caveats
+regarding C<bf_categorize_counters()>:
+
+=over 4
+
+=item *
+
+C<bf_categorize_counters()> should be written to execute quickly
+because it will be invoked extremely frequently (once per basic
+block).  Consequently, a typical definition is for
+C<bf_categorize_counters()> simply to return a global variable and for
+the application to assign to that global variable at various points in
+the code.
+
+=item *
+
+C<bf_categorize_counters()> works only when B<--bf-every-bb> is
+specified.  (B<bf-gcc> issues a warning message if the function is
+defined but the option is not specified.)  If the user is not
+interested in seeing per-basic-block counters, these can be
+effectively disabled by specified a large argument to B<-bf-merge-bb>
+(e.g., C<-bf-merge-bb=18446744073709551615>).
+
+=item *
+
+Because B<bf-gcc> instruments code at compile time while
+C<bf_categorize_counters()> works at run time, the implication is that
+returning C<NULL> still pays a performance penalty relative to
+uninstrumented code.
+
+=back
+
+
+=head2 Compiler optimizations
+
+B<bf-gcc> first optimizes using the user-specified optimization level
+(e.g., B<-O2>), then instruments the code with Byfl, and finally
+optimizes again at B<-O3> to speed up execution.  This final
+optimization step does not affect the counter values that Byfl
+reports.  As a special case, however, compiling with C<-O0> disables
+the final optimization step as well.  This can be used to help debug
+Byfl itself.
+
+=head1 FILES
+
+B<bf-gcc> is a script that invokes a number of other programs: B<ar>,
+B<as>, B<clang>, B<gcc> (with the F<dragonegg.so> plugin), B<llc>,
+B<llvm-as>, B<objcopy>, and B<opt>.
+
+=head1 BUGS
+
+Thread safety is still quite premature.  Even with
+B<--bf-thread-safe>, instrumented code is likely to crash.
+
+=head1 AUTHOR
+
+Scott Pakin, I<pakin@lanl.gov>
+
+=head1 SEE ALSO
+
+gcc(1), clang(1),
+L<the Byfl home page|https://github.com/losalamos/Byfl>

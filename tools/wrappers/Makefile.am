@@ -54,12 +54,14 @@ wrappers.mak: $(srcdir)/Makefile.PL bf-gcc $(srcdir)/lib/ParseGccOpts.pm bf-inst
 SILENT_MAKE = $(SILENT_MAKE_$(V))
 SILENT_MAKE_ = $(SILENT_MAKE_$(AM_DEFAULT_VERBOSITY))
 SILENT_MAKE_0 = -s
-SILENT_MAKE_1 =
+SILENT_MAKE_1 = NOECHO=""
 
 blib: wrappers.mak
 	$(AM_V_at) test -f Makefile.PL || cp $(srcdir)/Makefile.PL .
 	$(AM_V_at) touch wrappers.mak
-	$(AM_V_GEN) $(MAKE) $(SILENT_MAKE) -f wrappers.mak
+	$(AM_V_GEN) $(MAKE) $(SILENT_MAKE) -f wrappers.mak \
+	  MAN1EXT=1 \
+	  POD2MAN='$$(POD2MAN_EXE) --center=" " --release=v1.0'
 
 clean-local: wrappers.mak
 	-$(MAKE) -f wrappers.mak clean
@@ -72,19 +74,36 @@ clean-local: wrappers.mak
 	$(RM) wrappers.mak.old
 
 install-exec-local: wrappers.mak
-	$(MAKE) -f wrappers.mak \
-	  POD2MAN='$$(POD2MAN_EXE) --center=" " --release=v1.0' pure_install
+	$(MAKE) $(SILENT_MAKE) -f wrappers.mak \
+	  MAN1EXT=1 \
+	  POD2MAN='$$(POD2MAN_EXE) --center=" " --release=v1.0' \
+	  pure_install
+	$(AM_V_at) SITEMAN1DIR=`$(MAKE) -f wrappers.mak echo-INSTALLSITEMAN1DIR | $(GREP) "$(prefix)"` ; \
+	  export SITEMAN1DIR ; \
+	  cat "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gcc.1" | \
+	    $(PERL) -ne 's/gcc/g++/g; s/\bC (compiler|code)/C++ $$1/g; s/myprog\.c/myprog.cpp/g; print' > \
+	      "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-g++.1" ; \
+	  cat "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gcc.1" | \
+	    $(PERL) -ne 's/gcc/gfortran/g; s/\bC (compiler|code)/Fortran $$1/g; s/myprog\.c/myprog.f90/g; print' > \
+	      "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gfortran.1" ; \
+	  cat "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gcc.1" | \
+	    $(PERL) -ne 's/gcc/gccgo/g; s/\bC (compiler|code)/Go $$1/g; s/myprog\.c/myprog.go/g; print' > \
+	      "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gccgo.1"
 
 uninstall-local: wrappers.mak
 	SITELIB=`$(MAKE) -f wrappers.mak echo-INSTALLSITELIB | $(GREP) "$(prefix)"` ; \
 	  export SITELIB ; \
-	  $(RM) "$$DESTDIR$$SITEMAN3DIR$$SITELIB/ParseGccOpts.pm"
+	  $(RM) "$(DESTDIR)$$SITEMAN3DIR$$SITELIB/ParseGccOpts.pm"
 	SITEARCH=`$(MAKE) -f wrappers.mak echo-INSTALLSITEARCH | $(GREP) "$(prefix)"` ; \
 	  export SITEARCH ; \
-	  $(RM) -r "$$DESTDIR$$SITEMAN3DIR$$SITEARCH/auto/ParseGccOpts"
+	  $(RM) -r "$(DESTDIR)$$SITEMAN3DIR$$SITEARCH/auto/ParseGccOpts"
 	SITEMAN1DIR=`$(MAKE) -f wrappers.mak echo-INSTALLSITEMAN1DIR | $(GREP) "$(prefix)"` ; \
 	  export SITEMAN1DIR ; \
-	  $(RM) "$$DESTDIR$$SITEMAN3DIR$$SITEMAN1DIR/bf-inst.1"
+	  $(RM) "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-inst.1" ; \
+	  $(RM) "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gcc.1" ; \
+	  $(RM) "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-g++.1" ; \
+	  $(RM) "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gfortran.1" ; \
+	  $(RM) "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gccgo.1"
 	SITEMAN3DIR=`$(MAKE) -f wrappers.mak echo-INSTALLSITEMAN3DIR | $(GREP) '$(prefix)'` ; \
 	  export SITEMAN3DIR ; \
-	  $(RM) "$$DESTDIR$$SITEMAN3DIR/ParseGccOpts.3pm"
+	  $(RM) "$(DESTDIR)$$SITEMAN3DIR/ParseGccOpts.3pm"
