@@ -39,7 +39,7 @@ Installation
 
 Byfl relies on [LLVM](http://www.llvm.org/), [Clang](http://clang.llvm.org/), and [DragonEgg](http://dragonegg.llvm.org/).  The `llvm-3.5` branch of Byfl builds against LLVM/Clang/DragonEgg release 3.5.  The `master` branch of Byfl builds against LLVM/Clang/DragonEgg trunk (i.e., the post-3.5-release development code).
 
-## Normal installation
+### Normal installation
 
 As long as LLVM's `llvm-config` program is in your path, the canonical install procedure should work:
 
@@ -51,7 +51,7 @@ Run `./configure --help` for usage information.
 
 Note that DragonEgg requires [GCC](http://gcc.gnu.org/) version 4.5 or newer.  (Plugin support was introduced with version 4.5.)  Technically, Byfl can build without DragonEgg support, but all of the Byfl wrapper scripts will fail to run; Byfl instrumentation will have to be applied manually, which is inconvenient.
 
-## Automatically installing LLVM/Clang/DragonEgg trunk plus Byfl
+### Automatically installing LLVM/Clang/DragonEgg trunk plus Byfl
 
 For convenience on systems that lack a LLVM/Clang/DragonEgg 3.5+ installation, Byfl's [`build-llvm-byfl`](https://github.com/losalamos/Byfl/blob/master/build-llvm-byfl) script automatically downloads LLVM, Clang, DragonEgg, and Byfl, configures them, builds them, and installs the result into a directory you specify.  The script takes one required argument, which is the root of the installation directory (e.g., `/usr/local` or `/opt/byfl` or whatnot).  The following optional arguments can appear before the required argument:
 
@@ -268,4 +268,5 @@ Authors
 -------
 
 Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)<br />
-Pat McCormick, [_pat@lanl.gov_](mailto:pat@lanl.gov)
+Pat McCormick, [_pat@lanl.gov_](mailto:pat@lanl.gov)<br />
+Eric Anger, [_eanger@gmail.com_](mailto:eanger@gmail.com)
