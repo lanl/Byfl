@@ -6,7 +6,7 @@ dnl #######################################
 dnl Initialize Autoconf and friends.
 AC_INIT([byfl], [1.0], [pakin@lanl.gov])
 AC_CONFIG_SRCDIR([lib/byfl/byfl.h])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([foreign])
 LT_INIT
 
 dnl Building Byfl's MPI wrappers requires Perl.
