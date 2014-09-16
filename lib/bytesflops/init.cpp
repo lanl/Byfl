@@ -65,11 +65,11 @@ namespace bytesflops_pass {
       report_fatal_error("-bf-call-stack is allowed only in conjuction with -bf-by-func");
     create_global_constant(module, "bf_call_stack", bool(TrackCallStack));
 
-    // Assign a value to bf_unique_bytes.
-    create_global_constant(module, "bf_unique_bytes", bool(TrackUniqueBytes));
-
     // Assign a value to bf_mem_footprint.
     create_global_constant(module, "bf_mem_footprint", bool(FindMemFootprint));
+
+    // Assign a value to bf_unique_bytes.
+    create_global_constant(module, "bf_unique_bytes", bool(TrackUniqueBytes) || bool(FindMemFootprint));
 
     // Assign a value to bf_vectors.
     create_global_constant(module, "bf_vectors", bool(TallyVectors));
@@ -194,7 +194,7 @@ namespace bytesflops_pass {
 
     // Inject external declarations for bf_assoc_addresses_with_prog()
     // and bf_assoc_addresses_with_func().
-    if (TrackUniqueBytes) {
+    if (TrackUniqueBytes || FindMemFootprint) {
       // Declare bf_assoc_addresses_with_prog() any time we need to
       // track unique bytes.
       vector<Type*> all_function_args;

@@ -971,7 +971,7 @@ private:
     }
 
     // Output quantiles of working-set sizes.
-    if (bf_mem_footprint) {
+    if (bf_mem_footprint && !partition) {
       // Produce a histogram that tallies each byte-access count.
       vector<bf_addr_tally_t> access_counts;
       uint64_t total_bytes = 0;
@@ -988,7 +988,7 @@ private:
         running_total_bytes += counts_iter->second;
         running_total_accesses += uint64_t(counts_iter->first) * uint64_t(counts_iter->second);
         double new_hit_rate = double(running_total_accesses) / double(global_bytes);
-        if (new_hit_rate - hit_rate > pct_change || running_total_accesses == global_bytes) {
+        if (new_hit_rate - hit_rate > pct_change || running_total_bytes == global_unique_bytes) {
           hit_rate = new_hit_rate;
           *bfout << tag << ": "
                  << setw(25) << running_total_bytes << " bytes cover "
@@ -1056,29 +1056,29 @@ private:
              << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)global_bytes*8.0 / (double)counter_totals.op_bits
              << " bits per (non-memory) op bit\n";
-    if (bf_unique_bytes && (counter_totals.flops > 0 || counter_totals.ops > 0)) {
-      *bfout << tag << ": " << separator << '\n';
-      if (counter_totals.flops > 0)
+    if (!partition) {
+      if (bf_unique_bytes && (counter_totals.flops > 0 || counter_totals.ops > 0)) {
+        *bfout << tag << ": " << separator << '\n';
+        if (counter_totals.flops > 0)
+          *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+                 << (double)global_unique_bytes / (double)counter_totals.flops
+                 << " unique bytes per flop\n"
+                 << tag << ": " << fixed << setw(25) << setprecision(4)
+                 << (double)global_unique_bytes*8.0 / (double)counter_totals.fp_bits
+                 << " unique bits per flop bit\n";
+        if (counter_totals.ops > 0)
+          *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+                 << (double)global_unique_bytes / (double)counter_totals.ops
+                 << " unique bytes per op\n"
+                 << tag << ": " << fixed << setw(25) << setprecision(4)
+                 << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
+                 << " unique bits per (non-memory) op bit\n";
+      }
+      if (bf_unique_bytes)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)global_unique_bytes / (double)counter_totals.flops
-               << " unique bytes per flop\n"
-               << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)global_unique_bytes*8.0 / (double)counter_totals.fp_bits
-               << " unique bits per flop bit\n";
-      if (counter_totals.ops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)global_unique_bytes / (double)counter_totals.ops
-               << " unique bytes per op\n"
-               << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
-               << " unique bits per (non-memory) op bit\n";
-    }
-    if (bf_unique_bytes && !partition)
-      *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-             << (double)global_bytes / (double)global_unique_bytes
-             << " bytes per unique byte\n";
-    if (!partition)
-      *bfout << tag << ": " << separator << '\n';
+               << (double)global_bytes / (double)global_unique_bytes
+               << " bytes per unique byte\n";
+      *bfout << tag << ": " << separator << '\n';}
   }
 
   // Report cache performance if it was used.

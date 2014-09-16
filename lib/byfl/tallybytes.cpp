@@ -11,7 +11,7 @@ namespace bytesflops {}
 using namespace bytesflops;
 using namespace std;
 
-// Define an equality functors for use in constructing various hash tables.
+// Define an equality functor for use in constructing various hash tables.
 struct eqaddr
 {
   bool operator()(uintptr_t p1, uintptr_t p2) const { return p1 == p2; }

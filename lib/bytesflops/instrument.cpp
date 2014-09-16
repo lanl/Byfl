@@ -135,7 +135,7 @@ namespace bytesflops_pass {
 
     // Determine the memory address that was loaded or stored.
     CastInst* mem_addr = NULL;
-    if (TrackUniqueBytes || rd_bits > 0 || CacheModel) {
+    if (TrackUniqueBytes || FindMemFootprint || rd_bits > 0 || CacheModel) {
       Value* mem_ptr =
         opcode == Instruction::Load
         ? cast<LoadInst>(inst).getPointerOperand()
@@ -147,7 +147,7 @@ namespace bytesflops_pass {
     // If requested by the user, also insert a call to
     // bf_assoc_addresses_with_prog() and perhaps
     // bf_assoc_addresses_with_func().
-    if (TrackUniqueBytes) {
+    if (TrackUniqueBytes || FindMemFootprint) {
       // Conditionally insert a call to bf_assoc_addresses_with_func().
       if (TallyByFunction) {
         vector<Value*> arg_list;
