@@ -218,8 +218,8 @@ Byfl installs two scripts to convert Byfl output (lines beginning with `BYFL`) i
 
 In addition, Byfl includes a script called `bfmerge`, which merges multiple Byfl output files by computing statistics across all of the files of each data value encountered.  These output files might represent multiple runs of a sequential application or multiple processes from a single run of a parallel application.  Currently, the set of statistics includes the sum, minimum, maximum, median, median absolute deviation, mean, and standard deviation.  Thus, `bfmerge` facilitates quantifying the similarities and differences across applications or processes.
 
-License
--------
+Copyright and license
+---------------------
 
 Los Alamos National Security, LLC (LANS) owns the copyright to Byfl, which it identifies internally as LA-CC-12-039.  The license is BSD-ish with a "modifications must be indicated" clause.  See [LICENSE.md](https://github.com/losalamos/Byfl/blob/master/LICENSE.md) for the full text.
 

@@ -6,6 +6,8 @@
 
 SUBDIRS = lib tools
 
+EXTRA_DIST = README.md INSTALL.md LICENSE.md
+
 # Sneaky trick: Output a sed command that will fully expand the prefix
 # and exec_prefix variables in bf-gcc and bf-inst.
 sed-command:
