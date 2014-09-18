@@ -9,8 +9,6 @@
 
 #include <iostream>
 #include "bytesflops.h"
-#include "FunctionKeyGen.h"
-#include "BytesMP.h"
 
 namespace bytesflops_pass {
 
@@ -551,20 +549,14 @@ namespace bytesflops_pass {
   static void registerByflPass_O0(const PassManagerBuilder& pass_mgr_builder,
                                   PassManagerBase& pass_mgr) {
     if (pass_mgr_builder.OptLevel == 0)
-    {
-      pass_mgr.add(new BytesMP());
       pass_mgr.add(new BytesFlops());
-    }
   }
   static RegisterStandardPasses
   RegisterByflPass_O0(PassManagerBuilder::EP_EnabledOnOptLevel0, registerByflPass_O0);
   static void registerByflPass_opt(const PassManagerBuilder& pass_mgr_builder,
                                   PassManagerBase& pass_mgr) {
     if (pass_mgr_builder.OptLevel > 0)
-    {
-      pass_mgr.add(new BytesMP());
       pass_mgr.add(new BytesFlops());
-    }
   }
   static RegisterStandardPasses
   RegisterByflPass_opt(PassManagerBuilder::EP_ScalarOptimizerLate, registerByflPass_opt);

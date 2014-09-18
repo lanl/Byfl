@@ -14,9 +14,7 @@ libbytesflops_la_SOURCES = \
 	MersenneTwister.cpp \
 	MersenneTwister.h \
 	FunctionKeyGen.cpp \
-	FunctionKeyGen.h \
-	BytesMP.cpp \
-	BytesMP.h
+	FunctionKeyGen.h
 libbytesflops_la_CPPFLAGS = -I$(srcdir)/../include
 libbytesflops_la_LDFLAGS = -version-info 0:0:0
 

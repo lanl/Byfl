@@ -6,9 +6,9 @@
  *    Pat McCormick <pat@lanl.gov>
  *    Rob Aulwes <rta@lanl.gov>
  */
+
 #include <iostream>
 #include "bytesflops.h"
-#include "BytesMP.h"
 
 namespace bytesflops_pass {
 
