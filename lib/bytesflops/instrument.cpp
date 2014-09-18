@@ -7,6 +7,7 @@
  */
 #include <iostream>
 #include "bytesflops.h"
+#include "BytesMP.h"
 
 namespace bytesflops_pass {
 
@@ -17,6 +18,54 @@ namespace bytesflops_pass {
   const int BytesFlops::CLEAR_OPS            =  16;
   const int BytesFlops::CLEAR_OP_BITS        =  32;
   const int BytesFlops::CLEAR_MEM_TYPES      =  64;
+
+  /**
+   * Create a constructor for the module in which we make a call to
+   * record the map of function names to their unique keys.  The constructor
+   * acts like declaring a file function like:
+   *   __attribute__((constructor))
+   *   void file_foo_init() {...}
+   * This helps ensure that all of the function names are recorded
+   * exactly once.
+   */
+  void BytesFlops::create_func_map_ctor(Module & module, uint32_t nkeys,
+          Constant * keys, Constant * fnames)
+  {
+    initializeKeyMap(module);
+
+    LLVMContext& ctx = module.getContext();
+      
+    // Function Definitions
+    // create a basic block in the ctor.
+    BasicBlock* ctor_bb = BasicBlock::Create(ctx, "", func_map_ctor, 0);
+    if ( !ctor_bb )
+    {
+        printf("Error: unable to create basic block\n");
+    }
+    // insert call to record the keys
+    std::vector<Value *> args;
+
+    ConstantInt*
+    const_nkeys = ConstantInt::get(ctx, APInt(32, nkeys));
+
+    /**
+     * args are:
+     * 1) the number of keys
+     * 2) the function keys
+     * 3) the function names
+     * that is, the key of function fnames[i] is keys[i].
+     */
+    args.push_back(const_nkeys);
+    args.push_back(keys);
+    args.push_back(fnames);
+    CallInst* void_12 = CallInst::Create(record_funcs2keys, args, "", ctor_bb);
+    void_12->setCallingConv(CallingConv::C);
+    void_12->setTailCall(false);
+    AttributeSet void_12_PAL;
+    void_12->setAttributes(void_12_PAL);
+      
+    ReturnInst::Create(ctx, ctor_bb);
+  }
 
   // Instrument the current basic block iterator (representing a
   // load) for type-specific memory operations.
@@ -98,7 +147,7 @@ namespace bytesflops_pass {
                                          StringRef function_name,
                                          BasicBlock::iterator& iter,
                                          LLVMContext& bbctx,
-                                         const DataLayout& target_data,
+                                         DataLayout& target_data,
                                          BasicBlock::iterator& insert_before,
                                          int& must_clear) {
     // Increment the byte counter for load and store
@@ -183,6 +232,33 @@ namespace bytesflops_pass {
     }
   }
 
+  FunctionKeyGen::KeyID BytesFlops::record_func(const string & fname)
+  {
+      /**
+       * if we haven't recorded this function yet, then
+       * generate a unique key to associate with the function and
+       * record the (key, fname) pair.
+       * For now, since we cannot preserve state (that is, the next available
+       * key) across modules, we use large random integers as keys.
+       * The RNG should have low chance of duplicates.
+       */
+      FunctionKeyGen::KeyID keyval;
+
+      auto cit = func_key_map.find(fname);
+      if ( cit == func_key_map.end() )
+      {
+          keyval = m_keygen->nextRandomKey();
+          func_key_map[fname] = keyval;
+      }
+      else
+      {
+          keyval = cit->second;
+      }
+
+      return keyval;
+  }
+
+
   // Instrument Call instructions.  Note that we've already skipped
   // over calls to llvm.dbg.*.
   void BytesFlops::instrument_call(Module* module,
@@ -220,10 +296,18 @@ namespace bytesflops_pass {
     // name) in order to keep track of calls to uninstrumented
     // functions.
     if (TallyByFunction) {
+
+      // generate key if needed
+      FunctionKeyGen::KeyID keyval;
       string augmented_callee_name(string("+") + callee_name.str());
-      Constant* argument = map_func_name_to_arg(module, StringRef(augmented_callee_name));
-      callinst_create(tally_function, argument, insert_before);
-    }
+      keyval = record_func(augmented_callee_name);
+
+      ConstantInt * key = ConstantInt::get(IntegerType::get(module->getContext(),
+                                       8*sizeof(FunctionKeyGen::KeyID)),
+                                       keyval);
+
+      callinst_create(tally_function, key, insert_before);
+    } // end if (TallyByFunction)
   }
 
   // Instrument all instructions except no-ops.
@@ -365,66 +449,6 @@ namespace bytesflops_pass {
       while (0);
   }
 
-  // Given a basic block, keep track of the number of basic blocks and
-  // instructions in each inner loop.
-  void BytesFlops::instrument_inner_loop(BasicBlock& bb) {
-    // Ensure that the basic block is within an inner loop.
-    static LoopInfo* li = &getAnalysis<LoopInfo>();
-    Loop* loop = li->getLoopFor(&bb);
-    if (loop == NULL)
-      return;   // Basic block is not within a loop.
-    const std::vector<llvm::Loop*> inners = loop->getSubLoops();
-    if (inners.size() > 0)
-      return;   // Loop is not an inner loop.
-
-    // Find the smallest line number associated with the loop.
-    unsigned long first_line = ~0UL;
-    StringRef first_filename("??");
-    const vector<BasicBlock*> loop_blocks = loop->getBlocks();
-    for (vector<BasicBlock*>::const_iterator lbb_iter = loop_blocks.begin();
-         lbb_iter != loop_blocks.end();
-         lbb_iter++) {
-      const BasicBlock* lbb = *lbb_iter;
-      const Instruction* first_inst = &*lbb->getFirstNonPHIOrDbgOrLifetime();
-      MDNode *meta = first_inst->getMetadata("dbg");
-      DILocation location(meta);
-      unsigned long lineno = location.getLineNumber();
-      if (lineno > 0 && lineno < first_line) {
-        first_line = lineno;
-        first_filename = location.getFilename();
-      }
-      else if (lineno == 0 && !location.getFilename().empty()) {
-        first_filename = location.getFilename();
-      }
-    }
-
-    // Determine the file and line number associated with the current
-    // basic block.
-    string location_str = string(first_filename);
-#ifdef PATH_MAX
-    long path_max = PATH_MAX;
-#else
-    long path_max = pathconf(path, _PC_PATH_MAX);
-    if (path_max <= 0)
-      path_max = 4096;
-#endif
-    char* canonical_loc = new char[path_max+1];
-    if (realpath(location_str.c_str(), canonical_loc) != NULL)
-      location_str = string(canonical_loc);
-    location_str += ':' + to_string(first_line);
-    delete canonical_loc;
-
-    // Determine the number of "real" instructions in the basic block.
-    unsigned long real_insts = 0;
-    for (BasicBlock::const_iterator bb_iter = bb.getFirstNonPHIOrDbgOrLifetime();
-         bb_iter != bb.end();
-         bb_iter++)
-      real_insts++;
-
-    // Tally the instructions at the file and line number.
-    loop_len[location_str] += real_insts;
-  }
-
   // Do most of the instrumentation work: Walk each instruction in
   // each basic block and add instrumentation code around loads,
   // stores, flops, etc.
@@ -434,8 +458,8 @@ namespace bytesflops_pass {
     // Tally the number of basic blocks that the function contains.
     static_bblocks += function.size();
 
-    // Reset the per-function list of inner loops.
-    loop_len.clear();
+    // generate a unique key for the function and insert call to record it
+    FunctionKeyGen::KeyID keyval = record_func(function_name.str());
 
     // Iterate over each basic block in turn.
     for (Function::iterator func_iter = function.begin();
@@ -444,13 +468,10 @@ namespace bytesflops_pass {
       // Perform per-basic-block variable initialization.
       BasicBlock& bb = *func_iter;
       LLVMContext& bbctx = bb.getContext();
-      DataLayoutPass& target_data = getAnalysis<DataLayoutPass>();
+      DataLayout& target_data = getAnalysis<DataLayout>();
       BasicBlock::iterator terminator_inst = bb.end();
       terminator_inst--;
       int must_clear = 0;   // Keep track of which counters we need to clear.
-
-      // If the current basic block belongs to an inner loop, instrument it.
-      instrument_inner_loop(bb);
 
       // Insert an "unreachable" instruction as a sentinel before the
       // real terminator instruction.  New code is inserted before the
@@ -490,11 +511,12 @@ namespace bytesflops_pass {
           case Instruction::Load:
           case Instruction::Store:
             instrument_load_store(module, function_name, iter, bbctx,
-                                  target_data.getDataLayout(), terminator_inst, must_clear);
+                                  target_data, terminator_inst, must_clear);
             break;
 
           case Instruction::Call:
-            instrument_call(module, function_name, &inst, terminator_inst, must_clear);
+            instrument_call(module, function_name, &inst, terminator_inst,
+                            must_clear);
             break;
 
           default:
@@ -506,7 +528,7 @@ namespace bytesflops_pass {
 
       // Add one last bit of code then release the mega-lock and elide
       // the sentinel terminator.
-      insert_end_bb_code(module, function_name, must_clear, terminator_inst);
+      insert_end_bb_code(module, keyval, must_clear, terminator_inst);
       if (ThreadSafety)
         callinst_create(release_mega_lock, terminator_inst);
       unreachable->eraseFromParent();
@@ -521,13 +543,171 @@ namespace bytesflops_pass {
     BasicBlock& old_entry = function.front();
     BasicBlock* new_entry =
       BasicBlock::Create(func_ctx, "bf_entry", &function, &old_entry);
+
     callinst_create(init_if_necessary, new_entry);
+
     if (TallyByFunction) {
-      Function* entry_func = TrackCallStack ? push_function : tally_function;
+      std::vector<Value*> key_args;
+
+      ConstantInt * key = ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
+                                       keyval);
       Constant* argument = map_func_name_to_arg(module, function_name);
-      callinst_create(entry_func, argument, new_entry);
+
+      key_args.push_back(argument);
+      key_args.push_back(key);
+        
+      if ( TrackCallStack )
+      {
+          callinst_create(push_function, key_args, new_entry);
+      }
+      else
+      {
+          callinst_create(tally_function, key, new_entry);
+      }
+
     }
+
     BranchInst::Create(&old_entry, new_entry);
+  }
+
+    
+
+  bool BytesFlops::doFinalization(Module& module)
+  {
+      /**
+       * The purpose is to create a static C array of function names along
+       * with an array of the associated keys.  These arrays are then
+       * used to create a module constructor to populate the
+       * (function name -> function key) map during code execution.
+       */
+      LLVMContext& ctx = module.getContext();
+      
+      // construct C arrays of keys and strings.
+
+      // declare an array of integers of size func_key_map.size()
+      // (# of items in array).
+      ArrayType *
+      ArrayTy_0 = ArrayType::get(IntegerType::get(ctx, 64), func_key_map.size());
+
+      // set up array of pointers to char (array of strings)
+      PointerType *
+      PointerTy = PointerType::get(IntegerType::get(ctx, 8), 0);
+      ArrayType * ArrayPtrTy = ArrayType::get(PointerTy, func_key_map.size());
+
+      ConstantInt *
+      const_int32 = ConstantInt::get(ctx, APInt(32, StringRef("0"), 10));
+
+      std::vector<Constant*> const_key_elems;
+      std::vector<Constant*> const_fname_elems;
+
+      int i = 0;
+      for ( auto it = func_key_map.begin(); it != func_key_map.end(); it++ )
+      {
+          const std::string & name = it->first;
+          auto key = it->second;
+
+          // name.size() + 1 for NULL char.
+          ArrayType *
+          ArrayStrTy = ArrayType::get(IntegerType::get(ctx, 8), name.size() + 1);
+
+          // record the key
+          ConstantInt* const_int64 = ConstantInt::get(ctx, APInt(64, key));
+          const_key_elems.push_back(const_int64);
+
+          // record the name
+          std::string gv_name = ".str" + std::to_string(i++);
+          GlobalVariable *
+          gvar_array_str = new GlobalVariable(/*Module=*/module,
+                                  /*Type=*/       ArrayStrTy,
+                                  /*isConstant=*/ true,
+                                  /*Linkage=*/    GlobalValue::PrivateLinkage,
+                                  /*Initializer=*/0, // has initializer, specified below
+                                  /*Name=*/       gv_name.c_str());
+          gvar_array_str->setAlignment(1);
+          mark_as_used(module, gvar_array_str);
+
+          std::vector<Constant*> const_ptr_indices;
+          Constant *
+          const_fname = ConstantDataArray::getString(ctx, name.c_str(), true);
+          const_ptr_indices.push_back(const_int32);
+          const_ptr_indices.push_back(const_int32);
+          Constant *
+          const_ptr = ConstantExpr::getGetElementPtr(gvar_array_str, const_ptr_indices);
+
+          const_fname_elems.push_back(const_ptr);
+
+          gvar_array_str->setInitializer(const_fname);
+      }
+
+      Constant* const_array_keys = ConstantArray::get(ArrayTy_0, const_key_elems);
+      Constant* const_array_fnames = ConstantArray::get(ArrayPtrTy, const_fname_elems);
+
+      //
+      // set up global key array
+      //
+      GlobalVariable*
+      gvar_key_data = new GlobalVariable(/*Module=*/module,
+                         /*Type=*/        ArrayTy_0,
+                         /*isConstant=*/  true,
+                         /*Linkage=*/     GlobalValue::InternalLinkage,
+                         /*Initializer=*/ const_array_keys, // has initializer, specified below
+                         /*Name=*/        string("bf_keys") + string(".data"));
+      gvar_key_data->setAlignment(16);
+
+      PointerType* pointer_type = PointerType::get(Type::getInt64Ty(ctx), 0);
+      std::vector<Constant*> getelementptr_indexes;
+      getelementptr_indexes.push_back(zero);
+      getelementptr_indexes.push_back(zero);
+      Constant* array_key_pointer =
+      ConstantExpr::getGetElementPtr(gvar_key_data, getelementptr_indexes);
+
+      GlobalVariable *
+      gvar_array_key = new GlobalVariable(/*Module=*/module,
+                          /*Type=*/       pointer_type,
+                          /*isConstant=*/ true,
+                          /*Linkage=*/    GlobalValue::ExternalLinkage,
+                          /*Initializer=*/array_key_pointer, // has initializer, specified below
+                          /*Name=*/       "bf_keys");
+      mark_as_used(module, gvar_array_key);
+
+
+      // declare global array of function names matching keys
+      // since the first item of the key array is the # of keys, then
+      // the key of function bf_fname[i] is bf_key[i+1].
+      GlobalVariable*
+      gvar_fnames_data = new GlobalVariable(/*Module=*/module,
+                  /*Type=*/       ArrayPtrTy,
+                  /*isConstant=*/ true,
+                  /*Linkage=*/    GlobalValue::InternalLinkage,
+                  /*Initializer=*/const_array_fnames, // has initializer, specified below
+                  /*Name=*/       string("bf_fnames") + string(".data"));
+      gvar_fnames_data->setAlignment(16);
+
+      // create (char **) type
+      PointerType* char_ptr = PointerType::get(IntegerType::get(ctx, 8), 0);
+      PointerType* char_ptr_ptr = PointerType::get(char_ptr, 0);
+      std::vector<Constant*> fnames_indexes;
+      fnames_indexes.push_back(zero);
+      fnames_indexes.push_back(zero);
+      Constant* array_fnames_pointer =
+      ConstantExpr::getGetElementPtr(gvar_fnames_data, fnames_indexes);
+
+      GlobalVariable*
+      gvar_fnames = new GlobalVariable(/*Module=*/module,
+                      /*Type=*/       char_ptr_ptr,
+                      /*isConstant=*/ true,
+                      /*Linkage=*/    GlobalValue::ExternalLinkage,
+                      /*Initializer=*/array_fnames_pointer, // has initializer, specified below
+                      /*Name=*/       "bf_fnames");
+      mark_as_used(module, gvar_fnames);
+
+
+
+      // now insert callto create the function map into the module constructor.
+      create_func_map_ctor(module, (uint32_t)func_key_map.size(),
+              array_key_pointer, array_fnames_pointer);
+
+      return true;
   }
 
 } // namespace bytesflops_pass

@@ -47,6 +47,20 @@ public:
   // Ditto for the size() method.
   size_t size() const { return the_map->size(); }
 
+  size_t count(const Key & key) { return the_map->count(key);}
+
+  iterator contains( const T & value )
+  {
+      for ( auto iter = this->begin(); iter != this->end(); iter++ )
+      {
+          if ( iter->second == value )
+          {
+              return iter;
+          }
+      }
+      return this->end();
+  }
+
   // The find() method first checks the cache then falls back to the
   // unordered_map.
   iterator find (const Key& key) {
@@ -74,7 +88,8 @@ public:
     iterator iter = the_map->find(key);
     if (iter != end()) {
       // Cache only successful searches.
-      memcpy((void *)&prev_key[cache_size-1], &key, sizeof(Key));
+      //memcpy((void *)&prev_key[cache_size-1], &key, sizeof(Key));
+      prev_key[cache_size-1] = key;
       prev_iter[cache_size-1] = iter;
     }
     return iter;
@@ -118,13 +133,15 @@ public:
   }
 
   // sorted_keys() returns a pointer to a vector of keys in sorted order.
-  vector<Key>* sorted_keys (bool (*goes_before)(Key, Key)) {
+  template <typename SortFn = std::less<Key> >
+  vector<Key>* sorted_keys (SortFn compare = SortFn() ) {
     vector<Key>* keys = new vector<Key>();
     for (const_iterator iter = begin(); iter != end(); iter++)
       keys->push_back(iter->first);
-    sort(keys->begin(), keys->end(), goes_before);
+    sort(keys->begin(), keys->end(), compare);
     return keys;
   }
+
 };
 
 #endif
