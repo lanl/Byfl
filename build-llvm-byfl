@@ -252,7 +252,7 @@ if [ "$compile" = yes ] ; then
     echo "# Configuring Byfl" 1>&4
     cd ../byfl
     if [ $configure = yes -o ! -e config.log ] ; then
-        run_with_progress byfl-autogen 22 ./autogen.sh
+        run_with_progress byfl-autogen 21 autoreconf -v -f -i
     fi
     test -e build || mkdir build
     cd build
@@ -262,11 +262,11 @@ if [ "$compile" = yes ] ; then
 
     # Build Byfl.
     echo "# Compiling Byfl" 1>&4
-    run_with_progress byfl-build 200 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" -j$numprocs
+    run_with_progress byfl-build 210 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" -j$numprocs
 
     # Install Byfl.
     echo "# Installing Byfl into $destdir$installdir" 1>&4
-    run_with_progress byfl-inst 170 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" DESTDIR="$destdir" install
+    run_with_progress byfl-inst 180 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" DESTDIR="$destdir" install
 
     # Test the installation
     echo "# Testing the Byfl installation" 1>&4
