@@ -11,13 +11,13 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include <fstream>
@@ -265,7 +265,7 @@ namespace bytesflops_pass {
                                StringRef function_name,
                                BasicBlock::iterator& iter,
                                LLVMContext& bbctx,
-                               DataLayout& target_data,
+                               const DataLayout& target_data,
                                BasicBlock::iterator& terminator_inst,
                                int& must_clear);
 
@@ -319,7 +319,7 @@ namespace bytesflops_pass {
 
     // Indicate that we need access to DataLayout.
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<DataLayout>();
+      AU.addRequired<DataLayoutPass>();
     }
 
   public:

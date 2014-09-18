@@ -98,7 +98,7 @@ namespace bytesflops_pass {
                                          StringRef function_name,
                                          BasicBlock::iterator& iter,
                                          LLVMContext& bbctx,
-                                         DataLayout& target_data,
+                                         const DataLayout& target_data,
                                          BasicBlock::iterator& insert_before,
                                          int& must_clear) {
     // Increment the byte counter for load and store
@@ -373,7 +373,7 @@ namespace bytesflops_pass {
       // Perform per-basic-block variable initialization.
       BasicBlock& bb = *func_iter;
       LLVMContext& bbctx = bb.getContext();
-      DataLayout& target_data = getAnalysis<DataLayout>();
+      DataLayoutPass& target_data = getAnalysis<DataLayoutPass>();
       BasicBlock::iterator terminator_inst = bb.end();
       terminator_inst--;
       int must_clear = 0;   // Keep track of which counters we need to clear.
@@ -416,7 +416,8 @@ namespace bytesflops_pass {
           case Instruction::Load:
           case Instruction::Store:
             instrument_load_store(module, function_name, iter, bbctx,
-                                  target_data, terminator_inst, must_clear);
+                                  target_data.getDataLayout(), terminator_inst,
+				  must_clear);
             break;
 
           case Instruction::Call:
