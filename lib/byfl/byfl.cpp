@@ -4,16 +4,20 @@
  *
  * By Scott Pakin <pakin@lanl.gov>
  *    Pat McCormick <pat@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 #include <sstream>
 
 #include "byfl.h"
+#include "byfl-common.h"
+#include "CallStack.h"
 
 namespace bytesflops {}
 using namespace bytesflops;
 using namespace std;
 
 const unsigned int HDR_COL_WIDTH = 20;
+
 
 // Define the different ways a basic block can terminate.
 typedef enum {
@@ -246,18 +250,42 @@ static ByteFlopCounters prev_global_totals;  // Previously reported global talli
 // Keep track of counters on a per-function basis, being careful to
 // work around the "C++ static initialization order fiasco" (cf. the
 // C++ FAQ).
-typedef CachedUnorderedMap<const char*, ByteFlopCounters*> str2bfc_t;
+
+typedef const char * MapKey_t;
+
+typedef CachedUnorderedMap<KeyType_t, ByteFlopCounters*> key2bfc_t;
+typedef CachedUnorderedMap<MapKey_t, ByteFlopCounters*> str2bfc_t;
 typedef str2bfc_t::iterator counter_iterator;
-static str2bfc_t& per_func_totals()
+static key2bfc_t& per_func_totals()
 {
-  static str2bfc_t* mapping = new str2bfc_t();
+  static key2bfc_t* mapping = new key2bfc_t();
   return *mapping;
 }
-typedef CachedUnorderedMap<const char*, uint64_t> str2num_t;
-static str2num_t& func_call_tallies()
+typedef CachedUnorderedMap<KeyType_t, uint64_t> key2num_t;
+static key2num_t& func_call_tallies()
+{
+  static key2num_t* mapping = new key2num_t();
+  return *mapping;
+}
+
+typedef CachedUnorderedMap<KeyType_t, std::string> key2name_t;
+static key2name_t & key_to_func()
+{
+    static key2name_t * mapping = new key2name_t();
+    return *mapping;
+}
+
+typedef std::map<std::string, uint64_t> str2num_t;
+static str2num_t& final_call_tallies()
 {
   static str2num_t* mapping = new str2num_t();
   return *mapping;
+}
+
+static uint32_t & bf_cnt()
+{
+    static uint32_t * cnt = new uint32_t(0);
+    return *cnt;
 }
 
 // Keep track of counters on a user-defined basis, being careful to
@@ -269,6 +297,36 @@ static str2bfc_t& user_defined_totals()
   return *mapping;
 }
 
+static
+void bf_record_key(const char* funcname, KeyType_t keyID)
+{
+    bool fatal = false;
+
+    auto & map = key_to_func();
+    auto iter = map.find(keyID);
+    if ( iter != map.end() )
+    {
+        // check for duplicates
+        if ( iter->second != funcname )
+        {
+            fatal = true;
+        }
+        else if ( map.count(keyID) > 1 )
+        {
+            fatal = true;
+        }
+    }
+
+    if ( fatal )
+    {
+        std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
+        exit(-1);
+    }
+
+    map[keyID] = std::move(std::string(funcname));
+}
+
+
 // bf_categorize_counters() is intended to be overridden by a
 // user-defined function.
 extern "C" {
@@ -279,9 +337,13 @@ extern "C" {
   const char* bf_categorize_counters (void) __attribute__((weak, alias("bf_categorize_counters_original")));
 }
 
+KeyType_t bf_categorize_counters_id = 10; // should be unlikely that this is duplicate
+
 namespace bytesflops {
 
 const char* bf_func_and_parents; // Top of the complete_call_stack stack
+KeyType_t bf_func_and_parents_id; // Top of the complete_call_stack stack
+KeyType_t bf_current_func_key;
 string bf_output_prefix;         // String to output before "BYFL" on every line
 ostream* bfout;                  // Stream to which to send standard output
 
@@ -323,63 +385,6 @@ public:
 };
 static CounterMemoryPool* counter_memory_pool = NULL;
 
-// Maintain a function call stack.
-class CallStack {
-private:
-  vector<const char*> complete_call_stack;  // Stack of function and ancestor names
-public:
-  size_t max_depth;   // Maximum depth achieved by complete_call_stack
-
-  CallStack() {
-    bf_func_and_parents = "-";
-    max_depth = 0;
-  }
-
-  // Push a function name onto the stack.  Return a string containing
-  // the name of the function followed by the names of all of its
-  // ancestors.
-  const char* push_function (const char* funcname) {
-    // Push both the current function name and the combined name of the
-    // function and its call stack.
-    static char* combined_name = NULL;
-    static size_t len_combined_name = 0;
-    const char* unique_combined_name;      // Interned version of combined_name
-    size_t current_stack_depth = complete_call_stack.size();
-    if (current_stack_depth == 0) {
-      // First function on the call stack
-      len_combined_name = strlen(funcname) + 1;
-      combined_name = (char*) malloc(len_combined_name);
-      strcpy(combined_name, funcname);
-      max_depth = 1;
-    }
-    else {
-      // All other calls (the common case)
-      const char* ancestors_names = complete_call_stack.back();
-      size_t length_needed = strlen(funcname) + strlen(ancestors_names) + 2;
-      if (len_combined_name < length_needed) {
-        len_combined_name = length_needed*2;
-        combined_name = (char*) realloc(combined_name, len_combined_name);
-      }
-      sprintf(combined_name, "%s %s", funcname, ancestors_names);
-      current_stack_depth++;
-      if (current_stack_depth > max_depth)
-        max_depth = current_stack_depth;
-    }
-    unique_combined_name = bf_string_to_symbol(combined_name);
-    complete_call_stack.push_back(unique_combined_name);
-    return unique_combined_name;
-  }
-
-  // Pop a function name from the call stack and return the new top of
-  // the call stack (function + ancestors).
-  const char* pop_function (void) {
-    complete_call_stack.pop_back();
-    if (complete_call_stack.size() > 0)
-      return complete_call_stack.back();
-    else
-      return "[EMPTY]";
-  }
-};
 static CallStack* call_stack = NULL;
 
 // As a kludge, set a global variable indicating that all of the
@@ -397,8 +402,12 @@ public:
 } check_construction;
 
 
+
 // Initialize some of our variables at first use.
 void initialize_byfl (void) {
+  bf_func_and_parents = "-";
+  bf_func_and_parents_id = KeyType_t(0);
+  bf_current_func_key = KeyType_t(0);
   call_stack = new CallStack();
   counter_memory_pool = new CounterMemoryPool();
   if (bf_types) {
@@ -418,6 +427,12 @@ void initialize_byfl (void) {
   for (unsigned int i = 0; i < BF_NUM_MEM_INTRIN; i++)
     bf_mem_intrin_count[i] = 0;
   bf_push_basic_block();
+
+  const char * partition = bf_categorize_counters();
+  if ( NULL != partition )
+  {
+      bf_record_key(partition, bf_categorize_counters_id);
+  }
 }
 
 
@@ -425,6 +440,7 @@ void initialize_byfl (void) {
 // is a kludge to work around the "C++ static initialization order
 // fiasco" (cf. the C++ FAQ).  bf_initialize_if_necessary() can safely
 // be called multiple times.
+extern "C"
 void bf_initialize_if_necessary (void)
 {
   static bool initialized = false;
@@ -443,6 +459,7 @@ void bf_initialize_if_necessary (void)
 
 
 // Push a new basic block onto the stack (before a function call).
+extern "C"
 void bf_push_basic_block (void)
 {
   bb_totals().push_back(counter_memory_pool->allocate());
@@ -451,6 +468,7 @@ void bf_push_basic_block (void)
 
 // Pop and discard the top basic block off the stack (after a function
 // returns).
+extern "C"
 void bf_pop_basic_block (void)
 {
   counter_memory_pool->deallocate(bb_totals().back());
@@ -459,30 +477,57 @@ void bf_pop_basic_block (void)
 
 
 // Tally the number of calls to each function.
-void bf_incr_func_tally (const char* funcname)
+extern "C"
+void bf_incr_func_tally (KeyType_t keyID)
 {
-  const char* unique_name = bf_string_to_symbol(funcname);
-  func_call_tallies()[unique_name]++;
+  func_call_tallies()[keyID]++;
+}
+
+extern "C"
+void bf_record_funcs2keys(uint32_t cnt, const uint64_t * keys,
+        const char ** fnames)
+{
+    for ( unsigned i = 0; i < cnt; i++ )
+    {
+        bf_record_key(fnames[i], keys[i]);
+    }
 }
 
 
 // Push a function name onto the call stack.  Increment the invocation
 // count the call stack as a whole, and ensure the individual function
 // name also exists in the hash table.
-void bf_push_function (const char* funcname)
+extern "C"
+void bf_push_function (const char* funcname, KeyType_t key)
 {
-  const char* unique_combined_name = call_stack->push_function(funcname);
+  uint64_t depth = 1;
+
+  bf_current_func_key = key;
+
+  const char* unique_combined_name = call_stack->push_function(funcname, key);
   bf_func_and_parents = unique_combined_name;
-  func_call_tallies()[bf_func_and_parents]++;
-  const char* unique_name = bf_string_to_symbol(funcname);
-  func_call_tallies()[unique_name] += 0;
+
+  depth <<= call_stack->depth();
+  bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ key;
+
+  bf_record_key(bf_func_and_parents, bf_func_and_parents_id);
+
+  func_call_tallies()[bf_func_and_parents_id]++;
+  func_call_tallies()[key] += 0;
 }
 
 
 // Pop the top function name from the call stack.
+extern "C"
 void bf_pop_function (void)
 {
-  bf_func_and_parents = call_stack->pop_function();
+  uint64_t depth = 1;
+
+  depth <<= call_stack->depth();
+  CallStack::StackItem_t item = call_stack->pop_function();
+  bf_func_and_parents = item.first;
+  bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ bf_current_func_key;
+  bf_current_func_key = item.second;
 }
 
 
@@ -543,6 +588,7 @@ static bool suppress_output (void)
 // At the end of a basic block, accumulate the current counter
 // variables (bf_*_count) into the current basic block's counters and
 // into the global counters.
+extern "C"
 void bf_accumulate_bb_tallies (void)
 {
   // Add the current values to the per-BB totals.
@@ -562,8 +608,8 @@ void bf_accumulate_bb_tallies (void)
   global_totals.accumulate(current_bb);
   const char* partition = bf_string_to_symbol(bf_categorize_counters());
   if (partition != NULL) {
-    counter_iterator sm_iter = user_defined_totals().find(partition);
-    if (sm_iter == per_func_totals().end())
+    auto sm_iter = user_defined_totals().find(partition);
+    if (sm_iter == user_defined_totals().end())
       user_defined_totals()[partition] = new ByteFlopCounters(*current_bb);
     else
       user_defined_totals()[partition]->accumulate(current_bb);
@@ -572,12 +618,14 @@ void bf_accumulate_bb_tallies (void)
 
 // Reset the current basic block's tallies rather than requiring a
 // push and a pop for every basic block.
+extern "C"
 void bf_reset_bb_tallies (void)
 {
   bb_totals().back()->reset();
 }
 
 // Report what we've measured for the current basic block.
+extern "C"
 void bf_report_bb_tallies (void)
 {
   static bool showed_header = false;         // true=already output our header
@@ -627,18 +675,32 @@ void bf_report_bb_tallies (void)
 
 
 // Associate the current counter values with a given function.
-void bf_assoc_counters_with_func (const char* funcname)
+extern "C"
+void bf_assoc_counters_with_func (KeyType_t funcID)
 {
   // Ensure that per_func_totals contains an ByteFlopCounters entry
   // for funcname, then add the current counters to that entry.
-  if (bf_call_stack)
-    funcname = bf_func_and_parents;
+//  if (bf_call_stack)
+//    funcname = bf_func_and_parents;
+//  else
+//    funcname = bf_string_to_symbol(funcname);
+
+  key2bfc_t::iterator sm_iter;
+  KeyType_t key;
+  if ( bf_call_stack )
+  {
+      sm_iter = per_func_totals().find(bf_func_and_parents_id);
+      key = bf_func_and_parents_id;
+  }
   else
-    funcname = bf_string_to_symbol(funcname);
-  counter_iterator sm_iter = per_func_totals().find(funcname);
+  {
+      sm_iter = per_func_totals().find(funcID);
+      key = funcID;
+  }
+
   if (sm_iter == per_func_totals().end())
     // This is the first time we've seen this function name.
-    per_func_totals()[funcname] =
+    per_func_totals()[key] =
       new ByteFlopCounters(bf_mem_insts_count,
                            bf_inst_mix_histo,
                            bf_terminator_count,
@@ -675,20 +737,57 @@ static class RunAtEndOfProgram {
 private:
   string separator;    // Horizontal rule to output between sections
 
+  static void
+  aggregate_call_tallies()
+  {
+      key2num_t & fmap = func_call_tallies();
+      str2num_t & final_map = final_call_tallies();
+      for ( auto it = fmap.begin(); it != fmap.end(); it++ )
+      {
+          auto kiter = key_to_func().find(it->first);
+          if ( kiter == key_to_func().end() )
+          {
+              std::cerr << "ERROR: key " << it->first
+                      << " was not recorded." << std::endl;
+          }
+          else
+          {
+              std::string & func = key_to_func()[it->first];
+              final_map[func.c_str()] += it->second;
+          }
+      }
+//      std::cout << "main cnt = " << final_map["main"] << std::endl;
+//      std::cout << "final_map = {";
+//      for ( auto it = final_map.begin();
+//              it != final_map.end(); it++ )
+//      {
+//          std::cout << " (" << it->first << ", " << it->second << ")";
+//      }
+//      std::cout << "}\n";
+  }
+
   // Compare two strings.
   static bool compare_char_stars (const char* one, const char* two) {
     return strcmp(one, two) < 0;
   }
 
+  static bool compare_keys_to_names (KeyType_t one, KeyType_t two) {
+    auto & map = key_to_func();
+    return map[one] < map[two];
+  }
+
   // Compare two function names, reporting which was called more
   // times.  Break ties by comparing function names.
-  static bool compare_func_totals (const char* one, const char* two) {
-    uint64_t one_calls = func_call_tallies()[one];
-    uint64_t two_calls = func_call_tallies()[two];
+  static bool compare_func_totals (const std::string & one,
+                                  const std::string & two)
+  {
+    uint64_t one_calls = final_call_tallies()[one];
+    uint64_t two_calls = final_call_tallies()[two];
     if (one_calls != two_calls)
       return one_calls > two_calls;
     else
-      return compare_char_stars(one, two);
+      return one < two;
+      //return compare_char_stars(one, two);
   }
 
   // Compare two {name, tally} pairs, reporting which has the greater
@@ -703,6 +802,9 @@ private:
 
   // Report per-function counter totals.
   void report_by_function (void) {
+
+    aggregate_call_tallies();
+
     // Output a header line.
     *bfout << bf_output_prefix
            << "BYFL_FUNC_HEADER: "
@@ -728,13 +830,13 @@ private:
     *bfout << '\n';
 
     // Output the data by sorted function name.
-    vector<const char*>* all_func_names = per_func_totals().sorted_keys(compare_char_stars);
-    for (vector<const char*>::iterator fn_iter = all_func_names->begin();
-         fn_iter != all_func_names->end();
+    vector<KeyType_t> * all_funcs = per_func_totals().sorted_keys(compare_keys_to_names);
+    for (vector<KeyType_t>::iterator fn_iter = all_funcs->begin();
+         fn_iter != all_funcs->end();
          fn_iter++) {
-      const string funcname = *fn_iter;
+      const string funcname = key_to_func()[*fn_iter];
       const char* funcname_c = bf_string_to_symbol(funcname.c_str());
-      ByteFlopCounters* func_counters = per_func_totals()[funcname_c];
+      ByteFlopCounters* func_counters = per_func_totals()[*fn_iter];
       *bfout << bf_output_prefix
              << "BYFL_FUNC:        "
              << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
@@ -751,10 +853,10 @@ private:
                << (bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c));
       *bfout << ' '
              << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
-             << setw(HDR_COL_WIDTH) << func_call_tallies()[funcname_c] << ' '
+             << setw(HDR_COL_WIDTH) << final_call_tallies()[funcname_c] << ' '
              << funcname_c << '\n';
     }
-    delete all_func_names;
+    delete all_funcs;
 
     // Output invocation tallies for all called functions, not just
     // instrumented functions.
@@ -764,10 +866,10 @@ private:
            << "Byfl" << ' '
            << "Function\n";
     vector<const char*> all_called_funcs;
-    for (str2num_t::iterator sm_iter = func_call_tallies().begin();
-         sm_iter != func_call_tallies().end();
+    for (str2num_t::iterator sm_iter = final_call_tallies().begin();
+         sm_iter != final_call_tallies().end();
          sm_iter++)
-      all_called_funcs.push_back(sm_iter->first);
+      all_called_funcs.push_back(sm_iter->first.c_str());
     sort(all_called_funcs.begin(), all_called_funcs.end(), compare_func_totals);
     for (vector<const char*>::iterator fn_iter = all_called_funcs.begin();
          fn_iter != all_called_funcs.end();
@@ -777,9 +879,9 @@ private:
       bool instrumented = true;          // Whether function was instrumented
       if (funcname[0] == '+') {
         const char* unique_name = bf_string_to_symbol(funcname+1);
-        str2num_t::iterator tally_iter = func_call_tallies().find(unique_name);
-        instrumented = (tally_iter != func_call_tallies().end());
-        tally = func_call_tallies()[bf_string_to_symbol(funcname)];
+        str2num_t::iterator tally_iter = final_call_tallies().find(unique_name);
+        instrumented = (tally_iter != final_call_tallies().end());
+        tally = final_call_tallies()[bf_string_to_symbol(funcname)];
         funcname = unique_name;
       }
       string funcname_orig = demangle_func_name(funcname);
@@ -1175,7 +1277,7 @@ public:
     // after each tally.  We therefore reconstruct the lost global
     // counts from the per-function tallies.
     if (global_totals.terminators[BF_END_BB_ANY] == 0)
-      for (counter_iterator sm_iter = per_func_totals().begin();
+      for (auto sm_iter = per_func_totals().begin();
            sm_iter != per_func_totals().end();
            sm_iter++)
         global_totals.accumulate(sm_iter->second);

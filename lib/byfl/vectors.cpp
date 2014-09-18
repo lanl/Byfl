@@ -3,6 +3,7 @@
  * (tracking vector operations)
  *
  * By Scott Pakin <pakin@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 
 #include "byfl.h"
@@ -117,7 +118,7 @@ static void tally_vector_operation (name_to_vector_t* vector_usage,
   tally_iter->second++;
 }
 
-
+extern "C"
 void bf_tally_vector_operation (const char *funcname, uint64_t num_elements,
                                 uint64_t element_bits, bool is_flop)
 {

@@ -3,6 +3,7 @@
  * (tracking unique bytes)
  *
  * By Scott Pakin <pakin@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 
 #include "byfl.h"
@@ -195,6 +196,7 @@ static page_to_bits_t* assoc_addresses_with_func (const char* funcname,
 // Associate a set of memory locations with a given function.  This
 // function basically wraps assoc_addresses_with_func() with a quick
 // cache lookup.
+extern "C"
 void bf_assoc_addresses_with_func (const char* funcname, uint64_t baseaddr, uint64_t numaddrs)
 {
   // Keep track of the two most recently used page-to-bit-vector maps.
@@ -230,6 +232,7 @@ void bf_assoc_addresses_with_func (const char* funcname, uint64_t baseaddr, uint
 
 
 // Associate a set of memory locations with the program as a whole.
+extern "C"
 void bf_assoc_addresses_with_prog (uint64_t baseaddr, uint64_t numaddrs)
 {
   flag_bytes_in_range(*global_unique_bytes, baseaddr, numaddrs);

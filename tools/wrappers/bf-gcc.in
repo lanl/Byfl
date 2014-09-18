@@ -371,6 +371,7 @@ if (defined $build_type{"compile"}) {
         # find its input file and therefore abort.
         next if !-e $sfile;
 
+		# add --debug-pass=Structure to debug
         # Run the static analyzer if -bf-static was specified.
         execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
                         "-bytesflops", @bf_options,
@@ -457,6 +458,8 @@ if (defined $build_type{"link"}) {
         }
         elsif ($opt eq "o") {
             push @llvm_ld_options, ("-o", $arg);
+        }
+        elsif ($opt eq "rdynamic") {
         }
         elsif ($opt eq "O") {
             # Make a few modifications to the optimization level

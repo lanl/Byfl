@@ -3,6 +3,7 @@
  * pass and the helper library
  *
  * By Scott Pakin <pakin@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 
 #ifndef _BYFL_COMMON_H_
@@ -12,6 +13,8 @@
 #include <cxxabi.h>
 
 using namespace std;
+
+typedef uint64_t    KeyType_t;
 
 enum {
   BF_OP_LOAD,

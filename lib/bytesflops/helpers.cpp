@@ -3,10 +3,12 @@
  * helper methods
  *
  * By Scott Pakin <pakin@lanl.gov>
- * and Pat McCormick <pat@lanl.gov>
+ *    Pat McCormick <pat@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 
 #include "bytesflops.h"
+#include <iostream>
 
 namespace bytesflops_pass {
 
@@ -127,6 +129,21 @@ namespace bytesflops_pass {
   }
 
   // Mark a variable as "used" (not eligible for dead-code elimination).
+  void mark_as_used(Module& module, Constant* protected_var) {
+    LLVMContext& globctx = module.getContext();
+    PointerType* ptr8 = Type::getInt8PtrTy(globctx);
+    ArrayType* ptr8_array = ArrayType::get(ptr8, 1);
+
+    GlobalVariable* llvm_used =
+      new GlobalVariable(module, ptr8_array, false,
+                         GlobalValue::AppendingLinkage, 0, "llvm.used");
+    llvm_used->setSection("llvm.metadata");
+    std::vector<Constant*> llvm_used_elts;
+    llvm_used_elts.push_back(ConstantExpr::getCast(Instruction::BitCast,
+                                                   protected_var, ptr8));
+    llvm_used->setInitializer(ConstantArray::get(ptr8_array, llvm_used_elts));
+  }
+
   void BytesFlops::mark_as_used(Module& module, Constant* protected_var) {
     LLVMContext& globctx = module.getContext();
     PointerType* ptr8 = Type::getInt8PtrTy(globctx);
@@ -142,9 +159,118 @@ namespace bytesflops_pass {
     llvm_used->setInitializer(ConstantArray::get(ptr8_array, llvm_used_elts));
   }
 
+  // Create and initialize a global variable in the
+  // instrumented code.
+  GlobalVariable* BytesFlops::create_global_variable(Module& module,
+                                                     Type* var_type,
+                                                     Constant * init_value,
+                                                     const char* name) {
+    GlobalVariable* new_var =
+      new GlobalVariable(module, var_type, false, GlobalValue::ExternalLinkage,
+              init_value, name);
+    mark_as_used(module, new_var);
+    return new_var;
+  }
+
+
   // Create and initialize a global uint64_t constant in the
   // instrumented code.
   GlobalVariable* BytesFlops::create_global_constant(Module& module,
+                                                     const char* name,
+                                                     uint64_t value) {
+    LLVMContext& globctx = module.getContext();
+    IntegerType* i64type = Type::getInt64Ty(globctx);
+    ConstantInt* const_value = ConstantInt::get(globctx, APInt(64, value));
+    GlobalVariable* new_constant =
+      new GlobalVariable(module, i64type, true, GlobalValue::LinkOnceODRLinkage,
+                         const_value, name);
+    mark_as_used(module, new_constant);
+    return new_constant;
+  }
+
+  // Create and initialize a global bool constant in the instrumented
+  // code.
+  GlobalVariable* create_global_constant(Module& module,
+                                                     const char* name,
+                                                     bool value) {
+    LLVMContext& globctx = module.getContext();
+    IntegerType* booltype = Type::getInt1Ty(globctx);
+    ConstantInt* const_value = ConstantInt::get(globctx, APInt(1, value));
+    GlobalVariable* new_constant =
+      new GlobalVariable(module, booltype, true, GlobalValue::LinkOnceODRLinkage,
+                         const_value, name);
+    mark_as_used(module, new_constant);
+    return new_constant;
+  }
+
+  // Create and initialize a global char* constant in the instrumented
+  // code.
+  GlobalVariable* create_global_constant(Module& module,
+                                                     const char* name,
+                                                     const char* value) {
+    // First, create a _local_ array of characters.
+    LLVMContext& globctx = module.getContext();
+    ConstantInt *
+    zero = ConstantInt::get(globctx, APInt(64, 0));
+
+    size_t num_bytes = strlen(value) + 1;   // Number of characters including the trailing '\0'
+    ArrayType* array_type = ArrayType::get(Type::getInt8Ty(globctx), num_bytes);
+    Constant *local_string = ConstantDataArray::getString(globctx, value, true);
+    GlobalVariable* string_contents =
+      new GlobalVariable(module, array_type, true, GlobalValue::PrivateLinkage,
+                         local_string, string(name)+string(".data"));
+    string_contents->setAlignment(8);
+
+    // Next, create a global pointer to the local array of characters.
+    std::vector<Constant*> getelementptr_indexes;
+    getelementptr_indexes.push_back(zero);
+    getelementptr_indexes.push_back(zero);
+    Constant* array_pointer =
+      ConstantExpr::getGetElementPtr(string_contents, getelementptr_indexes);
+    PointerType* pointer_type = PointerType::get(Type::getInt8Ty(globctx), 0);
+    GlobalVariable* new_constant =
+      new GlobalVariable(module, pointer_type, true,
+                         GlobalValue::LinkOnceODRLinkage, array_pointer, name);
+    mark_as_used(module, new_constant);
+    return new_constant;
+  }
+
+    // Create and initialize a global char* constant in the instrumented
+    // code.
+    GlobalVariable* create_global_constant(Module& module,
+                                           const char* name,
+                                           std::vector<uint64_t> & value) {
+        // First, create a _local_ array of characters.
+        LLVMContext& globctx = module.getContext();
+        ConstantInt *
+        zero = ConstantInt::get(globctx, APInt(64, 0));
+        
+        ArrayType* array_type = ArrayType::get(IntegerType::get(globctx, 64), value.size());
+
+        Constant *local_array = ConstantDataArray::get(globctx, value);
+        GlobalVariable* array_contents =
+        new GlobalVariable(module, array_type, true, GlobalValue::PrivateLinkage,
+                           local_array, string(name)+string(".data"));
+        array_contents->setAlignment(16);
+        
+        // Next, create a global pointer to the local array of characters.
+        std::vector<Constant*> getelementptr_indexes;
+        getelementptr_indexes.push_back(zero);
+        getelementptr_indexes.push_back(zero);
+        Constant* array_pointer =
+        ConstantExpr::getGetElementPtr(array_contents, getelementptr_indexes);
+        PointerType* pointer_type = PointerType::get(Type::getInt64Ty(globctx), 0);
+        GlobalVariable* new_constant =
+        new GlobalVariable(module, pointer_type, true,
+                           GlobalValue::LinkOnceODRLinkage, array_pointer, name);
+        mark_as_used(module, new_constant);
+        return new_constant;
+    }
+    
+
+  // Create and initialize a global uint64_t constant in the
+  // instrumented code.
+  GlobalVariable* create_global_constant(Module& module,
                                                      const char* name,
                                                      uint64_t value) {
     LLVMContext& globctx = module.getContext();
@@ -172,35 +298,35 @@ namespace bytesflops_pass {
     return new_constant;
   }
 
-  // Create and initialize a global char* constant in the instrumented
-  // code.
-  GlobalVariable* BytesFlops::create_global_constant(Module& module,
-                                                     const char* name,
-                                                     const char* value) {
-    // First, create a _local_ array of characters.
-    LLVMContext& globctx = module.getContext();
-    size_t num_bytes = strlen(value) + 1;   // Number of characters including the trailing '\0'
-    ArrayType* array_type = ArrayType::get(Type::getInt8Ty(globctx), num_bytes);
-    Constant *local_string = ConstantDataArray::getString(globctx, value, true);
-    GlobalVariable* string_contents =
-      new GlobalVariable(module, array_type, true, GlobalValue::PrivateLinkage,
-                         local_string, string(name)+string(".data"));
-    string_contents->setAlignment(8);
-
-    // Next, create a global pointer to the local array of characters.
-    std::vector<Constant*> getelementptr_indexes;
-    getelementptr_indexes.push_back(zero);
-    getelementptr_indexes.push_back(zero);
-    Constant* array_pointer =
-      ConstantExpr::getGetElementPtr(string_contents, getelementptr_indexes);
-    PointerType* pointer_type = PointerType::get(Type::getInt8Ty(globctx), 0);
-    GlobalVariable* new_constant =
-      new GlobalVariable(module, pointer_type, true,
-                         GlobalValue::LinkOnceODRLinkage, array_pointer, name);
-    mark_as_used(module, new_constant);
-    return new_constant;
-  }
-
+    // Create and initialize a global char* constant in the instrumented
+    // code.
+    GlobalVariable* BytesFlops::create_global_constant(Module& module,
+                                                       const char* name,
+                                                       const char* value) {
+        // First, create a _local_ array of characters.
+        LLVMContext& globctx = module.getContext();
+        size_t num_bytes = strlen(value) + 1;   // Number of characters including the trailing '\0'
+        ArrayType* array_type = ArrayType::get(Type::getInt8Ty(globctx), num_bytes);
+        Constant *local_string = ConstantDataArray::getString(globctx, value, true);
+        GlobalVariable* string_contents =
+        new GlobalVariable(module, array_type, true, GlobalValue::PrivateLinkage,
+                           local_string, string(name)+string(".data"));
+        string_contents->setAlignment(8);
+        
+        // Next, create a global pointer to the local array of characters.
+        std::vector<Constant*> getelementptr_indexes;
+        getelementptr_indexes.push_back(zero);
+        getelementptr_indexes.push_back(zero);
+        Constant* array_pointer =
+        ConstantExpr::getGetElementPtr(string_contents, getelementptr_indexes);
+        PointerType* pointer_type = PointerType::get(Type::getInt8Ty(globctx), 0);
+        GlobalVariable* new_constant =
+        new GlobalVariable(module, pointer_type, true,
+                           GlobalValue::LinkOnceODRLinkage, array_pointer, name);
+        mark_as_used(module, new_constant);
+        return new_constant;
+    }
+    
   // Return the number of elements in a given vector.
   ConstantInt* BytesFlops::get_vector_length(LLVMContext& bbctx, const Type* dataType, ConstantInt* scalarValue) {
     if (dataType->isVectorTy()) {
@@ -375,6 +501,27 @@ namespace bytesflops_pass {
                                 var_name, 0, GlobalVariable::NotThreadLocal);
   }
 
+  // Create an external variable.
+//  GlobalVariable* BytesFlops::create_global_var(Module& module,
+//                                                 Type* var_type,
+//                                                 StringRef var_name,
+//                                                 size_t nelts) {
+//    // Don't declare the same variable twice in a single module.
+//    GlobalVariable* oldvar = module.getGlobalVariable(var_name);
+//    if (oldvar)
+//    {
+//      return oldvar;
+//    }
+//    else
+//    {
+//        oldvar = new GlobalVariable(module, var_type, is_const,
+//                                    GlobalVariable::ExternalLinkage, 0,
+//                                    var_name, 0, GlobalVariable::NotThreadLocal);
+//
+//    }
+//
+//  }
+
   // Insert code to set every element of a given array to zero.
   void BytesFlops::insert_zero_array_code(Module* module,
                                           GlobalVariable* array_to_zero,
@@ -405,7 +552,7 @@ namespace bytesflops_pass {
   }
 
   // Insert code at the end of a basic block.
-  void BytesFlops::insert_end_bb_code (Module* module, StringRef function_name,
+  void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
                                        int& must_clear,
                                        BasicBlock::iterator& insert_before) {
     // Keep track of how the basic block terminated.
@@ -452,7 +599,9 @@ namespace bytesflops_pass {
     // bf_assoc_counters_with_func() at the end of the basic block.
     if (TallyByFunction) {
       vector<Value*> arg_list;
-      arg_list.push_back(map_func_name_to_arg(module, function_name));
+      ConstantInt * key = ConstantInt::get(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)),
+                                           funcKey);
+      arg_list.push_back(key);
       callinst_create(assoc_counts_with_func, arg_list, insert_before);
     }
 
@@ -562,7 +711,16 @@ namespace bytesflops_pass {
   // Ditto the above but for functions with arguments.
   void BytesFlops::callinst_create(Value* function, ArrayRef<Value*> args,
                                    BasicBlock* insert_before) {
-    CallInst::Create(function, args, "", insert_before)->setCallingConv(CallingConv::C);
+      CallInst * inst = CallInst::Create(function, args, "", insert_before);
+      if ( !inst )
+      {
+          std::cerr << "Error: unable to create call instruction to "
+                  << function->getName().str() << std::endl;
+      }
+      else
+      {
+          inst->setCallingConv(CallingConv::C);
+      }
   }
 
   // Given a Call instruction, return true if we can safely ignore it.

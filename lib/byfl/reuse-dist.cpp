@@ -3,6 +3,7 @@
  * (binning reuse distance)
  *
  * By Scott Pakin <pakin@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 
 #include "byfl.h"
@@ -488,6 +489,7 @@ void initialize_reuse (void)
 
 // Process the reuse distance of a set of addresses relative to the
 // program as a whole.
+extern "C"
 void bf_reuse_dist_addrs_prog (uint64_t baseaddr, uint64_t numaddrs)
 {
   for (uint64_t ofs = 0; ofs < numaddrs; ofs++)
