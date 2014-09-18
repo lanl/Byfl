@@ -85,10 +85,9 @@ if test "${DRAGONEGG:-no}" = no ; then
   else
     DRAGONEGG="$ax_cv_file_dragonegg_so"
   fi
-else
+elif test ! -e "$DRAGONEGG" ; then
   # The location of the DragonEgg plugin was specified -- see if it exists.
-  AC_CHECK_FILE([$DRAGONEGG], ,
-    [AC_MSG_WARN([Did you specify an incorrect file for the DRAGONEGG variable ($DRAGONEGG)?])])
+  AC_MSG_WARN([Did you specify an incorrect file for the DRAGONEGG variable ($DRAGONEGG)?])
 fi
 
 dnl Warn the user that we'll override --disable-shared in the plugin directory.
