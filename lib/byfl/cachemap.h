@@ -3,6 +3,7 @@
  * (cached unordered map class definition)
  *
  * By Scott Pakin <pakin@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 
 #ifndef _CACHEMAP_H_

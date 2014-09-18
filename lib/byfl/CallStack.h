@@ -1,15 +1,14 @@
 /*
- * CallStack.h
+ * Helper library for computing bytes:flops ratios
+ * (interface for maintaining a function call stack)
  *
- *  Created on: Dec 16, 2013
- *      Author: rta
+ * By Rob Aulwes <rta@lanl.gov>
  */
 
 #ifndef CALLSTACK_H_
 #define CALLSTACK_H_
 
 #include <vector>
-//#include <stdlib.h>
 #include <string>
 #include <cstring>
 #include <iostream>

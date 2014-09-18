@@ -3,6 +3,7 @@
  * pass and the helper library
  *
  * By Scott Pakin <pakin@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 
 #ifndef _BYFL_COMMON_H_

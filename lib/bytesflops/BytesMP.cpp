@@ -1,8 +1,8 @@
 /*
- * BytesMP.cpp
+ * Instrument code to keep track of run-time behavior:
+ * module pass for maintaining function IDs
  *
- *  Created on: Mar 6, 2014
- *      Author: rta
+ * By Rob Aulwes <rta@lanl.gov>
  */
 
 #include "BytesMP.h"

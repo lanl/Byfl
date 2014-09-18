@@ -4,6 +4,7 @@
  *
  * By Scott Pakin <pakin@lanl.gov>
  *    Pat McCormick <pat@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 #include <sstream>
 

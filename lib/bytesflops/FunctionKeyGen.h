@@ -1,12 +1,12 @@
 /*
- * FunctionKeyGen.h
+ * Instrument code to keep track of run-time behavior:
+ * generate unique function IDs (interface)
  *
- *  Created on: Dec 13, 2013
- *      Author: rta
+ * By Rob Aulwes <rta@lanl.gov>
  */
 
-#ifndef FUNCTIONKEYGEN_H_
-#define FUNCTIONKEYGEN_H_
+#ifndef _FUNCTIONKEYGEN_H_
+#define _FUNCTIONKEYGEN_H_
 
 #include <string>
 #include "MersenneTwister.h"
@@ -34,4 +34,4 @@ namespace bytesflops_pass
     };
 
 } /* namespace bytesflops_pass */
-#endif /* FUNCTIONKEYGEN_H_ */
+#endif /* _FUNCTIONKEYGEN_H_ */

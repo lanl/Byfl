@@ -3,7 +3,8 @@
  * helper methods
  *
  * By Scott Pakin <pakin@lanl.gov>
- * and Pat McCormick <pat@lanl.gov>
+ *    Pat McCormick <pat@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 
 #include "bytesflops.h"

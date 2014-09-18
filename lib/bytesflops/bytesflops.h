@@ -3,7 +3,8 @@
  * LLVM pass class definition
  *
  * By Scott Pakin <pakin@lanl.gov>
- * and Pat McCormick <pat@lanl.gov>
+ *    Pat McCormick <pat@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 
 #ifndef BYTES_FLOPS_H_

@@ -3,7 +3,8 @@
  * intrumentation functions proper (modifying LLVM IR)
  *
  * By Scott Pakin <pakin@lanl.gov>
- * and Pat McCormick <pat@lanl.gov>
+ *    Pat McCormick <pat@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 #include <iostream>
 #include "bytesflops.h"

@@ -1,12 +1,15 @@
 /*
- * Mersenne Twister
+ * Instrument code to keep track of run-time behavior:
+ * Mersenne Twister pseudorandom number generator
  *
+ * By Scott Pakin <pakin@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
+ */
+
+/*
  * The MT code is a C++ port of the 64-bit version of the
  * Mersenne Twister C code at
  * http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt64.html
- *
- * Authors: Scott Pakin <pakin@lanl.gov>
- *          Rob Aulwes <rta@lanl.gov>
  */
 
 /*

@@ -1,12 +1,13 @@
 /*
- * BytesMP.h
+ * Instrument code to keep track of run-time behavior:
+ * module pass for maintaining function IDs (interface)
  *
- *  Created on: Mar 6, 2014
- *      Author: rta
+ * By Rob Aulwes <rta@lanl.gov>
  */
 
-#ifndef BYTESMP_H_
-#define BYTESMP_H_
+
+#ifndef _BYTESMP_H_
+#define _BYTESMP_H_
 
 #include <string>
 #include <map>
@@ -44,4 +45,4 @@ namespace bytesflops_pass
     };
 
 } /* namespace bytesflops_pass */
-#endif /* BYTESMP_H_ */
+#endif /* _BYTESMP_H_ */

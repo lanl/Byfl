@@ -1,12 +1,12 @@
 /*
- * helpers.h
+ * Instrument code to keep track of run-time behavior:
+ * helper methods (interface)
  *
- *  Created on: Mar 6, 2014
- *      Author: rta
+ * By Rob Aulwes <rta@lanl.gov>
  */
 
-#ifndef HELPERS_H_
-#define HELPERS_H_
+#ifndef _HELPERS_H_
+#define _HELPERS_H_
 
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Constants.h"
@@ -33,5 +33,4 @@ namespace bytesflops_pass {
                                            const char* value);
 }
 
-
-#endif /* HELPERS_H_ */
+#endif /* _HELPERS_H_ */

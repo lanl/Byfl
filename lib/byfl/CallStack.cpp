@@ -1,14 +1,15 @@
 /*
- * CallStack.cpp
+ * Helper library for computing bytes:flops ratios
+ * (maintain a function call stack)
  *
- *  Created on: Dec 16, 2013
- *      Author: rta
+ * By Rob Aulwes <rta@lanl.gov>
  */
 
 #include "CallStack.h"
 
-extern "C"
-const char * bf_string_to_symbol(const char *);
+extern "C" {
+  extern const char * bf_string_to_symbol(const char *);
+}
 
 
 namespace bytesflops

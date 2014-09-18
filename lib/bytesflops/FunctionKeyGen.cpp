@@ -1,8 +1,8 @@
 /*
- * FunctionKeyGen.cpp
+ * Instrument code to keep track of run-time behavior:
+ * generate unique function IDs
  *
- *  Created on: Dec 13, 2013
- *      Author: rta
+ * By Rob Aulwes <rta@lanl.gov>
  */
 
 #include "FunctionKeyGen.h"

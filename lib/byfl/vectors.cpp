@@ -3,6 +3,7 @@
  * (tracking vector operations)
  *
  * By Scott Pakin <pakin@lanl.gov>
+ *    Rob Aulwes <rta@lanl.gov>
  */
 
 #include "byfl.h"
