@@ -1,43 +1,39 @@
 /*
- * MersenneTwister.h
+ * Mersenne Twister
  *
- *  Created on: Dec 13, 2013
- *      Author: rta
+ * The MT code is a C++ port of the 64-bit version of the
+ * Mersenne Twister C code at
+ * http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt64.html
+ *
+ * Authors: Scott Pakin <pakin@lanl.gov>
+ *          Rob Aulwes <rta@lanl.gov>
  */
 
-#ifndef MERSENNETWISTER_H_
-#define MERSENNETWISTER_H_
+#ifndef _MERSENNETWISTER_H_
+#define _MERSENNETWISTER_H_
 
 #include <vector>
-#include <stdint.h>
-
 #include "byfl-common.h"
 
 namespace bytesflops_pass
 {
 
-    class MersenneTwister
-    {
-    public:
-        typedef KeyType_t  Value_t;
-        typedef std::vector<Value_t> ValueList_t;
+  class MersenneTwister
+  {
+  public:
+    typedef KeyType_t  Value_t;
 
-        MersenneTwister();
-        MersenneTwister(const Value_t &);
-        MersenneTwister(const ValueList_t &);
+    MersenneTwister(const Value_t &);
 
-        Value_t next();
+    Value_t next();
 
-        ~MersenneTwister();
-
-    private:
-        ValueList_t     m_state;
-        int             m_next_idx;
-
-        void generateNextSet();
-        void init(const Value_t & seed);
-
-    };
+  private:
+    typedef std::vector<Value_t> ValueList_t;
+    ValueList_t mt;
+    size_t mti;
+    void init(const Value_t &);
+  };
 
 } /* namespace bytesflops_pass */
+
 #endif /* MERSENNETWISTER_H_ */

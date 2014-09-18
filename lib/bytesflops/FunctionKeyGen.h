@@ -24,8 +24,6 @@ namespace bytesflops_pass
          * want to initialize the RNG with a seed.
          */
         FunctionKeyGen(const Seed_t &);
-        FunctionKeyGen();
-        ~FunctionKeyGen();
 
         KeyID nextRandomKey();
 

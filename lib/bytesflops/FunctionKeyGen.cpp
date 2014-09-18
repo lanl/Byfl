@@ -21,17 +21,6 @@ namespace bytesflops_pass
     FunctionKeyGen::FunctionKeyGen(const FunctionKeyGen::Seed_t & seed)
         : m_rng(seed) {}
 
-    FunctionKeyGen::FunctionKeyGen()
-    {
-        // TODO Auto-generated constructor stub
-
-    }
-
-    FunctionKeyGen::~FunctionKeyGen()
-    {
-        // TODO Auto-generated destructor stub
-    }
-
     FunctionKeyGen::KeyID FunctionKeyGen::nextRandomKey()
     {
         return m_rng.next();
