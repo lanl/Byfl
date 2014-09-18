@@ -17,7 +17,9 @@ libbyfl_la_SOURCES = \
 	opcode2name.cpp \
 	opcode2name.h \
 	byfl.h \
-	cachemap.h
+	cachemap.h \
+	CallStack.cpp \
+	CallStack.h
 libbyfl_la_CPPFLAGS = -I$(srcdir)/../include
 libbyfl_la_LDFLAGS = -version-info 0:0:0
 

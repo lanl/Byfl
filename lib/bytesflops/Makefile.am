@@ -10,7 +10,13 @@ libbytesflops_la_SOURCES = \
 	instrument.cpp \
 	helpers.cpp \
 	init.cpp \
-	bytesflops.h
+	bytesflops.h \
+	MersenneTwister.cpp \
+	MersenneTwister.h \
+	FunctionKeyGen.cpp \
+	FunctionKeyGen.h \
+	BytesMP.cpp \
+	BytesMP.h
 libbytesflops_la_CPPFLAGS = -I$(srcdir)/../include
 libbytesflops_la_LDFLAGS = -version-info 0:0:0
 

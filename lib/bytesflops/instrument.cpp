@@ -34,7 +34,7 @@ namespace bytesflops_pass {
     initializeKeyMap(module);
 
     LLVMContext& ctx = module.getContext();
-      
+
     // Function Definitions
     // create a basic block in the ctor.
     BasicBlock* ctor_bb = BasicBlock::Create(ctx, "", func_map_ctor, 0);
@@ -63,7 +63,7 @@ namespace bytesflops_pass {
     void_12->setTailCall(false);
     AttributeSet void_12_PAL;
     void_12->setAttributes(void_12_PAL);
-      
+
     ReturnInst::Create(ctx, ctor_bb);
   }
 
@@ -147,7 +147,7 @@ namespace bytesflops_pass {
                                          StringRef function_name,
                                          BasicBlock::iterator& iter,
                                          LLVMContext& bbctx,
-                                         DataLayout& target_data,
+                                         const DataLayout& target_data,
                                          BasicBlock::iterator& insert_before,
                                          int& must_clear) {
     // Increment the byte counter for load and store
@@ -468,7 +468,7 @@ namespace bytesflops_pass {
       // Perform per-basic-block variable initialization.
       BasicBlock& bb = *func_iter;
       LLVMContext& bbctx = bb.getContext();
-      DataLayout& target_data = getAnalysis<DataLayout>();
+      DataLayoutPass& target_data = getAnalysis<DataLayoutPass>();
       BasicBlock::iterator terminator_inst = bb.end();
       terminator_inst--;
       int must_clear = 0;   // Keep track of which counters we need to clear.
@@ -511,7 +511,8 @@ namespace bytesflops_pass {
           case Instruction::Load:
           case Instruction::Store:
             instrument_load_store(module, function_name, iter, bbctx,
-                                  target_data, terminator_inst, must_clear);
+                                  target_data.getDataLayout(), terminator_inst,
+                                  must_clear);
             break;
 
           case Instruction::Call:
@@ -555,7 +556,7 @@ namespace bytesflops_pass {
 
       key_args.push_back(argument);
       key_args.push_back(key);
-        
+
       if ( TrackCallStack )
       {
           callinst_create(push_function, key_args, new_entry);
@@ -570,7 +571,7 @@ namespace bytesflops_pass {
     BranchInst::Create(&old_entry, new_entry);
   }
 
-    
+
 
   bool BytesFlops::doFinalization(Module& module)
   {
@@ -581,7 +582,7 @@ namespace bytesflops_pass {
        * (function name -> function key) map during code execution.
        */
       LLVMContext& ctx = module.getContext();
-      
+
       // construct C arrays of keys and strings.
 
       // declare an array of integers of size func_key_map.size()
