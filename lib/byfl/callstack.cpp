@@ -5,7 +5,7 @@
  * By Rob Aulwes <rta@lanl.gov>
  */
 
-#include "CallStack.h"
+#include "callstack.h"
 
 extern "C" {
   extern const char * bf_string_to_symbol(const char *);

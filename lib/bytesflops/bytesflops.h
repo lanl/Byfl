@@ -36,7 +36,7 @@
 #include <iomanip>
 #include <unordered_map>
 #include "byfl-common.h"
-#include "FunctionKeyGen.h"
+#include "functionkeygen.h"
 
 using namespace std;
 using namespace llvm;

@@ -10,7 +10,7 @@
 
 #include "byfl.h"
 #include "byfl-common.h"
-#include "CallStack.h"
+#include "callstack.h"
 
 namespace bytesflops {}
 using namespace bytesflops;

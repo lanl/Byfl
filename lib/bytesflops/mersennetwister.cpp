@@ -67,7 +67,7 @@
    email: m-mat @ math.sci.hiroshima-u.ac.jp (remove spaces)
 */
 
-#include <MersenneTwister.h>
+#include "mersennetwister.h"
 
 #define NN 312
 #define MM 156

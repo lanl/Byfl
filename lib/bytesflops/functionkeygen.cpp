@@ -5,7 +5,7 @@
  * By Rob Aulwes <rta@lanl.gov>
  */
 
-#include "FunctionKeyGen.h"
+#include "functionkeygen.h"
 
 namespace bytesflops_pass
 {

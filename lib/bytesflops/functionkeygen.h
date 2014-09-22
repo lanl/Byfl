@@ -9,7 +9,7 @@
 #define _FUNCTIONKEYGEN_H_
 
 #include <string>
-#include "MersenneTwister.h"
+#include "mersennetwister.h"
 
 namespace bytesflops_pass
 {
