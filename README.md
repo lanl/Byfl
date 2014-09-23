@@ -228,4 +228,5 @@ Authors
 
 Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)<br />
 Pat McCormick, [_pat@lanl.gov_](mailto:pat@lanl.gov)<br />
-Eric Anger, [_eanger@gmail.com_](mailto:eanger@gmail.com)
+Eric Anger, [_eanger@gmail.com_](mailto:eanger@gmail.com)<br />
+Christine Sweeney, [_cahrens@lanl.gov_](mailto:cahrens@lanl.gov)

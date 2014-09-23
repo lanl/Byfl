@@ -699,7 +699,7 @@ execution and a larger memory footprint:
 
 =over 4
 
-=item BF_OPTS
+=item C<BF_OPTS>
 
 Provide a space-separated list of B<bf-gcc> command-line arguments.
 
