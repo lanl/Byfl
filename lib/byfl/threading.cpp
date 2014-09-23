@@ -19,8 +19,8 @@ namespace bytesflops {
 void initialize_threading (void) {
 }
 
-
 // Take the mega-lock.
+extern "C"
 void bf_acquire_mega_lock (void)
 {
   if (pthread_mutex_lock(&megalock) != 0) {
@@ -29,8 +29,8 @@ void bf_acquire_mega_lock (void)
   }
 }
 
-
 // Release the mega-lock.
+extern "C"
 void bf_release_mega_lock (void)
 {
   if (pthread_mutex_unlock(&megalock) != 0) {
@@ -38,6 +38,5 @@ void bf_release_mega_lock (void)
     exit(1);
   }
 }
-
 
 } // namespace bytesflops
