@@ -6,7 +6,6 @@
  *    Pat McCormick <pat@lanl.gov>
  *    Rob Aulwes <rta@lanl.gov>
  */
-#include <sstream>
 
 #include "byfl.h"
 #include "byfl-common.h"
@@ -320,7 +319,7 @@ void bf_record_key(const char* funcname, KeyType_t keyID)
     if ( fatal )
     {
         std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
-        exit(-1);
+        bf_abend();
     }
 
     map[keyID] = std::move(std::string(funcname));
@@ -345,7 +344,10 @@ const char* bf_func_and_parents; // Top of the complete_call_stack stack
 KeyType_t bf_func_and_parents_id; // Top of the complete_call_stack stack
 KeyType_t bf_current_func_key;
 string bf_output_prefix;         // String to output before "BYFL" on every line
-ostream* bfout;                  // Stream to which to send standard output
+ostream* bfout;                  // Stream to which to send textual output
+BinaryOStream* bfbin;            // Stream to which to send binary output
+ofstream *bfbin_file;            // Underlying file for the above
+bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
 
 
 // Define a stack of tallies of all of our counters across <=
@@ -458,6 +460,14 @@ void bf_initialize_if_necessary (void)
 }
 
 
+// Exit the program abnormally.
+void bf_abend (void)
+{
+  bf_abnormal_exit = true;
+  std::exit(1);
+}
+
+
 // Push a new basic block onto the stack (before a function call).
 extern "C"
 void bf_push_basic_block (void)
@@ -530,6 +540,23 @@ void bf_pop_function (void)
   bf_current_func_key = item.second;
 }
 
+// Expand a string like a POSIX shell would do.
+static string shell_expansion(const char *str, const char *strname)
+{
+  string result;
+  wordexp_t expansion;
+  if (wordexp(str, &expansion, 0)) {
+    cerr << "Failed to expand " << strname << "(\"" << str << "\")\n";
+    bf_abend();
+  }
+  for (size_t i = 0; i < expansion.we_wordc; i++) {
+    if (i > 0)
+      result += string(" ");
+    result += string(expansion.we_wordv[i]);
+  }
+  wordfree(&expansion);
+  return result;
+}
 
 // Determine if we should suppress output from this process.
 static bool suppress_output (void)
@@ -543,29 +570,36 @@ static bool suppress_output (void)
     bfout = &cout;
     output = SHOW;
 
+    // If the BF_BINOUT environment variable is set, expand it, treat
+    // it as a filename, and open it.
+    char *binout = getenv("BF_BINOUT");
+    if (binout) {
+      string bfbin_filename = shell_expansion(binout, "BF_BINOUT");
+      bfbin_file = new ofstream(bfbin_filename, ios_base::out | ios_base::trunc | ios_base::binary);
+      if (bfbin_file->fail()) {
+	cerr << "Failed to create output file " << bfbin_filename << '\n';
+	bf_abend();
+      }
+      bfbin = new BinaryOStreamReal(*bfbin_file);
+    }
+    else
+      bfbin = new BinaryOStream();
+
     // If the BF_PREFIX environment variable is set, expand it and
     // output it before each line of output.
     char *prefix = getenv("BF_PREFIX");
     if (prefix) {
       // Perform shell expansion on BF_PREFIX.
-      wordexp_t expansion;
-      if (wordexp(prefix, &expansion, 0)) {
-        cerr << "Failed to expand BF_PREFIX (\"" << prefix << "\")\n";
-        exit(1);
-      }
-      for (size_t i = 0; i < expansion.we_wordc; i++)
-        bf_output_prefix += string(expansion.we_wordv[i]) + string(" ");
-      wordfree(&expansion);
+      bf_output_prefix = shell_expansion(prefix, "BF_PREFIX");
 
       // If the prefix starts with "/" or "./", treat it as a filename
-      // and write all output there.
+      // and write all textual output there.
       if ((bf_output_prefix.size() >= 1 && bf_output_prefix[0] == '/')
           || (bf_output_prefix.size() >= 2 && bf_output_prefix[0] == '.' && bf_output_prefix[1] == '/')) {
-        bf_output_prefix.resize(bf_output_prefix.size() - 1);  // Drop the trailing space character.
-        bfout = new ofstream(bf_output_prefix.c_str(), ios_base::out | ios_base::trunc);
+        bfout = new ofstream(bf_output_prefix, ios_base::out | ios_base::trunc);
         if (bfout->fail()) {
           cerr << "Failed to create output file " << bf_output_prefix << '\n';
-          exit(1);
+          bf_abend();
         }
         bf_output_prefix = "";
       }
@@ -636,6 +670,7 @@ void bf_report_bb_tallies (void)
 
   // If this is our first invocation, output a basic-block header line.
   if (__builtin_expect(!showed_header, 0)) {
+    // Textual output
     *bfout << bf_output_prefix
            << "BYFL_BB_HEADER: "
            << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
@@ -647,6 +682,17 @@ void bf_report_bb_tallies (void)
            << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
            << setw(HDR_COL_WIDTH) << "Int_op_bits";
     *bfout << '\n';
+
+    // Binary output
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks"
+	   << "Bytes loaded"
+	   << "Bytes stored"
+	   << "Load ops"
+	   << "Store ops"
+	   << "Flops"
+	   << "Flop bits"
+	   << "Integer ops"
+	   << "Integer op bits";
     showed_header = true;
   }
 
@@ -667,6 +713,19 @@ void bf_report_bb_tallies (void)
            << setw(HDR_COL_WIDTH) << counter_deltas->ops << ' '
            << setw(HDR_COL_WIDTH) << counter_deltas->op_bits;
     *bfout << '\n';
+
+    // Do the same but in binary.
+    *bfbin << uint8_t(BINOUT_ROW_DATA)
+	   << counter_deltas->loads
+           << counter_deltas->stores
+           << counter_deltas->load_ins
+           << counter_deltas->store_ins
+           << counter_deltas->flops
+           << counter_deltas->fp_bits
+           << counter_deltas->ops
+           << counter_deltas->op_bits;
+
+    // Prepare for the next round of output.
     num_merged = 0;
     prev_global_totals = global_totals;
     delete counter_deltas;
@@ -1244,8 +1303,12 @@ public:
   ~RunAtEndOfProgram() {
     // Do nothing if our output is suppressed.
     bf_initialize_if_necessary();
-    if (suppress_output())
+    if (suppress_output() || bf_abnormal_exit)
       return;
+
+    // Complete the basic-block table.
+    if (bf_every_bb)
+      *bfbin << uint8_t(BINOUT_ROW_NONE);
 
     // Report per-function counter totals.
     if (bf_per_func)
@@ -1299,7 +1362,10 @@ public:
       report_cache(global_totals);
     }
 
+    // Flush our output data before exiting.
     bfout->flush();
+    *bfbin << uint8_t(BINOUT_TABLE_NONE);
+    bfbin->flush();
   }
 } run_at_end_of_program;
 

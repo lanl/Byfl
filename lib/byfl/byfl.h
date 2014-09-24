@@ -27,6 +27,7 @@
 #include "byfl-common.h"
 #include "cachemap.h"
 #include "opcode2name.h"
+#include "binaryoutput.h"
 
 // The following constants are defined by the instrumented code.
 extern const char * bf_foofoo;
@@ -68,6 +69,7 @@ namespace bytesflops {
   extern void bf_get_reuse_distance(vector<uint64_t>** hist, uint64_t* unique_addrs);
   extern void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
   extern void bf_get_vector_statistics(uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
+  extern void bf_abend(void) __attribute__ ((noreturn));
   extern "C" void bf_push_basic_block(void);
   extern void bf_report_vector_operations(size_t call_stack_depth);
   extern uint64_t bf_tally_unique_addresses(const char* funcname);

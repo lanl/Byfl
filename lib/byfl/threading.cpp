@@ -25,7 +25,7 @@ void bf_acquire_mega_lock (void)
 {
   if (pthread_mutex_lock(&megalock) != 0) {
     cerr << "Failed to acquire a mutex\n";
-    exit(1);
+    bf_abend();
   }
 }
 
@@ -35,7 +35,7 @@ void bf_release_mega_lock (void)
 {
   if (pthread_mutex_unlock(&megalock) != 0) {
     cerr << "Failed to release a mutex\n";
-    exit(1);
+    bf_abend();
   }
 }
 
