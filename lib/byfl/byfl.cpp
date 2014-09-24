@@ -570,17 +570,19 @@ static bool suppress_output (void)
     bfout = &cout;
     output = SHOW;
 
-    // If the BF_BINOUT environment variable is set, expand it, treat
-    // it as a filename, and open it.
+    // If the BF_BINOUT environment variable is set, expand it, treat it
+    // as a filename, create the file, and write a magic pattern to it.
     char *binout = getenv("BF_BINOUT");
     if (binout) {
       string bfbin_filename = shell_expansion(binout, "BF_BINOUT");
       bfbin_file = new ofstream(bfbin_filename, ios_base::out | ios_base::trunc | ios_base::binary);
       if (bfbin_file->fail()) {
-	cerr << "Failed to create output file " << bfbin_filename << '\n';
-	bf_abend();
+        cerr << "Failed to create output file " << bfbin_filename << '\n';
+        bf_abend();
       }
       bfbin = new BinaryOStreamReal(*bfbin_file);
+      *bfbin << uint8_t('B') << uint8_t('Y') << uint8_t('F') << uint8_t('L')
+             << uint8_t('B') << uint8_t('I') << uint8_t('N');
     }
     else
       bfbin = new BinaryOStream();
@@ -685,15 +687,15 @@ void bf_report_bb_tallies (void)
 
     // Binary output
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks"  // Table header
-	   << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"   // Column header
-	   << uint8_t(BINOUT_COL_UINT64) << "Bytes stored"
-	   << uint8_t(BINOUT_COL_UINT64) << "Load ops"
-	   << uint8_t(BINOUT_COL_UINT64) << "Store ops"
-	   << uint8_t(BINOUT_COL_UINT64) << "Flops"
-	   << uint8_t(BINOUT_COL_UINT64) << "Flop bits"
-	   << uint8_t(BINOUT_COL_UINT64) << "Integer ops"
-	   << uint8_t(BINOUT_COL_UINT64) << "Integer op bits"
-	   << uint8_t(BINOUT_COL_NONE);
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"   // Column header
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes stored"
+           << uint8_t(BINOUT_COL_UINT64) << "Load ops"
+           << uint8_t(BINOUT_COL_UINT64) << "Store ops"
+           << uint8_t(BINOUT_COL_UINT64) << "Flops"
+           << uint8_t(BINOUT_COL_UINT64) << "Flop bits"
+           << uint8_t(BINOUT_COL_UINT64) << "Integer ops"
+           << uint8_t(BINOUT_COL_UINT64) << "Integer op bits"
+           << uint8_t(BINOUT_COL_NONE);
     showed_header = true;
   }
 
@@ -717,7 +719,7 @@ void bf_report_bb_tallies (void)
 
     // Do the same but in binary.
     *bfbin << uint8_t(BINOUT_ROW_DATA)
-	   << counter_deltas->loads
+           << counter_deltas->loads
            << counter_deltas->stores
            << counter_deltas->load_ins
            << counter_deltas->store_ins
