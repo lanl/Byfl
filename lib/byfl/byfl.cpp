@@ -684,15 +684,16 @@ void bf_report_bb_tallies (void)
     *bfout << '\n';
 
     // Binary output
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks"
-	   << "Bytes loaded"
-	   << "Bytes stored"
-	   << "Load ops"
-	   << "Store ops"
-	   << "Flops"
-	   << "Flop bits"
-	   << "Integer ops"
-	   << "Integer op bits";
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks"  // Table header
+	   << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"   // Column header
+	   << uint8_t(BINOUT_COL_UINT64) << "Bytes stored"
+	   << uint8_t(BINOUT_COL_UINT64) << "Load ops"
+	   << uint8_t(BINOUT_COL_UINT64) << "Store ops"
+	   << uint8_t(BINOUT_COL_UINT64) << "Flops"
+	   << uint8_t(BINOUT_COL_UINT64) << "Flop bits"
+	   << uint8_t(BINOUT_COL_UINT64) << "Integer ops"
+	   << uint8_t(BINOUT_COL_UINT64) << "Integer op bits"
+	   << uint8_t(BINOUT_COL_NONE);
     showed_header = true;
   }
 

@@ -21,7 +21,8 @@ libbyfl_la_SOURCES = \
 	callstack.cpp \
 	callstack.h \
 	binaryoutput.cpp \
-	binaryoutput.h
+	binaryoutput.h \
+	binarytagdefs.h
 libbyfl_la_CPPFLAGS = -I$(srcdir)/../include
 libbyfl_la_LDFLAGS = -version-info 0:0:0
 

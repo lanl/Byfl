@@ -8,24 +8,12 @@
 #ifndef _BINARYOUTPUT_H_
 #define _BINARYOUTPUT_H_
 
+#include "binarytagdefs.h"
+
 namespace bytesflops {}
 using namespace bytesflops;
 
 namespace bytesflops {
-
-// Define tags for various table types in the binary output.
-typedef enum {
-  BINOUT_TABLE_NONE,     // No more tables follow (i.e., EOF)
-  BINOUT_TABLE_BASIC,    // A basic table of columnar data follows
-  BINOUT_TABLE_KEYVAL    // A key:value table follows
-} BINOUT_TABLE_T;
-
-// Define tags for row types in the binary output.
-typedef enum {
-  BINOUT_ROW_NONE,       // No columns in this row (i.e., end of table)
-  BINOUT_ROW_DATA        // Columns will follow
-} BINOUT_ROW_T;
-
 
 // Wrap an output stream so as to output data in a binary format.
 class BinaryOStream {
