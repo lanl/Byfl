@@ -1,9 +1,20 @@
 syntax: glob
 
 *.*project
-*~
-build
-byfl-build-only
-*.swp
-configure
 *.cache
+*.swp
+*.tar.gz
+*~
+Makefile.in
+aclocal.m4
+build
+compile
+config.guess
+config.sub
+configure
+depcomp
+install-sh
+ltmain.sh
+missing
+opcode2name.cpp
+opcode2name.h
