@@ -695,6 +695,13 @@ void bf_report_bb_tallies (void)
            << uint8_t(BINOUT_COL_UINT64) << "Flop bits"
            << uint8_t(BINOUT_COL_UINT64) << "Integer ops"
            << uint8_t(BINOUT_COL_UINT64) << "Integer op bits"
+           << uint8_t(BINOUT_COL_UINT64) << "Unconditional direct branches"
+           << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branches"
+           << uint8_t(BINOUT_COL_UINT64) << "Other branches"
+           << uint8_t(BINOUT_COL_UINT64) << "Calls to memset"
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes stored by memset"
+           << uint8_t(BINOUT_COL_UINT64) << "Calls to memcpy and memmove"
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded and stored by memcpy and memmove"
            << uint8_t(BINOUT_COL_NONE);
     showed_header = true;
   }
@@ -717,7 +724,8 @@ void bf_report_bb_tallies (void)
            << setw(HDR_COL_WIDTH) << counter_deltas->op_bits;
     *bfout << '\n';
 
-    // Do the same but in binary.
+    // Do the same but in binary.  Note that we include more fields
+    // here than in the textual output.
     *bfbin << uint8_t(BINOUT_ROW_DATA)
            << counter_deltas->loads
            << counter_deltas->stores
@@ -726,7 +734,14 @@ void bf_report_bb_tallies (void)
            << counter_deltas->flops
            << counter_deltas->fp_bits
            << counter_deltas->ops
-           << counter_deltas->op_bits;
+           << counter_deltas->op_bits
+           << counter_deltas->terminators[BF_END_BB_STATIC]
+           << counter_deltas->terminators[BF_END_BB_DYNAMIC]
+           << counter_deltas->terminators[BF_END_BB_ANY] - (counter_deltas->terminators[BF_END_BB_STATIC] + counter_deltas->terminators[BF_END_BB_DYNAMIC])
+           << counter_deltas->mem_insts[BF_MEMSET_CALLS]
+           << counter_deltas->mem_insts[BF_MEMSET_BYTES]
+           << counter_deltas->mem_insts[BF_MEMXFER_CALLS]
+           << counter_deltas->mem_insts[BF_MEMXFER_BYTES];
 
     // Prepare for the next round of output.
     num_merged = 0;
