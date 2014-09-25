@@ -53,8 +53,7 @@ void abort_on_bad_other (const char *format, ...)
   exit(1);
 }
 
-/* Map a file into memory.  The caller must free() the resulting
- * structure.  This function aborts on error. */
+/* Map a file into memory.  The caller must free() the resulting structure. */
 mapped_file_t *map_file_into_memory (const char *filename)
 {
   mapped_file_t *mapping;
@@ -75,7 +74,7 @@ mapped_file_t *map_file_into_memory (const char *filename)
   return mapping;
 }
 
-/* Unmap a file from memory.  Abort on error. */
+/* Unmap a file from memory. */
 void unmap_file_from_memory (const mapped_file_t *mapping)
 {
   if (munmap(mapping->ptr, mapping->length) == -1)
@@ -84,8 +83,7 @@ void unmap_file_from_memory (const mapped_file_t *mapping)
     abort_on_bad_syscall("close");
 }
 
-/* Replace the extension in a filename.  The caller must free() the
- * result.  This function aborts on error. */
+/* Replace the extension in a filename.  The caller must free() the result. */
 char *replace_extension (const char *oldfilename, const char *newext)
 {
   char *dotptr;       /* Pointer to the last "." in oldfilename */
@@ -137,6 +135,25 @@ uint64_t read_byfl_uint64 (const uint8_t **orig_bptr)
   return value;
 }
 
+/* Create a NetCDF column of data -- more specifically, a 1-D variable
+ * with unlimited extent and with both chunking and deflating
+ * specified. */
+void create_netcdf_column (int groupid, const char *colname, int datatype,
+                           size_t chunksize, int *varid_p)
+{
+  int dimid;                /* NetCDF ID of the current dimension */
+  int ncretval;             /* Return value from a NetCDF call */
+
+  if ((ncretval = nc_def_dim(groupid, colname, NC_UNLIMITED, &dimid)))
+    abort_on_bad_netcdf("nc_def_dim", ncretval);
+  if ((ncretval = nc_def_var(groupid, colname, datatype, 1, &dimid, varid_p)))
+    abort_on_bad_netcdf("nc_def_var", ncretval);
+  if ((ncretval = nc_def_var_chunking(groupid, *varid_p, NC_CHUNKED, &chunksize)))
+    abort_on_bad_netcdf("nc_def_var_chunking", ncretval);
+  if ((ncretval = nc_def_var_deflate(groupid, *varid_p, 1, 1, 9)))
+    abort_on_bad_netcdf("nc_def_var_deflate", ncretval);
+}
+
 /* Convert a basic Byfl table to NetCDF format. */
 void convert_basic_table (const uint8_t **orig_bptr, int ncid)
 {
@@ -184,20 +201,17 @@ void convert_basic_table (const uint8_t **orig_bptr, int ncid)
     colname = read_byfl_string(&bptr);
     switch (coltypes[ncols - 1]) {
       case BINOUT_COL_UINT64:
-        if ((ncretval = nc_def_dim(groupid, colname, NC_UNLIMITED, &dimid)))
-          abort_on_bad_netcdf("nc_def_dim", ncretval);
-        if ((ncretval = nc_def_var(groupid, colname, NC_UINT64,
-                                   1, &dimid, &varids[ncols - 1])))
-          abort_on_bad_netcdf("nc_def_var", ncretval);
-        chunksize = pagesize/sizeof(unsigned long long);
-        if ((ncretval = nc_def_var_chunking(groupid, varids[ncols - 1], NC_CHUNKED, &chunksize)))
-          abort_on_bad_netcdf("nc_def_var_chunking", ncretval);
-        if ((ncretval = nc_def_var_deflate(groupid, varids[ncols - 1], 1, 1, 9)))
-          abort_on_bad_netcdf("nc_def_var_deflate", ncretval);
+        create_netcdf_column(groupid, colname, NC_UINT64,
+                             pagesize/sizeof(unsigned long long), &varids[ncols - 1]);
+        break;
+
+      case BINOUT_COL_STRING:
+        /* We arbitrarily choose 32 as a typical string length. */
+        create_netcdf_column(groupid, colname, NC_STRING, pagesize/32, &varids[ncols - 1]);
         break;
 
       default:
-        abort_on_bad_other("Unexpected column type %d encountered");
+        abort_on_bad_other("Unexpected column type %d encountered", coltypes[ncols - 1]);
         break;
     }
     free((void *)colname);
@@ -208,13 +222,21 @@ void convert_basic_table (const uint8_t **orig_bptr, int ncid)
   for (row = 0, bptr++; *bptr++ == BINOUT_ROW_DATA; row++) {
     size_t col;          /* Current column number */
     unsigned long long u64val;     /* A 64-bit unsigned integer read from the Byfl file */
+    const char *strval;            /* A string read from the Byfl file */
 
     for (col = 0; col < ncols; col++) {
       switch (coltypes[col]) {
         case BINOUT_COL_UINT64:
           u64val = (unsigned long long) read_byfl_uint64(&bptr);
-          if ((ncretval = nc_put_var1_ulonglong (groupid, varids[col], &row, &u64val)))
+          if ((ncretval = nc_put_var1_ulonglong(groupid, varids[col], &row, &u64val)))
             abort_on_bad_netcdf("nc_put_var1_ulonglong", ncretval);
+          break;
+
+        case BINOUT_COL_STRING:
+          strval = read_byfl_string(&bptr);
+          if ((ncretval = nc_put_var1_string(groupid, varids[col], &row, &strval)))
+            abort_on_bad_netcdf("nc_put_var1_string", ncretval);
+
           break;
 
         default:

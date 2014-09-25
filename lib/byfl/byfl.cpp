@@ -687,7 +687,7 @@ void bf_report_bb_tallies (void)
 
     // Binary output
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks"  // Table header
-           << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"   // Column header
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"   // Column headers
            << uint8_t(BINOUT_COL_UINT64) << "Bytes stored"
            << uint8_t(BINOUT_COL_UINT64) << "Load ops"
            << uint8_t(BINOUT_COL_UINT64) << "Store ops"
@@ -882,7 +882,7 @@ private:
 
     aggregate_call_tallies();
 
-    // Output a header line.
+    // Output a textual header line.
     *bfout << bf_output_prefix
            << "BYFL_FUNC_HEADER: "
            << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
@@ -906,7 +906,31 @@ private:
                << "Parent_func_" << i+1;
     *bfout << '\n';
 
-    // Output the data by sorted function name.
+    // Output a binary table header.
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Functions"      // Table header
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"    // Column headers
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes stored"
+           << uint8_t(BINOUT_COL_UINT64) << "Load ops"
+           << uint8_t(BINOUT_COL_UINT64) << "Store ops"
+           << uint8_t(BINOUT_COL_UINT64) << "Flops"
+           << uint8_t(BINOUT_COL_UINT64) << "Flop bits"
+           << uint8_t(BINOUT_COL_UINT64) << "Integer ops"
+           << uint8_t(BINOUT_COL_UINT64) << "Integer op bits";
+    if (bf_unique_bytes)
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Unique bytes";
+    *bfbin << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branches"
+           << uint8_t(BINOUT_COL_UINT64) << "Invocations"
+           << uint8_t(BINOUT_COL_STRING) << "Name";
+    if (bf_call_stack)
+      for (size_t i=0; i<call_stack->max_depth-1; i++) {
+        char colheader[50];   // Static string + space + number + NULL + fudge factor
+        sprintf(colheader, "Parent function %lu", i + 1);
+        *bfbin << uint8_t(BINOUT_COL_STRING) << colheader;
+      }
+    *bfbin << uint8_t(BINOUT_COL_NONE);
+
+    // Output the data by sorted function name in both textual and
+    // binary formats.
     vector<KeyType_t> * all_funcs = per_func_totals().sorted_keys(compare_keys_to_names);
     for (vector<KeyType_t>::iterator fn_iter = all_funcs->begin();
          fn_iter != all_funcs->end();
@@ -924,15 +948,30 @@ private:
              << setw(HDR_COL_WIDTH) << func_counters->fp_bits << ' '
              << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
              << setw(HDR_COL_WIDTH) << func_counters->op_bits;
-      if (bf_unique_bytes)
-        *bfout << ' '
-               << setw(HDR_COL_WIDTH)
-               << (bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c));
+      *bfbin << uint8_t(BINOUT_ROW_DATA)
+	     << func_counters->loads
+             << func_counters->stores
+             << func_counters->load_ins
+             << func_counters->store_ins
+             << func_counters->flops
+             << func_counters->fp_bits
+             << func_counters->ops
+             << func_counters->op_bits;
+      if (bf_unique_bytes) {
+	uint64_t num_uniq_bytes = bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c);
+        *bfout << ' ' << setw(HDR_COL_WIDTH) << num_uniq_bytes;
+	*bfbin << num_uniq_bytes;
+      }
+      uint64_t invocations = final_call_tallies()[funcname_c];
       *bfout << ' '
              << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
-             << setw(HDR_COL_WIDTH) << final_call_tallies()[funcname_c] << ' '
+             << setw(HDR_COL_WIDTH) << invocations << ' '
              << funcname_c << '\n';
+      *bfbin << func_counters->terminators[BF_END_BB_DYNAMIC]
+	     << invocations
+	     << funcname_c;
     }
+    *bfbin << uint8_t(BINOUT_ROW_NONE);
     delete all_funcs;
 
     // Output invocation tallies for all called functions, not just

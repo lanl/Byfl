@@ -90,8 +90,8 @@ elif test ! -e "$DRAGONEGG" ; then
   AC_MSG_WARN([Did you specify an incorrect file for the DRAGONEGG variable ($DRAGONEGG)?])
 fi
 
-dnl If NetCDF is installed we can build bfbin2netcdf.
-AC_CHECK_LIB([netcdf], [nc_def_grp],
+dnl If NetCDF 4 is installed we can build bfbin2netcdf.
+AC_CHECK_LIB([netcdf], [nc_put_var1_string],
   [AC_CHECK_HEADER([netcdf.h],
     [AC_CHECK_DECL([NC_NETCDF4], , , [dnl
 AC_INCLUDES_DEFAULT
