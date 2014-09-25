@@ -90,10 +90,13 @@ elif test ! -e "$DRAGONEGG" ; then
   AC_MSG_WARN([Did you specify an incorrect file for the DRAGONEGG variable ($DRAGONEGG)?])
 fi
 
-dnl Warn the user that we'll override --disable-shared in the plugin directory.
-if test "$enable_shared" = no ; then
-  AC_MSG_WARN([Byfl's LLVM plugin must be built as a shared object.  The build will attempt to override --disable-shared in the lib/bytesflops directory.])
-fi
+dnl If NetCDF is installed we can build bfbin2netcdf.
+AC_CHECK_LIB([netcdf], [nc_def_grp],
+  [AC_CHECK_HEADER([netcdf.h],
+    [AC_CHECK_DECL([NC_NETCDF4], , , [dnl
+AC_INCLUDES_DEFAULT
+#include <netcdf.h>])])])
+AM_CONDITIONAL([NETCDF_AVAILABLE], [test "x$ac_cv_have_decl_NC_NETCDF4" = xyes])
 
 dnl Generate all of the Byfl Makefiles and other files.
 AC_CONFIG_FILES([Makefile])
@@ -116,3 +119,12 @@ AC_CONFIG_FILES([tools/wrappers/bf-inst], [
   [MAKE="$MAKE"
    GREP="$GREP"])
 AC_OUTPUT
+
+dnl Issue various warning messages here, where we hope the user will
+dnl notice them.
+if test "x$ac_cv_have_decl_NC_NETCDF4" != xyes ; then
+  AC_MSG_WARN([Not building the bfbin2netcdf postprocessor because it requires NetCDF 4])
+fi
+if test "$enable_shared" = no ; then
+  AC_MSG_WARN([Byfl's LLVM plugin must be built as a shared object.  The build will attempt to override --disable-shared in the lib/bytesflops directory.])
+fi
