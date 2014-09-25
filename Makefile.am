@@ -4,7 +4,7 @@
 # By Scott Pakin <pakin@lanl.gov> #
 ###################################
 
-SUBDIRS = lib tools
+SUBDIRS = include lib tools
 
 EXTRA_DIST = README.md INSTALL.md LICENSE.md
 

@@ -5,4 +5,4 @@
 # By Scott Pakin <pakin@lanl.gov> #
 ###################################
 
-SUBDIRS = bytesflops byfl include
+SUBDIRS = bytesflops byfl

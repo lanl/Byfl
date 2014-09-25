@@ -15,7 +15,7 @@ libbytesflops_la_SOURCES = \
 	mersennetwister.h \
 	functionkeygen.cpp \
 	functionkeygen.h
-libbytesflops_la_CPPFLAGS = -I$(srcdir)/../include
+libbytesflops_la_CPPFLAGS = -I$(top_srcdir)/include
 libbytesflops_la_LDFLAGS = -version-info 0:0:0
 
 install-exec-hook:
