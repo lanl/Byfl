@@ -212,9 +212,11 @@ void convert_basic_table (ByflFile& byflfile, H5File& hdf5file)
     }
   }
 
-  // Create a dataset.
+  // Create a dataset.  Enable chunking (required because of the
+  // H5S_UNLIMITED dimension) and deflate compression (optional).
   DSetCreatPropList proplist;
   proplist.setChunk(1, &chunk_size);
+  proplist.setDeflate(9);    // Maximal compression
   DataSet dataset = hdf5file.createDataSet(tablename, datatype, global_dataspace, proplist);
 
   // Define a single-row memory dataspace.
