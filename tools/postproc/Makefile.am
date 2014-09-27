@@ -10,13 +10,6 @@ CXX = $(H5CXX)
 dist_bin_SCRIPTS = bf2cgrind bf2hpctk bfmerge bf-parse-cache-dump
 bin_PROGRAMS =
 
-if NETCDF_AVAILABLE
-bin_PROGRAMS += bfbin2netcdf
-endif
-bfbin2netcdf_SOURCES = bfbin2netcdf.c
-bfbin2netcdf_CPPFLAGS = -I$(top_srcdir)/include
-bfbin2netcdf_LDADD = -lnetcdf
-
 if HDF5_AVAILABLE
 bin_PROGRAMS += bfbin2hdf5
 endif

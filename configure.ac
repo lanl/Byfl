@@ -77,14 +77,6 @@ elif test ! -e "$DRAGONEGG" ; then
   AC_MSG_WARN([Did you specify an incorrect file for the DRAGONEGG variable ($DRAGONEGG)?])
 fi
 
-dnl If NetCDF 4 is installed we can build bfbin2netcdf.
-AC_CHECK_LIB([netcdf], [nc_put_var1_string],
-  [AC_CHECK_HEADER([netcdf.h],
-    [AC_CHECK_DECL([NC_NETCDF4], , , [dnl
-AC_INCLUDES_DEFAULT
-#include <netcdf.h>])])])
-AM_CONDITIONAL([NETCDF_AVAILABLE], [test "x$ac_cv_have_decl_NC_NETCDF4" = xyes])
-
 dnl HDF5 is installed we can build bfbin2hdf5.  We check only that the
 dnl wrapper script exists.  Out of laziness we assume that if the script
 dnl exists, it must work.
@@ -124,9 +116,6 @@ AC_OUTPUT
 
 dnl Issue various warning messages here, where we hope the user will
 dnl notice them.
-if test "x$ac_cv_have_decl_NC_NETCDF4" != xyes ; then
-  AC_MSG_WARN([Not building the bfbin2netcdf postprocessor because it requires NetCDF 4])
-fi
 if test "x$H5CXX" = xno ; then
   AC_MSG_WARN([Not building the bfbin2hdf5 postprocessor because it requires HDF5 with C++11 support])
 fi
