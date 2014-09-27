@@ -38,23 +38,10 @@ AC_SUBST([llvm_libdir], [`${LLVM_CONFIG} --libdir`])
 
 dnl Byfl requires C++11.  Abort if we don't have C++11 support.
 AC_PROG_CXX
-AC_LANG_PUSH([C++])
-AC_MSG_CHECKING([if $CXX provides C++11 support])
-AC_COMPILE_IFELSE(
- [AC_LANG_SOURCE([
-#include <string>
-
-using namespace std;
-
-string::const_iterator check_cxx11 (string mystring)
-{
-  return mystring.cbegin();
-}
- ])],
- [AC_MSG_RESULT([yes])],
- [AC_MSG_RESULT([no])
-  AC_MSG_FAILURE([Byfl requires C++11 support; try recompiling with -std=c++11 (or similar)])])
-AC_LANG_POP([C++])
+AX_CHECK_CXX11
+if test "x$ax_cv_cxx11_CXX" = xno ; then
+  AC_MSG_FAILURE([Byfl requires C++11 support; try recompiling with -std=c++11])
+fi
 
 dnl The Byfl build process parses Instruction.def.  Ensure it exists.
 AC_CHECK_HEADER([llvm/IR/Instruction.def])
@@ -98,6 +85,21 @@ AC_INCLUDES_DEFAULT
 #include <netcdf.h>])])])
 AM_CONDITIONAL([NETCDF_AVAILABLE], [test "x$ac_cv_have_decl_NC_NETCDF4" = xyes])
 
+dnl HDF5 is installed we can build bfbin2hdf5.  We check only that the
+dnl wrapper script exists.  Out of laziness we assume that if the script
+dnl exists, it must work.
+AC_ARG_VAR([H5CXX], [Compiler for C++ code using HDF5])
+AC_CHECK_PROGS([H5CXX], [h5c++], [no])
+AX_CHECK_CXX11([H5CXX])
+if test "x$ax_cv_cxx11_H5CXX" = xno ; then
+  H5CXX=no
+fi
+AM_CONDITIONAL([HDF5_AVAILABLE], [test "x$H5CXX" != xno])
+AC_ARG_VAR([H5CXXFLAGS], [HDF5 C++ compiler flags])
+if test "x${H5CXXFLAGS-undefined}" = xundefined ; then
+  H5CXXFLAGS="$CXXFLAGS"
+fi
+
 dnl Generate all of the Byfl Makefiles and other files.
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([include/Makefile])
@@ -124,6 +126,9 @@ dnl Issue various warning messages here, where we hope the user will
 dnl notice them.
 if test "x$ac_cv_have_decl_NC_NETCDF4" != xyes ; then
   AC_MSG_WARN([Not building the bfbin2netcdf postprocessor because it requires NetCDF 4])
+fi
+if test "x$H5CXX" = xno ; then
+  AC_MSG_WARN([Not building the bfbin2hdf5 postprocessor because it requires HDF5 with C++11 support])
 fi
 if test "$enable_shared" = no ; then
   AC_MSG_WARN([Byfl's LLVM plugin must be built as a shared object.  The build will attempt to override --disable-shared in the lib/bytesflops directory.])
