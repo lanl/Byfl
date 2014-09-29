@@ -757,11 +757,6 @@ void bf_assoc_counters_with_func (KeyType_t funcID)
 {
   // Ensure that per_func_totals contains an ByteFlopCounters entry
   // for funcname, then add the current counters to that entry.
-//  if (bf_call_stack)
-//    funcname = bf_func_and_parents;
-//  else
-//    funcname = bf_string_to_symbol(funcname);
-
   key2bfc_t::iterator sm_iter;
   KeyType_t key;
   if ( bf_call_stack )
@@ -919,14 +914,13 @@ private:
     if (bf_unique_bytes)
       *bfbin << uint8_t(BINOUT_COL_UINT64) << "Unique bytes";
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branches"
-           << uint8_t(BINOUT_COL_UINT64) << "Invocations"
-           << uint8_t(BINOUT_COL_STRING) << "Name";
+           << uint8_t(BINOUT_COL_UINT64) << "Invocations";
     if (bf_call_stack)
-      for (size_t i=0; i<call_stack->max_depth-1; i++) {
-        char colheader[50];   // Static string + space + number + NULL + fudge factor
-        sprintf(colheader, "Parent function %lu", i + 1);
-        *bfbin << uint8_t(BINOUT_COL_STRING) << colheader;
-      }
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled call stack"
+	     << uint8_t(BINOUT_COL_STRING) << "Demangled call stack";
+    else
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled name"
+	     << uint8_t(BINOUT_COL_STRING) << "Demangled name";
     *bfbin << uint8_t(BINOUT_COL_NONE);
 
     // Output the data by sorted function name in both textual and
@@ -969,7 +963,8 @@ private:
              << funcname_c << '\n';
       *bfbin << func_counters->terminators[BF_END_BB_DYNAMIC]
              << invocations
-             << funcname_c;
+             << funcname_c
+	     << demangle_func_name(funcname_c);
     }
     *bfbin << uint8_t(BINOUT_ROW_NONE);
     delete all_funcs;
@@ -1006,17 +1001,17 @@ private:
         tally = final_call_tallies()[bf_string_to_symbol(funcname)];
         funcname = unique_name;
       }
-      string funcname_orig = demangle_func_name(funcname);
+      string funcname_demangled = demangle_func_name(funcname);
       if (tally > 0) {
         *bfout << bf_output_prefix
                << "BYFL_CALLEE: "
                << setw(HDR_COL_WIDTH) << tally << ' '
                << (instrumented ? "Yes " : "No  ") << ' '
-               << funcname_orig;
-        if (funcname_orig != funcname)
+               << funcname_demangled;
+        if (funcname_demangled != funcname)
           *bfout << " [" << funcname << ']';
         *bfbin << uint8_t(BINOUT_ROW_DATA)
-               << tally << instrumented << funcname << funcname_orig;
+               << tally << instrumented << funcname << funcname_demangled;
         *bfout << '\n';
       }
     }

@@ -10,6 +10,7 @@
 #define _BYFL_COMMON_H_
 
 #include <string>
+#include <sstream>
 #include <cxxabi.h>
 
 using namespace std;
@@ -24,7 +25,7 @@ enum {
 
 enum {
   BF_REF_VALUE,
-  BF_REF_POINTER,   
+  BF_REF_POINTER,
   BF_REF_NUM
 };
 
@@ -71,10 +72,10 @@ enum {
 // Map a memory-access type to an index into bf_mem_insts_count[].
 static inline uint64_t
 mem_type_to_index(uint64_t memop,
-		  uint64_t memref,
-		  uint64_t memagg,
-		  uint64_t memtype,
-		  uint64_t memwidth)
+                  uint64_t memref,
+                  uint64_t memagg,
+                  uint64_t memtype,
+                  uint64_t memwidth)
 {
   uint64_t idx = 0;
   idx = idx*BF_OP_NUM + memop;
@@ -85,20 +86,32 @@ mem_type_to_index(uint64_t memop,
   return idx;
 }
 
-// Attempt to demangle function names so the masses can follow
-// along.  The caller must free() the result.
+// Attempt to demangle a space-separated list of function names so the
+// masses can follow along.  Elements in the resulting string are
+// separated by hash marks as these can't (?) appear in C++ function
+// names or argument types.
 #pragma GCC diagnostic ignored "-Wunused-function"
-static string
-demangle_func_name(string mangled_name) {
-  int status;
-  char* demangled_name = __cxxabiv1::__cxa_demangle(mangled_name.c_str(), NULL, 0, &status);
-  if (status == 0 && demangled_name != 0) {
-    string result(demangled_name);
-    free(demangled_name);
-    return result;
+static std::string
+demangle_func_name(std::string mangled_name_list) {
+  std::istringstream mangled_stream(mangled_name_list);  // Stream of mangled names
+  std::string mangled_name;      // A single mangled name
+  char idelim = ' ';             // Delimiter between input mangled names
+  string odelim(" # ");          // Delimiter between output demangled names
+  int status;                    // Status of demangling a name
+  std::ostringstream demangled_stream;    // Stream of demangled names
+  bool first_name = true;        // true=first name in list; false=subsequent name
+  while (std::getline(mangled_stream, mangled_name, idelim)) {
+    if (first_name)
+      first_name = false;
+    else
+      demangled_stream << odelim;
+    char* demangled_name = __cxxabiv1::__cxa_demangle(mangled_name.c_str(), NULL, 0, &status);
+    if (status == 0 && demangled_name != 0)
+      demangled_stream << demangled_name;
+    else
+      demangled_stream << mangled_name;
   }
-  else
-    return string(mangled_name);
+  return demangled_stream.str();
 }
 
 #endif
