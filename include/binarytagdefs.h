@@ -19,7 +19,8 @@ typedef enum {
 typedef enum {
   BINOUT_COL_NONE,       // No more column headers follow
   BINOUT_COL_UINT64,     // Column contains unsigned 64-bit integers
-  BINOUT_COL_STRING      // Column contains text strings
+  BINOUT_COL_STRING,     // Column contains text strings
+  BINOUT_COL_BOOL        // Column contains boolean values
 } BINOUT_COL_T;
 
 // Define tags for row types in the binary output.

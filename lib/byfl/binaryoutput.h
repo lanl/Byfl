@@ -23,6 +23,8 @@ public:
   virtual BinaryOStream& operator<<(const uint8_t val);
   virtual BinaryOStream& operator<<(const uint64_t val);
   virtual BinaryOStream& operator<<(const char *str);
+  virtual BinaryOStream& operator<<(const string& str);
+  virtual BinaryOStream& operator<<(const bool val);
 };
 
 // Subclass a BinaryOStream into a version that writes its output to a
@@ -39,6 +41,8 @@ public:
   BinaryOStreamReal& operator<<(const uint8_t val);
   BinaryOStreamReal& operator<<(const uint64_t val);
   BinaryOStreamReal& operator<<(const char *str);
+  BinaryOStreamReal& operator<<(const string& str);
+  BinaryOStreamReal& operator<<(const bool val);
 
 private:
   std::ostream& ostr;    // Underlying output stream

@@ -36,6 +36,22 @@ BinaryOStreamReal& BinaryOStreamReal::operator<< (const char *str)
   return *this;
 }
 
+// Write a C++ string as a binary big-endian length followed by the
+// raw string data.
+BinaryOStreamReal& BinaryOStreamReal::operator<< (const string& str)
+{
+  *this << str.c_str();
+  return *this;
+}
+
+// Write a boolean value as an 8-bit integer.
+BinaryOStreamReal& BinaryOStreamReal::operator<< (const bool val)
+{
+  write_big_endian_integer(uint64_t(val), 8);
+  return *this;
+}
+
+
 
 // Discard an unsigned 8-bit integer.
 BinaryOStream& BinaryOStream::operator<< (const uint8_t val)
@@ -51,6 +67,18 @@ BinaryOStream& BinaryOStream::operator<< (const uint64_t val)
 
 // Discard a string (i.e., char *).
 BinaryOStream& BinaryOStream::operator<< (const char *str)
+{
+  return *this;
+}
+
+// Discard a C++ string.
+BinaryOStream& BinaryOStream::operator<< (const string& str)
+{
+  return *this;
+}
+
+// Discard a boolean value.
+BinaryOStream& BinaryOStream::operator<< (const bool val)
 {
   return *this;
 }

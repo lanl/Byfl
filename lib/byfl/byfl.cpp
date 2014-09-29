@@ -949,7 +949,7 @@ private:
              << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
              << setw(HDR_COL_WIDTH) << func_counters->op_bits;
       *bfbin << uint8_t(BINOUT_ROW_DATA)
-	     << func_counters->loads
+             << func_counters->loads
              << func_counters->stores
              << func_counters->load_ins
              << func_counters->store_ins
@@ -958,9 +958,9 @@ private:
              << func_counters->ops
              << func_counters->op_bits;
       if (bf_unique_bytes) {
-	uint64_t num_uniq_bytes = bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c);
+        uint64_t num_uniq_bytes = bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c);
         *bfout << ' ' << setw(HDR_COL_WIDTH) << num_uniq_bytes;
-	*bfbin << num_uniq_bytes;
+        *bfbin << num_uniq_bytes;
       }
       uint64_t invocations = final_call_tallies()[funcname_c];
       *bfout << ' '
@@ -968,19 +968,25 @@ private:
              << setw(HDR_COL_WIDTH) << invocations << ' '
              << funcname_c << '\n';
       *bfbin << func_counters->terminators[BF_END_BB_DYNAMIC]
-	     << invocations
-	     << funcname_c;
+             << invocations
+             << funcname_c;
     }
     *bfbin << uint8_t(BINOUT_ROW_NONE);
     delete all_funcs;
 
-    // Output invocation tallies for all called functions, not just
-    // instrumented functions.
+    // Output, both textually and in binary, invocation tallies for
+    // all called functions, not just instrumented functions.
     *bfout << bf_output_prefix
            << "BYFL_CALLEE_HEADER: "
            << setw(13) << "Invocations" << ' '
            << "Byfl" << ' '
            << "Function\n";
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Called functions"  // Table header
+           << uint8_t(BINOUT_COL_UINT64) << "Invocations"        // Column headers
+           << uint8_t(BINOUT_COL_BOOL) << "Byfl instrumented"
+           << uint8_t(BINOUT_COL_STRING) << "Mangled name"
+           << uint8_t(BINOUT_COL_STRING) << "Demangled name"
+           << uint8_t(BINOUT_COL_NONE);
     vector<const char*> all_called_funcs;
     for (str2num_t::iterator sm_iter = final_call_tallies().begin();
          sm_iter != final_call_tallies().end();
@@ -1009,9 +1015,12 @@ private:
                << funcname_orig;
         if (funcname_orig != funcname)
           *bfout << " [" << funcname << ']';
+        *bfbin << uint8_t(BINOUT_ROW_DATA)
+               << tally << instrumented << funcname << funcname_orig;
         *bfout << '\n';
       }
     }
+    *bfbin << uint8_t(BINOUT_ROW_NONE);
   }
 
   // Report the total counter values across all basic blocks.

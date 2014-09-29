@@ -174,8 +174,12 @@ void convert_basic_table (ByflFile& byflfile, H5File& hdf5file)
         datatype_bytes += sizeof(char*);
         break;
 
+      case BINOUT_COL_BOOL:
+        datatype_bytes += sizeof(uint8_t);
+        break;
+
       default:
-        cerr << progname << ": Unexpected column type " << column_tag
+        cerr << progname << ": Unexpected column type " << uint64_t(column_tag)
              << " encountered" << endl
              << die;
         break;
@@ -202,6 +206,11 @@ void convert_basic_table (ByflFile& byflfile, H5File& hdf5file)
       case BINOUT_COL_STRING:
         datatype.insertMember(colname, byte_offset, strtype);
         byte_offset += sizeof(char*);
+        break;
+
+      case BINOUT_COL_BOOL:
+        datatype.insertMember(colname, byte_offset, PredType::STD_U8BE);
+        byte_offset += sizeof(uint8_t);
         break;
 
       default:
@@ -257,6 +266,15 @@ void convert_basic_table (ByflFile& byflfile, H5File& hdf5file)
           }
           break;
 
+        case BINOUT_COL_BOOL:
+          // Push a boolean as an unsigned 8-bit integer.
+	  {
+            uint8_t onebyte;
+            byflfile >> onebyte;
+            row_data.push_back(onebyte);
+          }
+          break;
+
         default:
           cerr << progname << ": Internal error at "
                << __FILE__ << ':' << __LINE__ << endl
@@ -299,6 +317,10 @@ void convert_basic_table (ByflFile& byflfile, H5File& hdf5file)
           }
           break;
 
+        case BINOUT_COL_BOOL:
+          rawptr += sizeof(uint8_t);
+          break;
+
         default:
           cerr << progname << ": Internal error at "
                << __FILE__ << ':' << __LINE__ << endl
@@ -331,7 +353,7 @@ void convert_byfl_to_hdf5 (string byflfilename, string hdf5filename)
         break;
 
       default:
-        cerr << progname << ": Unexpected table type " << tabletype
+        cerr << progname << ": Unexpected table type " << uint64_t(tabletype)
              << " found in " << byflfilename << endl
              << die;
         break;
