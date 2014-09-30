@@ -686,8 +686,8 @@ void bf_report_bb_tallies (void)
     *bfout << '\n';
 
     // Binary output
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks"    // Table header
-           << uint8_t(BINOUT_COL_UINT64) << "Load operations"  // Column headers
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks";
+    *bfbin << uint8_t(BINOUT_COL_UINT64) << "Load operations"
            << uint8_t(BINOUT_COL_UINT64) << "Store operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
@@ -902,8 +902,8 @@ private:
     *bfout << '\n';
 
     // Output a binary table header.
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Functions"      // Table header
-           << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"    // Column headers
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Functions";
+    *bfbin << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"
            << uint8_t(BINOUT_COL_UINT64) << "Bytes stored"
            << uint8_t(BINOUT_COL_UINT64) << "Load ops"
            << uint8_t(BINOUT_COL_UINT64) << "Store ops"
@@ -976,8 +976,8 @@ private:
            << setw(13) << "Invocations" << ' '
            << "Byfl" << ' '
            << "Function\n";
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Called functions"  // Table header
-           << uint8_t(BINOUT_COL_UINT64) << "Invocations"        // Column headers
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Called functions";
+    *bfbin << uint8_t(BINOUT_COL_UINT64) << "Invocations"
            << uint8_t(BINOUT_COL_BOOL) << "Byfl instrumented"
            << uint8_t(BINOUT_COL_STRING) << "Mangled name"
            << uint8_t(BINOUT_COL_STRING) << "Demangled name"
@@ -1069,7 +1069,7 @@ private:
     // Do the same but in binary format.  Note that we include FP bits
     // and op bits here rather than below, as with the text-format
     // output.
-    *bfbin << uint8_t(BINOUT_TABLE_KEYVAL)     // Table header
+    *bfbin << uint8_t(BINOUT_TABLE_KEYVAL)
            << (partition ? string("User-defined tag ") + string(partition) : "Program");
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Load operations"
@@ -1221,23 +1221,32 @@ private:
                                     "\"other\" values (not integers or FP values)"};
 
       // Output all nonzero entries.
+      string mem_table_name("Memory accesses by data type");
+      if (partition)
+	mem_table_name += string(" for tag ") + string(partition);
+      *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << mem_table_name;
       for (int memop = 0; memop < BF_OP_NUM; memop++)
-        for (int memref = 0; memref < BF_REF_NUM; memref++)
-          for (int memagg = 0; memagg < BF_AGG_NUM; memagg++)
-            for (int memwidth = 0; memwidth < BF_WIDTH_NUM; memwidth++)
-              for (int memtype = 0; memtype < BF_TYPE_NUM; memtype++) {
-                uint64_t idx = mem_type_to_index(memop, memref, memagg, memtype, memwidth);
-                uint64_t tally = counter_totals.mem_insts[idx];
-                if (tally > 0)
-                  *bfout << tag << ": " << setw(25) << tally << ' '
-                         << memop2name[memop]
-                         << memref2name[memref]
-                         << memagg2name[memagg]
-                         << memwidth2name[memwidth]
-                         << memtype2name[memtype]
-                         << '\n';
-              }
+	for (int memref = 0; memref < BF_REF_NUM; memref++)
+	  for (int memagg = 0; memagg < BF_AGG_NUM; memagg++)
+	    for (int memwidth = 0; memwidth < BF_WIDTH_NUM; memwidth++)
+	      for (int memtype = 0; memtype < BF_TYPE_NUM; memtype++) {
+		uint64_t idx = mem_type_to_index(memop, memref, memagg, memtype, memwidth);
+		uint64_t tally = counter_totals.mem_insts[idx];
+		if (tally > 0) {
+		  string colname = string(memop2name[memop])
+		    + memref2name[memref]
+		    + memagg2name[memagg]
+		    + memwidth2name[memwidth]
+		    + memtype2name[memtype];
+		  *bfout << tag << ": " << setw(25) << tally << ' '
+			 << colname << '\n';
+		  colname[0] = toupper(colname[0]);
+		  *bfbin << uint8_t(BINOUT_COL_UINT64)
+			 << colname << tally;
+		}
+	      }
       *bfout << tag << ": " << separator << '\n';
+      *bfbin << uint8_t(BINOUT_COL_NONE);
     }
 
     // Pretty-print the histogram of instructions executed.
