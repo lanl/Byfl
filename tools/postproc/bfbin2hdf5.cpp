@@ -21,12 +21,18 @@
 using namespace H5;
 using namespace std;
 
+// Define a Byfl column header as a name and type.
+typedef pair<string, BINOUT_COL_T> byfl_column_t;
+
 // Store the name of the current executable.
 string progname;
 
 // Define a chunk size to use for our data (required for
 // unlimited-extent data).
 const hsize_t chunk_size = 1024;
+
+// Define a variable-length string datatype.
+StrType strtype;
 
 // Abort the program.  This is expected to be used at the end of a
 // stream write.
@@ -144,6 +150,77 @@ string replace_extension (const string oldfilename, const string newext)
   return newfilename.replace(dot_ofs, string::npos, newext);
 }
 
+// Construct an HDF5 datatype based on the Byfl column header.
+CompType construct_hdf5_datatype (vector<byfl_column_t>& byfl_column_header,
+				  size_t datatype_bytes)
+{
+  CompType datatype(datatype_bytes);
+  size_t byte_offset = 0;    // Running total of bytes consumed by each element
+  for (auto iter = byfl_column_header.cbegin();
+       iter != byfl_column_header.cend();
+       ++iter) {
+    string colname = iter->first;
+    BINOUT_COL_T coltype = iter->second;
+    switch (coltype) {
+      case BINOUT_COL_UINT64:
+        datatype.insertMember(colname, byte_offset, PredType::STD_U64BE);
+        byte_offset += sizeof(uint64_t);
+        break;
+      case BINOUT_COL_STRING:
+        datatype.insertMember(colname, byte_offset, strtype);
+        byte_offset += sizeof(char*);
+        break;
+
+      case BINOUT_COL_BOOL:
+        datatype.insertMember(colname, byte_offset, PredType::STD_U8BE);
+        byte_offset += sizeof(uint8_t);
+        break;
+
+      default:
+        cerr << progname << ": Internal error at "
+             << __FILE__ << ':' << __LINE__ << endl
+             << die;
+        break;
+    }
+  }
+  return datatype;
+}
+
+// Free C strings that appear in raw row data.
+void free_c_strings (vector<byfl_column_t>& byfl_column_header,
+		     vector<uint8_t>& row_data)
+{
+  uint8_t* rawptr = row_data.data();    // Pointer into the raw data
+  for (auto iter = byfl_column_header.cbegin();
+       iter != byfl_column_header.cend();
+       ++iter) {
+    BINOUT_COL_T coltype = iter->second;
+    switch (coltype) {
+      case BINOUT_COL_UINT64:
+	rawptr += sizeof(uint64_t);
+	break;
+
+      case BINOUT_COL_STRING:
+	{
+	  char* charptr = *(char**) rawptr;
+	  free((void*) charptr);
+	  rawptr += sizeof(char*);
+	}
+	break;
+
+      case BINOUT_COL_BOOL:
+	rawptr += sizeof(uint8_t);
+	break;
+
+      default:
+	cerr << progname << ": Internal error at "
+	     << __FILE__ << ':' << __LINE__ << endl
+	     << die;
+	break;
+    }
+  }
+}
+
 // Convert a basic Byfl table to HDF5 format.
 void convert_basic_table (ByflFile& byflfile, H5File& hdf5file)
 {
@@ -152,15 +229,11 @@ void convert_basic_table (ByflFile& byflfile, H5File& hdf5file)
   hsize_t max_dims = H5S_UNLIMITED;
   DataSpace global_dataspace(1, &current_dims, &max_dims);
 
-  // Define a variable-length string datatype.
-  StrType strtype(PredType::C_S1, H5T_VARIABLE);
-
   // Read the table name.  This will be used as the name of an HDF5 dataset.
   string tablename;
   byflfile >> tablename;
 
   // Read the entire Byfl column header (column names and types).
-  typedef pair<string, BINOUT_COL_T> byfl_column_t;
   vector<byfl_column_t> byfl_column_header;
   size_t datatype_bytes = 0;      // Number of bytes in the compound datatype
   uint8_t column_tag;             // Type of Byfl column
@@ -190,36 +263,7 @@ void convert_basic_table (ByflFile& byflfile, H5File& hdf5file)
   }
 
   // Construct an HDF5 datatype based on the Byfl column header.
-  CompType datatype(datatype_bytes);
-  size_t byte_offset = 0;    // Running total of bytes consumed by each element
-  for (auto iter = byfl_column_header.cbegin();
-       iter != byfl_column_header.cend();
-       ++iter) {
-    string colname = iter->first;
-    BINOUT_COL_T coltype = iter->second;
-    switch (coltype) {
-      case BINOUT_COL_UINT64:
-        datatype.insertMember(colname, byte_offset, PredType::STD_U64BE);
-        byte_offset += sizeof(uint64_t);
-        break;
-
-      case BINOUT_COL_STRING:
-        datatype.insertMember(colname, byte_offset, strtype);
-        byte_offset += sizeof(char*);
-        break;
-
-      case BINOUT_COL_BOOL:
-        datatype.insertMember(colname, byte_offset, PredType::STD_U8BE);
-        byte_offset += sizeof(uint8_t);
-        break;
-
-      default:
-        cerr << progname << ": Internal error at "
-             << __FILE__ << ':' << __LINE__ << endl
-             << die;
-        break;
-    }
-  }
+  CompType datatype = construct_hdf5_datatype(byfl_column_header, datatype_bytes);
 
   // Create a dataset.  Enable chunking (required because of the
   // H5S_UNLIMITED dimension) and deflate compression (optional).
@@ -299,36 +343,99 @@ void convert_basic_table (ByflFile& byflfile, H5File& hdf5file)
     dataset.write(raw_row_data, datatype, mem_dataspace, file_dataspace);
 
     // Free the memory consumed by all of the C strings.
-    uint8_t* rawptr = raw_row_data;    // Pointer into the raw data
-    for (auto iter = byfl_column_header.cbegin();
-         iter != byfl_column_header.cend();
-         ++iter) {
-      BINOUT_COL_T coltype = iter->second;
-      switch (coltype) {
-        case BINOUT_COL_UINT64:
-          rawptr += sizeof(uint64_t);
-          break;
+    free_c_strings(byfl_column_header, row_data);
+  }
+}
+
+// Convert a key:value Byfl table to HDF5 format.  Such tables contain
+// a single row of data and appear in the input file as alternating
+// column descriptions and data values.
+void convert_key_value_table (ByflFile& byflfile, H5File& hdf5file)
+{
+  // Create a global dataspace.
+  hsize_t current_dims = 1;
+  DataSpace global_dataspace(1, &current_dims);
+
+  // Read the table name.  This will be used as the name of an HDF5 dataset.
+  string tablename;
+  byflfile >> tablename;
+
+  // For each column, keep track of the column name, column type, and
+  // data to write.
+  vector<byfl_column_t> byfl_column_header;   // List of column headers (name and type)
+  vector<uint8_t> row_data;  // Raw data comprising the row
+  uint8_t column_tag;        // Type of the current Byfl column
+  for (byflfile >> column_tag; column_tag != BINOUT_COL_NONE; byflfile >> column_tag) {
+    // Store the column name and type.
+    string column_name;      // Name of the current Byfl column
+    byflfile >> column_name;
+    byfl_column_header.push_back(byfl_column_t(column_name, BINOUT_COL_T(column_tag)));
+
+    // Read and process the column type and contents.
+    switch (column_tag) {
+      case BINOUT_COL_UINT64:
+	// Column represents a big-endian unsigned 64-bit integer.
+	for (int i = 0; i < sizeof(uint64_t); ++i) {
+	  uint8_t onebyte;
+	  byflfile >> onebyte;
+	  row_data.push_back(onebyte);
+	}
+	break;
 
         case BINOUT_COL_STRING:
+          // Column represents a C string.
           {
-            char* charptr = *(char**) rawptr;
-            free((void*) charptr);
-            rawptr += sizeof(char*);
+            string str;
+            byflfile >> str;
+            const char* sptr = strdup(str.c_str());         // String pointer
+            const uint8_t* sptrp = (const uint8_t*) &sptr;  // Address of the above, cast to an array of bytes
+            for (int i = 0; i < sizeof(uint8_t*); ++i)
+              row_data.push_back(sptrp[i]);
           }
           break;
 
-        case BINOUT_COL_BOOL:
-          rawptr += sizeof(uint8_t);
-          break;
+      case BINOUT_COL_BOOL:
+	// Column represents a boolean as a big-endian unsigned 8-bit integer.
+	{
+	  uint8_t onebyte;
+	  byflfile >> onebyte;
+	  row_data.push_back(onebyte);
+	}
+	break;
 
-        default:
-          cerr << progname << ": Internal error at "
-               << __FILE__ << ':' << __LINE__ << endl
-               << die;
-          break;
-      }
+      default:
+	cerr << progname << ": Internal error at "
+	     << __FILE__ << ':' << __LINE__ << endl
+	     << die;
+	break;
     }
   }
+
+  // Construct an HDF5 datatype based on the Byfl column header.
+  CompType datatype = construct_hdf5_datatype(byfl_column_header, row_data.size());
+
+  // Create a dataset.  We enable neither compression nor chunking
+  // because we'll be writing only a single row, and these features
+  // are unlikely to be of much use for a single-row dataset.
+  DataSet dataset = hdf5file.createDataSet(tablename, datatype, global_dataspace);
+
+  // Define a single-row memory dataspace.
+  hsize_t num_rows = 1;
+  DataSpace mem_dataspace(1, &num_rows);
+
+  // Create a file dataspace.
+  DataSpace file_dataspace = dataset.getSpace();
+
+  // Point the file dataspace to the last row of the dataset.
+  hsize_t data_offset = current_dims - 1;
+  file_dataspace.selectHyperslab(H5S_SELECT_SET, &num_rows, &data_offset);
+
+  // Write the raw row data to the dataspace.
+  uint8_t* raw_row_data = row_data.data();
+  dataset.write(raw_row_data, datatype, mem_dataspace, file_dataspace);
+
+  // Free the memory consumed by all of the C strings.
+  free_c_strings(byfl_column_header, row_data);
 }
 
 // Convert a Byfl binary output file to an HDF5 file.
@@ -346,10 +453,15 @@ void convert_byfl_to_hdf5 (string byflfilename, string hdf5filename)
 
   // Process in turn each table we encounter.
   uint8_t tabletype;
+  strtype = StrType(PredType::C_S1, H5T_VARIABLE);
   for (byflfile >> tabletype; tabletype != BINOUT_TABLE_NONE; byflfile >> tabletype)
     switch (tabletype) {
       case BINOUT_TABLE_BASIC:
         convert_basic_table(byflfile, hdf5file);
+        break;
+
+      case BINOUT_TABLE_KEYVAL:
+        convert_key_value_table(byflfile, hdf5file);
         break;
 
       default:

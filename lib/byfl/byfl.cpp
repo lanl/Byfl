@@ -686,18 +686,18 @@ void bf_report_bb_tallies (void)
     *bfout << '\n';
 
     // Binary output
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks"  // Table header
-           << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"   // Column headers
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks"    // Table header
+           << uint8_t(BINOUT_COL_UINT64) << "Load operations"  // Column headers
+           << uint8_t(BINOUT_COL_UINT64) << "Store operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Other branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Floating-point operation bits"
+           << uint8_t(BINOUT_COL_UINT64) << "Integer operation bits"
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"
            << uint8_t(BINOUT_COL_UINT64) << "Bytes stored"
-           << uint8_t(BINOUT_COL_UINT64) << "Load ops"
-           << uint8_t(BINOUT_COL_UINT64) << "Store ops"
-           << uint8_t(BINOUT_COL_UINT64) << "Flops"
-           << uint8_t(BINOUT_COL_UINT64) << "Flop bits"
-           << uint8_t(BINOUT_COL_UINT64) << "Integer ops"
-           << uint8_t(BINOUT_COL_UINT64) << "Integer op bits"
-           << uint8_t(BINOUT_COL_UINT64) << "Unconditional direct branches"
-           << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branches"
-           << uint8_t(BINOUT_COL_UINT64) << "Other branches"
            << uint8_t(BINOUT_COL_UINT64) << "Calls to memset"
            << uint8_t(BINOUT_COL_UINT64) << "Bytes stored by memset"
            << uint8_t(BINOUT_COL_UINT64) << "Calls to memcpy and memmove"
@@ -917,10 +917,10 @@ private:
            << uint8_t(BINOUT_COL_UINT64) << "Invocations";
     if (bf_call_stack)
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled call stack"
-	     << uint8_t(BINOUT_COL_STRING) << "Demangled call stack";
+             << uint8_t(BINOUT_COL_STRING) << "Demangled call stack";
     else
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled name"
-	     << uint8_t(BINOUT_COL_STRING) << "Demangled name";
+             << uint8_t(BINOUT_COL_STRING) << "Demangled name";
     *bfbin << uint8_t(BINOUT_COL_NONE);
 
     // Output the data by sorted function name in both textual and
@@ -964,7 +964,7 @@ private:
       *bfbin << func_counters->terminators[BF_END_BB_DYNAMIC]
              << invocations
              << funcname_c
-	     << demangle_func_name(funcname_c);
+             << demangle_func_name(funcname_c);
     }
     *bfbin << uint8_t(BINOUT_ROW_NONE);
     delete all_funcs;
@@ -1066,7 +1066,50 @@ private:
            << term_any - term_static - term_dynamic << " other)\n";
     *bfout << tag << ": " << setw(25) << counter_totals.ops << " TOTAL OPS\n";
 
-    // Output reuse distance if measured.
+    // Do the same but in binary format.  Note that we include FP bits
+    // and op bits here rather than below, as with the text-format
+    // output.
+    *bfbin << uint8_t(BINOUT_TABLE_KEYVAL)     // Table header
+           << (partition ? string("User-defined tag ") + string(partition) : "Program");
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Load operations"
+           << counter_totals.load_ins;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Store operations"
+           << counter_totals.store_ins;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Floating-point operations"
+           << counter_totals.flops;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Integer operations"
+           << global_int_ops;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Unconditional and direct branch operations"
+           << term_static;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Conditional or indirect branch operations"
+           << term_dynamic;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Other branch operations"
+           << term_any - term_static - term_dynamic;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Floating-point operation bits"
+           << counter_totals.fp_bits;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Integer operation bits"
+           << counter_totals.op_bits;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Bytes loaded"
+           << counter_totals.loads;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Bytes stored"
+           << counter_totals.stores;
+    if (bf_unique_bytes && !partition)
+      *bfbin << uint8_t(BINOUT_COL_UINT64)
+             << "Unique addresses loaded or stored"
+             << global_unique_bytes;
+
+    // Output reuse distance (if measured) in both text and binary formats.
     if (reuse_unique > 0) {
       uint64_t median_value;
       uint64_t mad_value;
@@ -1077,8 +1120,94 @@ private:
       else
         *bfout << median_value << " median reuse distance (+/- "
                << mad_value << ")\n";
+      *bfbin << uint8_t(BINOUT_COL_UINT64)
+             << "Median reuse distance"
+             << median_value;
+      *bfbin << uint8_t(BINOUT_COL_UINT64)
+             << "MAD reuse distance"
+             << mad_value;
     }
     *bfout << tag << ": " << separator << '\n';
+
+    // Report the raw measurements in terms of bits and bit operations.
+    *bfout << tag << ": " << setw(25) << global_bytes*8 << " bits ("
+           << counter_totals.loads*8 << " loaded + "
+           << counter_totals.stores*8 << " stored)\n";
+    if (bf_unique_bytes && !partition)
+      *bfout << tag << ": " << setw(25) << global_unique_bytes*8 << " unique bits\n";
+    *bfout << tag << ": " << setw(25) << counter_totals.fp_bits << " flop bits\n";
+    *bfout << tag << ": " << setw(25) << counter_totals.op_bits << " op bits (excluding memory ops)\n";
+    *bfout << tag << ": " << separator << '\n';
+
+    // Report in textual format the amount of memory that passed
+    // through llvm.mem{set,cpy,move}.*.
+    if (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] > 0)
+      *bfout << tag << ": " << setw(25)
+             << counter_totals.mem_intrinsics[BF_MEMSET_BYTES]
+             << " bytes stored by "
+             << counter_totals.mem_intrinsics[BF_MEMSET_CALLS] << ' '
+             << (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] == 1 ? "call" : "calls")
+             << " to memset()\n";
+    if (counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] > 0)
+      *bfout << tag << ": " << setw(25)
+             << counter_totals.mem_intrinsics[BF_MEMXFER_BYTES]
+             << " bytes loaded and stored by "
+             << counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] << ' '
+             << (counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] == 1 ? "call" : "calls")
+             << " to memcpy() or memmove()\n";
+    if (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] > 0
+        || counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] > 0)
+      *bfout << tag << ": " << separator << '\n';
+
+    // Do the same as the above in binary format.  Here, we include
+    // all data, even zeroes.
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Calls to memset"
+           << counter_totals.mem_intrinsics[BF_MEMSET_CALLS];
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Calls to memcpy and memmove"
+           << counter_totals.mem_intrinsics[BF_MEMXFER_CALLS];
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Bytes stored by memset"
+           << counter_totals.mem_intrinsics[BF_MEMSET_BYTES];
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Bytes loaded and stored by memcpy and memmove"
+           << counter_totals.mem_intrinsics[BF_MEMXFER_BYTES];
+
+    // Report vector-operation measurements in both textual and binary formats.
+    uint64_t num_vec_ops=0, total_vec_elts, total_vec_bits;
+    if (bf_vectors) {
+      // Compute the vector statistics.
+      if (partition)
+        bf_get_vector_statistics(partition, &num_vec_ops, &total_vec_elts, &total_vec_bits);
+      else
+        bf_get_vector_statistics(&num_vec_ops, &total_vec_elts, &total_vec_bits);
+
+      // Output information textually.
+      *bfout << tag << ": " << setw(25) << num_vec_ops << " vector operations (FP & int)\n";
+      if (num_vec_ops > 0)
+        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)total_vec_elts / (double)num_vec_ops
+               << " elements per vector\n"
+               << tag << ": " << fixed << setw(25) << setprecision(4)
+               << (double)total_vec_bits / (double)num_vec_ops
+               << " bits per element\n";
+      *bfout << tag << ": " << separator << '\n';
+
+      // Output information in binary format (including zeroes).
+      *bfbin << uint8_t(BINOUT_COL_UINT64)
+             << "Vector operations"
+             << num_vec_ops;
+      *bfbin << uint8_t(BINOUT_COL_UINT64)
+             << "Total vector elements"
+             << total_vec_elts;
+      *bfbin << uint8_t(BINOUT_COL_UINT64)
+             << "Total vector-element bits"
+             << total_vec_bits;
+    }
+
+    // Finish the current binary table (program or tag summary).
+    *bfbin << uint8_t(BINOUT_COL_NONE);
 
     // Output raw, per-type information.
     if (bf_types) {
@@ -1108,54 +1237,6 @@ private:
                          << memtype2name[memtype]
                          << '\n';
               }
-      *bfout << tag << ": " << separator << '\n';
-    }
-
-    // Report the raw measurements in terms of bits and bit operations.
-    *bfout << tag << ": " << setw(25) << global_bytes*8 << " bits ("
-           << counter_totals.loads*8 << " loaded + "
-           << counter_totals.stores*8 << " stored)\n";
-    if (bf_unique_bytes && !partition)
-      *bfout << tag << ": " << setw(25) << global_unique_bytes*8 << " unique bits\n";
-    *bfout << tag << ": " << setw(25) << counter_totals.fp_bits << " flop bits\n";
-    *bfout << tag << ": " << setw(25) << counter_totals.op_bits << " op bits (excluding memory ops)\n";
-    *bfout << tag << ": " << separator << '\n';
-
-    // Report the amount of memory that passed through
-    // llvm.mem{set,cpy,move}.*.
-    if (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] > 0)
-      *bfout << tag << ": " << setw(25)
-             << counter_totals.mem_intrinsics[BF_MEMSET_BYTES]
-             << " bytes stored by "
-             << counter_totals.mem_intrinsics[BF_MEMSET_CALLS] << ' '
-             << (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] == 1 ? "call" : "calls")
-             << " to memset()\n";
-    if (counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] > 0)
-      *bfout << tag << ": " << setw(25)
-             << counter_totals.mem_intrinsics[BF_MEMXFER_BYTES]
-             << " bytes loaded and stored by "
-             << counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] << ' '
-             << (counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] == 1 ? "call" : "calls")
-             << " to memcpy() or memmove()\n";
-    if (counter_totals.mem_intrinsics[BF_MEMSET_CALLS] > 0
-        || counter_totals.mem_intrinsics[BF_MEMXFER_CALLS] > 0)
-      *bfout << tag << ": " << separator << '\n';
-
-    // Report vector-operation measurements.
-    uint64_t num_vec_ops=0, total_vec_elts, total_vec_bits;
-    if (bf_vectors) {
-      if (partition)
-        bf_get_vector_statistics(partition, &num_vec_ops, &total_vec_elts, &total_vec_bits);
-      else
-        bf_get_vector_statistics(&num_vec_ops, &total_vec_elts, &total_vec_bits);
-      *bfout << tag << ": " << setw(25) << num_vec_ops << " vector operations (FP & int)\n";
-      if (num_vec_ops > 0)
-        *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)total_vec_elts / (double)num_vec_ops
-               << " elements per vector\n"
-               << tag << ": " << fixed << setw(25) << setprecision(4)
-               << (double)total_vec_bits / (double)num_vec_ops
-               << " bits per element\n";
       *bfout << tag << ": " << separator << '\n';
     }
 
