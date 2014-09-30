@@ -1209,7 +1209,7 @@ private:
     // Finish the current binary table (program or tag summary).
     *bfbin << uint8_t(BINOUT_COL_NONE);
 
-    // Output raw, per-type information.
+    // Output raw, per-type information in both textual and binary formats.
     if (bf_types) {
       // The following need to be consistent with byfl-common.h.
       const char *memop2name[] = {"loads of ", "stores of "};
@@ -1223,28 +1223,28 @@ private:
       // Output all nonzero entries.
       string mem_table_name("Memory accesses by data type");
       if (partition)
-	mem_table_name += string(" for tag ") + string(partition);
+        mem_table_name += string(" for tag ") + string(partition);
       *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << mem_table_name;
       for (int memop = 0; memop < BF_OP_NUM; memop++)
-	for (int memref = 0; memref < BF_REF_NUM; memref++)
-	  for (int memagg = 0; memagg < BF_AGG_NUM; memagg++)
-	    for (int memwidth = 0; memwidth < BF_WIDTH_NUM; memwidth++)
-	      for (int memtype = 0; memtype < BF_TYPE_NUM; memtype++) {
-		uint64_t idx = mem_type_to_index(memop, memref, memagg, memtype, memwidth);
-		uint64_t tally = counter_totals.mem_insts[idx];
-		if (tally > 0) {
-		  string colname = string(memop2name[memop])
-		    + memref2name[memref]
-		    + memagg2name[memagg]
-		    + memwidth2name[memwidth]
-		    + memtype2name[memtype];
-		  *bfout << tag << ": " << setw(25) << tally << ' '
-			 << colname << '\n';
-		  colname[0] = toupper(colname[0]);
-		  *bfbin << uint8_t(BINOUT_COL_UINT64)
-			 << colname << tally;
-		}
-	      }
+        for (int memref = 0; memref < BF_REF_NUM; memref++)
+          for (int memagg = 0; memagg < BF_AGG_NUM; memagg++)
+            for (int memwidth = 0; memwidth < BF_WIDTH_NUM; memwidth++)
+              for (int memtype = 0; memtype < BF_TYPE_NUM; memtype++) {
+                uint64_t idx = mem_type_to_index(memop, memref, memagg, memtype, memwidth);
+                uint64_t tally = counter_totals.mem_insts[idx];
+                if (tally > 0) {
+                  string colname = string(memop2name[memop])
+                    + memref2name[memref]
+                    + memagg2name[memagg]
+                    + memwidth2name[memwidth]
+                    + memtype2name[memtype];
+                  *bfout << tag << ": " << setw(25) << tally << ' '
+                         << colname << '\n';
+                  colname[0] = toupper(colname[0]);
+                  *bfbin << uint8_t(BINOUT_COL_UINT64)
+                         << colname << tally;
+                }
+              }
       *bfout << tag << ": " << separator << '\n';
       *bfbin << uint8_t(BINOUT_COL_NONE);
     }
@@ -1266,6 +1266,10 @@ private:
       sort(sorted_inst_mix.begin(), sorted_inst_mix.end(), compare_name_tallies);
 
       // Output the sorted results.
+      string inst_mix_table_name("Instruction mix");
+      if (partition)
+        inst_mix_table_name += string(" for tag ") + string(partition);
+      *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << inst_mix_table_name;
       for (vector<name_tally>::iterator ntiter = sorted_inst_mix.begin();
            ntiter != sorted_inst_mix.end();
            ntiter++) {
@@ -1274,12 +1278,15 @@ private:
                << setw(maxopnamelen) << left
                << ntiter->first << " instructions executed\n"
                << right;
+        *bfbin << uint8_t(BINOUT_COL_UINT64)
+               << ntiter->first << ntiter->second;
       }
       *bfout << tag << ": " << setw(25) << total_insts << ' '
              << setw(maxopnamelen) << left
              << "TOTAL" << " instructions executed\n"
              << right
              << tag << ": " << separator << '\n';
+      *bfbin << uint8_t(BINOUT_COL_NONE);
     }
 
     // Output quantiles of working-set sizes.
