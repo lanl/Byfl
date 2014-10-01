@@ -41,19 +41,19 @@ public:
   void increment(size_t pos1, size_t pos2) {
     for (size_t pos = pos1; pos <= pos2; pos++)
       switch (byte_counter[pos]) {
-	case bf_max_bytecount:
-	  /* Maxed out our counter -- don't increment it further. */
-	  break;
+        case bf_max_bytecount:
+          /* Maxed out our counter -- don't increment it further. */
+          break;
 
-	case 0:
-	  /* First time a byte was touched */
-	  bytes_touched++;
-	  /* No break */
+        case 0:
+          /* First time a byte was touched */
+          bytes_touched++;
+          /* No break */
 
-	default:
-	  /* Common case -- increment the counter. */
-	  byte_counter[pos]++;
-	  break;
+        default:
+          /* Common case -- increment the counter. */
+          byte_counter[pos]++;
+          break;
       }
   }
 
@@ -248,7 +248,7 @@ void get_address_tally_hist (page_to_counts_t& mapping, vector<bf_addr_tally_t>&
     const bytecount_t* byte_counter = pte->get_counts();
     for (size_t i = 0; i < logical_page_size; i++)
       if (byte_counter[i] > 0)
-	count2mult[byte_counter[i]]++;
+        count2mult[byte_counter[i]]++;
 
     // Free the memory occupied by the page table entry.
     delete pte;

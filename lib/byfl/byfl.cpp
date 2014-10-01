@@ -1249,7 +1249,8 @@ private:
       *bfbin << uint8_t(BINOUT_COL_NONE);
     }
 
-    // Pretty-print the histogram of instructions executed.
+    // Pretty-print the histogram of instructions executed in both
+    // textual and binary formats.
     uint64_t total_insts = 0;
     if (bf_tally_inst_mix) {
       // Sort the histogram by decreasing opcode tally.
@@ -1294,10 +1295,10 @@ private:
       // Produce a histogram that tallies each byte-access count.
       vector<bf_addr_tally_t> access_counts;
       uint64_t total_bytes = 0;
-      bf_get_address_tally_hist (access_counts, &total_bytes);
+      bf_get_address_tally_hist(access_counts, &total_bytes);
 
-      // Output every nth quantile.
-      const double pct_change = 0.05;   // Minimum percentage-point change to output
+      // Output every nth quantile textually.
+      const double pct_change_text = 0.05;   // Minimum percentage-point change to output textually
       uint64_t running_total_bytes = 0;     // Running total of tally (# of addresses)
       uint64_t running_total_accesses = 0;  // Running total of byte-access count times tally.
       double hit_rate = 0.0;            // Quotient of the preceding two values
@@ -1307,7 +1308,7 @@ private:
         running_total_bytes += counts_iter->second;
         running_total_accesses += uint64_t(counts_iter->first) * uint64_t(counts_iter->second);
         double new_hit_rate = double(running_total_accesses) / double(global_bytes);
-        if (new_hit_rate - hit_rate > pct_change || running_total_bytes == global_unique_bytes) {
+        if (new_hit_rate - hit_rate > pct_change_text || running_total_bytes == global_unique_bytes) {
           hit_rate = new_hit_rate;
           *bfout << tag << ": "
                  << setw(25) << running_total_bytes << " bytes cover "
@@ -1315,6 +1316,30 @@ private:
         }
       }
       *bfout << tag << ": " << separator << '\n';
+
+      // Output every mth quantile in binary format.
+      const double pct_change_bin = 0.001;    // Minimum percentage-point change to output in binary format
+      *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Memory locality";
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Cache size"
+             << uint8_t(BINOUT_COL_UINT64) << "Upper-bound of hit count"
+             << uint8_t(BINOUT_COL_NONE);
+      running_total_bytes = 0;
+      running_total_accesses = 0;
+      hit_rate = 0.0;
+      for (vector<bf_addr_tally_t>::iterator counts_iter = access_counts.begin();
+           counts_iter != access_counts.end();
+           counts_iter++) {
+        running_total_bytes += counts_iter->second;
+        running_total_accesses += uint64_t(counts_iter->first) * uint64_t(counts_iter->second);
+        double new_hit_rate = double(running_total_accesses) / double(global_bytes);
+        if (new_hit_rate - hit_rate > pct_change_bin || running_total_bytes == global_unique_bytes) {
+          hit_rate = new_hit_rate;
+          *bfbin << uint8_t(BINOUT_ROW_DATA)
+                 << uint64_t(running_total_bytes)
+                 << uint64_t(running_total_accesses);
+        }
+      }
+      *bfbin << uint8_t(BINOUT_ROW_NONE);
     }
 
     // Report a bunch of derived measurements.
