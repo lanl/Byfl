@@ -98,6 +98,44 @@ public:
     op_bits  = initial_op_bits;
   }
 
+  // Assign new values into our counters.
+  void assign (uint64_t* new_mem_insts,
+               uint64_t* new_inst_mix_histo,
+               uint64_t* new_terminators,
+               uint64_t* new_mem_intrinsics,
+               uint64_t new_loads,
+               uint64_t new_stores,
+               uint64_t new_load_ins,
+               uint64_t new_store_ins,
+               uint64_t new_flops,
+               uint64_t new_fp_bits,
+               uint64_t new_ops,
+               uint64_t new_op_bits) {
+    // Assign mem_insts only if -bf-types was specified.
+    if (bf_types)
+      for (size_t i = 0; i < NUM_MEM_INSTS; i++)
+        mem_insts[i] = new_mem_insts[i];
+
+    // Assign inst_mix_histo only if -bf-inst-mix was specified.
+    if (bf_tally_inst_mix)
+      for (size_t i = 0; i < NUM_OPCODES; i++)
+        inst_mix_histo[i] = new_inst_mix_histo[i];
+
+    // Unconditionally assign everything else.
+    for (size_t i = 0; i < BF_END_BB_NUM; i++)
+      terminators[i] = new_terminators[i];
+    for (size_t i = 0; i < BF_NUM_MEM_INTRIN; i++)
+      mem_intrinsics[i] = new_mem_intrinsics[i];
+    loads     = new_loads;
+    stores    = new_stores;
+    load_ins  = new_load_ins;
+    store_ins = new_store_ins;
+    flops     = new_flops;
+    fp_bits   = new_fp_bits;
+    ops       = new_ops;
+    op_bits   = new_op_bits;
+  }
+
   // Accumulate new values into our counters.
   void accumulate (uint64_t* more_mem_insts,
                    uint64_t* more_inst_mix_histo,
@@ -164,7 +202,7 @@ public:
   }
 
   // Return the difference of our counters and another set of counters.
-  ByteFlopCounters* difference (ByteFlopCounters* other) {
+  ByteFlopCounters* difference (ByteFlopCounters* other, ByteFlopCounters* target=nullptr) {
     // Take the difference of mem_insts only if -bf-types was specified.
     uint64_t delta_mem_insts[NUM_MEM_INSTS];
     if (bf_types)
@@ -184,19 +222,34 @@ public:
     uint64_t delta_mem_intrinsics[BF_NUM_MEM_INTRIN];
     for (size_t i = 0; i < BF_NUM_MEM_INTRIN; i++)
       delta_mem_intrinsics[i] = mem_intrinsics[i] - other->mem_intrinsics[i];
-    ByteFlopCounters *byflc = new ByteFlopCounters(delta_mem_insts,
-                                                   delta_inst_mix_histo,
-                                                   delta_terminators,
-                                                   delta_mem_intrinsics,
-                                                   loads - other->loads,
-                                                   stores - other->stores,
-                                                   load_ins - other->load_ins,
-                                                   store_ins - other->store_ins,
-                                                   flops - other->flops,
-                                                   fp_bits - other->fp_bits,
-                                                   ops - other->ops,
-                                                   op_bits - other->op_bits);
-    return byflc;
+    if (target == nullptr)
+      return new ByteFlopCounters(delta_mem_insts,
+                                  delta_inst_mix_histo,
+                                  delta_terminators,
+                                  delta_mem_intrinsics,
+                                  loads - other->loads,
+                                  stores - other->stores,
+                                  load_ins - other->load_ins,
+                                  store_ins - other->store_ins,
+                                  flops - other->flops,
+                                  fp_bits - other->fp_bits,
+                                  ops - other->ops,
+                                  op_bits - other->op_bits);
+    else {
+      target->assign(delta_mem_insts,
+                     delta_inst_mix_histo,
+                     delta_terminators,
+                     delta_mem_intrinsics,
+                     loads - other->loads,
+                     stores - other->stores,
+                     load_ins - other->load_ins,
+                     store_ins - other->store_ins,
+                     flops - other->flops,
+                     fp_bits - other->fp_bits,
+                     ops - other->ops,
+                     op_bits - other->op_bits);
+      return target;
+    }
   }
 
   // Reset all of our counters to zero.
@@ -430,11 +483,9 @@ void initialize_byfl (void) {
     bf_mem_intrin_count[i] = 0;
   bf_push_basic_block();
 
-  const char * partition = bf_categorize_counters();
-  if ( NULL != partition )
-  {
-      bf_record_key(partition, bf_categorize_counters_id);
-  }
+  const char* partition = bf_categorize_counters();
+  if (partition != NULL)
+    bf_record_key(partition, bf_categorize_counters_id);
 }
 
 
@@ -459,7 +510,6 @@ void bf_initialize_if_necessary (void)
   }
 }
 
-
 // Exit the program abnormally.
 void bf_abend (void)
 {
@@ -467,14 +517,12 @@ void bf_abend (void)
   std::exit(1);
 }
 
-
 // Push a new basic block onto the stack (before a function call).
 extern "C"
 void bf_push_basic_block (void)
 {
   bb_totals().push_back(counter_memory_pool->allocate());
 }
-
 
 // Pop and discard the top basic block off the stack (after a function
 // returns).
@@ -485,7 +533,6 @@ void bf_pop_basic_block (void)
   bb_totals().pop_back();
 }
 
-
 // Tally the number of calls to each function.
 extern "C"
 void bf_incr_func_tally (KeyType_t keyID)
@@ -494,15 +541,12 @@ void bf_incr_func_tally (KeyType_t keyID)
 }
 
 extern "C"
-void bf_record_funcs2keys(uint32_t cnt, const uint64_t * keys,
-        const char ** fnames)
+void bf_record_funcs2keys(uint32_t cnt, const uint64_t* keys,
+                          const char** fnames)
 {
-    for ( unsigned i = 0; i < cnt; i++ )
-    {
-        bf_record_key(fnames[i], keys[i]);
-    }
+  for (unsigned int i = 0; i < cnt; i++)
+    bf_record_key(fnames[i], keys[i]);
 }
-
 
 // Push a function name onto the call stack.  Increment the invocation
 // count the call stack as a whole, and ensure the individual function
@@ -525,7 +569,6 @@ void bf_push_function (const char* funcname, KeyType_t key)
   func_call_tallies()[bf_func_and_parents_id]++;
   func_call_tallies()[key] += 0;
 }
-
 
 // Pop the top function name from the call stack.
 extern "C"
@@ -708,48 +751,47 @@ void bf_report_bb_tallies (void)
 
   // If we've accumulated enough basic blocks, output the aggregate of
   // their values.
-  if (++num_merged >= bf_bb_merge) {
+  if (__builtin_expect(++num_merged >= bf_bb_merge, 0)) {
     // Output the difference between the current counter values and
     // our previously saved values.
-    ByteFlopCounters* counter_deltas = global_totals.difference(&prev_global_totals);
+    static ByteFlopCounters counter_deltas;
+    (void) global_totals.difference(&prev_global_totals, &counter_deltas);
     *bfout << bf_output_prefix
            << "BYFL_BB:        "
-           << setw(HDR_COL_WIDTH) << counter_deltas->loads << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->stores << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->load_ins << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->store_ins << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->flops << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->fp_bits << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->ops << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas->op_bits;
+           << setw(HDR_COL_WIDTH) << counter_deltas.loads << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas.stores << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas.load_ins << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas.store_ins << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas.flops << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas.fp_bits << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas.ops << ' '
+           << setw(HDR_COL_WIDTH) << counter_deltas.op_bits;
     *bfout << '\n';
 
     // Do the same but in binary.  Note that we include more fields
     // here than in the textual output.
     *bfbin << uint8_t(BINOUT_ROW_DATA)
-           << counter_deltas->loads
-           << counter_deltas->stores
-           << counter_deltas->load_ins
-           << counter_deltas->store_ins
-           << counter_deltas->flops
-           << counter_deltas->fp_bits
-           << counter_deltas->ops
-           << counter_deltas->op_bits
-           << counter_deltas->terminators[BF_END_BB_STATIC]
-           << counter_deltas->terminators[BF_END_BB_DYNAMIC]
-           << counter_deltas->terminators[BF_END_BB_ANY] - (counter_deltas->terminators[BF_END_BB_STATIC] + counter_deltas->terminators[BF_END_BB_DYNAMIC])
-           << counter_deltas->mem_insts[BF_MEMSET_CALLS]
-           << counter_deltas->mem_insts[BF_MEMSET_BYTES]
-           << counter_deltas->mem_insts[BF_MEMXFER_CALLS]
-           << counter_deltas->mem_insts[BF_MEMXFER_BYTES];
+           << counter_deltas.loads
+           << counter_deltas.stores
+           << counter_deltas.load_ins
+           << counter_deltas.store_ins
+           << counter_deltas.flops
+           << counter_deltas.fp_bits
+           << counter_deltas.ops
+           << counter_deltas.op_bits
+           << counter_deltas.terminators[BF_END_BB_STATIC]
+           << counter_deltas.terminators[BF_END_BB_DYNAMIC]
+           << counter_deltas.terminators[BF_END_BB_ANY] - (counter_deltas.terminators[BF_END_BB_STATIC] + counter_deltas.terminators[BF_END_BB_DYNAMIC])
+           << counter_deltas.mem_insts[BF_MEMSET_CALLS]
+           << counter_deltas.mem_insts[BF_MEMSET_BYTES]
+           << counter_deltas.mem_insts[BF_MEMXFER_CALLS]
+           << counter_deltas.mem_insts[BF_MEMXFER_BYTES];
 
     // Prepare for the next round of output.
     num_merged = 0;
     prev_global_totals = global_totals;
-    delete counter_deltas;
   }
 }
-
 
 // Associate the current counter values with a given function.
 extern "C"
@@ -809,33 +851,19 @@ static class RunAtEndOfProgram {
 private:
   string separator;    // Horizontal rule to output between sections
 
-  static void
-  aggregate_call_tallies()
-  {
-      key2num_t & fmap = func_call_tallies();
-      str2num_t & final_map = final_call_tallies();
-      for ( auto it = fmap.begin(); it != fmap.end(); it++ )
-      {
-          auto kiter = key_to_func().find(it->first);
-          if ( kiter == key_to_func().end() )
-          {
-              std::cerr << "ERROR: key " << it->first
-                      << " was not recorded." << std::endl;
-          }
-          else
-          {
-              std::string & func = key_to_func()[it->first];
-              final_map[func.c_str()] += it->second;
-          }
+  static void aggregate_call_tallies() {
+    key2num_t & fmap = func_call_tallies();
+    str2num_t & final_map = final_call_tallies();
+    for (auto it = fmap.begin(); it != fmap.end(); it++) {
+      auto kiter = key_to_func().find(it->first);
+      if (kiter == key_to_func().end())
+        std::cerr << "ERROR: key " << it->first
+                  << " was not recorded." << std::endl;
+      else {
+        std::string & func = key_to_func()[it->first];
+        final_map[func.c_str()] += it->second;
       }
-//      std::cout << "main cnt = " << final_map["main"] << std::endl;
-//      std::cout << "final_map = {";
-//      for ( auto it = final_map.begin();
-//              it != final_map.end(); it++ )
-//      {
-//          std::cout << " (" << it->first << ", " << it->second << ")";
-//      }
-//      std::cout << "}\n";
+    }
   }
 
   // Compare two strings.
@@ -844,22 +872,20 @@ private:
   }
 
   static bool compare_keys_to_names (KeyType_t one, KeyType_t two) {
-    auto & map = key_to_func();
+    auto& map = key_to_func();
     return map[one] < map[two];
   }
 
   // Compare two function names, reporting which was called more
   // times.  Break ties by comparing function names.
-  static bool compare_func_totals (const std::string & one,
-                                  const std::string & two)
-  {
+  static bool compare_func_totals (const std::string& one,
+                                   const std::string& two) {
     uint64_t one_calls = final_call_tallies()[one];
     uint64_t two_calls = final_call_tallies()[two];
     if (one_calls != two_calls)
       return one_calls > two_calls;
     else
       return one < two;
-      //return compare_char_stars(one, two);
   }
 
   // Compare two {name, tally} pairs, reporting which has the greater
@@ -874,7 +900,6 @@ private:
 
   // Report per-function counter totals.
   void report_by_function (void) {
-
     aggregate_call_tallies();
 
     // Output a textual header line.
