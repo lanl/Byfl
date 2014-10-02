@@ -711,6 +711,26 @@ static bool suppress_output (void)
         break;
     }
   }
+
+  // Return a string version of an instruction address (e.g., "foo.c:123").
+  static const char* bf_address_to_location_string (void* addrp)
+  {
+    typedef map<uintptr_t, const char*> addr2string_t;
+    static addr2string_t address_map;
+    uintptr_t addr = uintptr_t(addrp);
+    addr2string_t::iterator addr_iter = address_map.find(addr);
+    if (addr_iter == address_map.end()) {
+      // This is the first time we've seen this address.
+      char** locstrs = backtrace_symbols(&addrp, 1);
+      const char* location_string = locstrs == NULL ? "??:0" : strdup(locstrs[0]);
+      free(locstrs);
+      address_map[addr] = location_string;
+      return location_string;
+    }
+    else
+      // Return the string we found the previous time.
+      return addr_iter->second;
+  }
 #endif
 
 // At the end of a basic block, accumulate the current counter
@@ -782,7 +802,8 @@ void bf_report_bb_tallies (void)
     if (bf_bb_merge == 1) {
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Tag";
 #ifdef HAVE_BACKTRACE
-      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Basic-block address";
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Address"
+             << uint8_t(BINOUT_COL_STRING) << "Symbolic location";
 #endif
     }
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Load operations"
@@ -830,7 +851,9 @@ void bf_report_bb_tallies (void)
       const char* partition = bf_categorize_counters();
       *bfbin << (partition == NULL ? "" : partition);
 #ifdef HAVE_BACKTRACE
-      *bfbin << (uint64_t) (uintptr_t) bf_find_caller_address();
+      void* caller_addr = bf_find_caller_address();
+      *bfbin << (uint64_t) (uintptr_t) caller_addr
+             << bf_address_to_location_string(caller_addr);
 #endif
     }
     *bfbin << counter_deltas.loads
