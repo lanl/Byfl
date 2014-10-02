@@ -730,6 +730,8 @@ void bf_report_bb_tallies (void)
 
     // Binary output
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks";
+    if (bf_bb_merge == 1)
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Tag";
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Load operations"
            << uint8_t(BINOUT_COL_UINT64) << "Store operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
@@ -770,8 +772,12 @@ void bf_report_bb_tallies (void)
 
     // Do the same but in binary.  Note that we include more fields
     // here than in the textual output.
-    *bfbin << uint8_t(BINOUT_ROW_DATA)
-           << counter_deltas.loads
+    *bfbin << uint8_t(BINOUT_ROW_DATA);
+    if (bf_bb_merge == 1) {
+      const char* partition = bf_categorize_counters();
+      *bfbin << (partition == NULL ? "" : partition);
+    }
+    *bfbin << counter_deltas.loads
            << counter_deltas.stores
            << counter_deltas.load_ins
            << counter_deltas.store_ins
