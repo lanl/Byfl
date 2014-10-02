@@ -392,7 +392,9 @@ extern "C" {
   const char* bf_categorize_counters (void) __attribute__((weak, alias("bf_categorize_counters_original")));
 }
 
-KeyType_t bf_categorize_counters_id = 10; // should be unlikely that this is duplicate
+KeyType_t bf_categorize_counters_id = 10; // Should be unlikely that this is a duplicate.
+extern char** environ;
+
 
 namespace bytesflops {
 
@@ -1588,6 +1590,64 @@ private:
 
   }
 
+  // Report miscellaneous information in the binary output file.
+  void report_misc_info() {
+    // Report the list of environment variables that are currently active.
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Environment variables";
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Variable"
+           << uint8_t(BINOUT_COL_STRING) << "Value"
+           << uint8_t(BINOUT_COL_NONE);
+    for (char** ep = environ; *ep != NULL; ep++) {
+      char* var_val_str = strdup(*ep);
+      char* eqptr = strchr(var_val_str, '=');
+      if (eqptr != NULL) {
+        *eqptr = '\0';
+        *bfbin << uint8_t(BINOUT_ROW_DATA)
+               << var_val_str << (eqptr + 1);
+      }
+      free(var_val_str);
+    }
+    *bfbin << uint8_t(BINOUT_ROW_NONE);
+
+    // Report the program command line, if possible (probably only Linux).
+    string cmdline_filename("/proc/self/cmdline");
+    ifstream cmdline_stream(cmdline_filename);
+    if (cmdline_stream) {
+      const size_t maxbytes = MAX_CMD_LINE_LEN*2 + 2;   // Double to include space for end-of-argument NULLs.
+      char* cmdline = new char[maxbytes + 1];
+      memset(cmdline, '\0', maxbytes + 1);   // Ensure we end with a double NULL.
+      cmdline_stream.read(cmdline, maxbytes);
+      if (!cmdline_stream.bad()) {
+        *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Command line";
+        *bfbin << uint8_t(BINOUT_COL_STRING) << "Argument"
+               << uint8_t(BINOUT_COL_NONE);
+        for (char* s = cmdline; *s != '\0'; s += strlen(s) + 1)
+          *bfbin << uint8_t(BINOUT_ROW_DATA) << s;
+        *bfbin << uint8_t(BINOUT_ROW_NONE);
+      }
+      delete[] cmdline;
+    }
+
+    // Report the Byfl options specified at compile time.  We're given
+    // these as a single string so we split the string heuristically
+    // by assuming that each option begins with a space followed by
+    // "-bf-".
+    char* optstr = strdup(bf_option_string);
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Byfl options";
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Option"
+           << uint8_t(BINOUT_COL_NONE);
+    char* one_opt;       // Pointer into optstr
+    char* optr = optstr; // Pointer to the next " -bf-"
+    for (one_opt = optstr; optr; one_opt += strlen(one_opt) + 1) {
+      optr = strstr(one_opt, " -bf-");
+      if (optr)
+        *optr = '\0';
+      *bfbin << uint8_t(BINOUT_ROW_DATA) << one_opt;
+    }
+    *bfbin << uint8_t(BINOUT_ROW_NONE);
+    free(optstr);
+  }
+
 public:
   RunAtEndOfProgram() {
     separator = "-----------------------------------------------------------------";
@@ -1651,9 +1711,11 @@ public:
     report_totals(NULL, global_totals);
 
     // Report the cache performance if it was turned on.
-    if (bf_cache_model) {
+    if (bf_cache_model)
       report_cache(global_totals);
-    }
+
+    // Report anything else we can think to report.
+    report_misc_info();
 
     // Flush our output data before exiting.
     bfout->flush();

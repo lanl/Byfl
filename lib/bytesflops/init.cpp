@@ -222,7 +222,7 @@ namespace bytesflops_pass {
     string bf_cmdline("[failed to read /proc/self/cmdline]");  // Reconstructed command line with -bf-* options only
     if (cmdline.is_open()) {
       // Read the command line into a buffer.
-      const size_t maxcmdlinelen = 65536;
+      const size_t maxcmdlinelen = MAX_CMD_LINE_LEN*2 + 2;   // Double to include space for end-of-argument NULLs.
       char cmdline_chars[maxcmdlinelen] = {0};
       cmdline.read(cmdline_chars, maxcmdlinelen);
       cmdline.close();
