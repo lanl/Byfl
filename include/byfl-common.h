@@ -9,6 +9,7 @@
 #ifndef _BYFL_COMMON_H_
 #define _BYFL_COMMON_H_
 
+#include "config.h"
 #include <string>
 #include <sstream>
 #include <cxxabi.h>

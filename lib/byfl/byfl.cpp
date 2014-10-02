@@ -10,6 +10,9 @@
 #include "byfl.h"
 #include "byfl-common.h"
 #include "callstack.h"
+#ifdef HAVE_BACKTRACE
+# include <execinfo.h>
+#endif
 
 namespace bytesflops {}
 using namespace bytesflops;
@@ -402,7 +405,6 @@ BinaryOStream* bfbin;            // Stream to which to send binary output
 ofstream *bfbin_file;            // Underlying file for the above
 bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
 
-
 // Define a stack of tallies of all of our counters across <=
 // num_merged basic blocks.  This *ought* to be a top-level variable
 // defintion, but because of the "C++ static initialization order
@@ -455,8 +457,6 @@ public:
     all_constructors_called = true;
   }
 } check_construction;
-
-
 
 // Initialize some of our variables at first use.
 void initialize_byfl (void) {
@@ -663,6 +663,55 @@ static bool suppress_output (void)
   return output == SUPPRESS;
 }
 
+#ifdef HAVE_BACKTRACE
+  // Return the address of the user code that invoked us.
+  static void* bf_find_caller_address (void)
+  {
+    const size_t DEPTH_UNINITIALIZED = (size_t)(-1);   // We haven't yet calibrarated our stack depth
+    const size_t DEPTH_UNKNOWN = (size_t)(-2);         // We were unable to determine our stack depth
+    static size_t discard_num = DEPTH_UNINITIALIZED;   // Number of stack entries to discard
+    const size_t max_stack_depth = 32;   // Maximum stack depth before we expect to find a user function
+    void* stack_addrs[max_stack_depth];
+
+    switch (discard_num) {
+      case DEPTH_UNKNOWN:
+        // If we gave up once, give up forever after.
+        return NULL;
+        break;
+
+      case DEPTH_UNINITIALIZED:
+        // On our first invocation, determine the call depth of the
+        // Byfl library.
+        {
+          size_t stack_depth = backtrace(stack_addrs, max_stack_depth);
+          char** symnames = backtrace_symbols(stack_addrs, stack_depth);
+          discard_num = DEPTH_UNKNOWN;   // Assume we don't find anything.
+          for (size_t i = 0; i < stack_depth; i++) {
+            char* name = symnames[i];
+            if (!strstr(name, "byfl") &&
+                !strstr(name, "bf_") &&
+                !strstr(name, "bytesflops")) {
+              discard_num = i;
+              break;
+            }
+          }
+          free(symnames);
+          if (discard_num == DEPTH_UNKNOWN)
+            return NULL;
+        }
+        // No break
+
+      default:
+        // On the first and all subsequent invocations, return the
+        // first non-Byfl stack address.
+        {
+          size_t stack_depth = backtrace(stack_addrs, discard_num + 1);
+          return stack_addrs[stack_depth - 1];
+        }
+        break;
+    }
+  }
+#endif
 
 // At the end of a basic block, accumulate the current counter
 // variables (bf_*_count) into the current basic block's counters and
@@ -730,8 +779,12 @@ void bf_report_bb_tallies (void)
 
     // Binary output
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks";
-    if (bf_bb_merge == 1)
+    if (bf_bb_merge == 1) {
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Tag";
+#ifdef HAVE_BACKTRACE
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Basic-block address";
+#endif
+    }
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Load operations"
            << uint8_t(BINOUT_COL_UINT64) << "Store operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
@@ -776,6 +829,9 @@ void bf_report_bb_tallies (void)
     if (bf_bb_merge == 1) {
       const char* partition = bf_categorize_counters();
       *bfbin << (partition == NULL ? "" : partition);
+#ifdef HAVE_BACKTRACE
+      *bfbin << (uint64_t) (uintptr_t) bf_find_caller_address();
+#endif
     }
     *bfbin << counter_deltas.loads
            << counter_deltas.stores

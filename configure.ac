@@ -6,6 +6,7 @@ dnl #######################################
 dnl Initialize Autoconf and friends.
 AC_INIT([byfl], [1.0], [pakin@lanl.gov])
 AC_CONFIG_SRCDIR([lib/byfl/byfl.h])
+AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign])
 LT_INIT
 
@@ -49,6 +50,27 @@ if test "$ac_cv_header_llvm_IR_Instruction_def" != yes ; then
   AC_MSG_ERROR([Byfl requires the llvm/IR/Instruction.def C++ header file])
 fi
 
+dnl Record if we have the GNU backtrace_symbols() function.
+AC_CHECK_FUNC([backtrace_symbols],
+  [AC_CHECK_HEADER([execinfo.h],
+    [AC_DEFINE([HAVE_BACKTRACE], [1],
+      [Define to 1 if the GNU `backtrace' and `backtrace_symbols' functions are available.])])])
+
+dnl If HDF5 is installed we can build bfbin2hdf5.  We check only that the
+dnl wrapper script exists.  Out of laziness we assume that if the script
+dnl exists, it must work.
+AC_ARG_VAR([H5CXX], [Compiler for C++ code using HDF5])
+AC_CHECK_PROGS([H5CXX], [h5c++], [no])
+AX_CHECK_CXX11([H5CXX])
+if test "x$ax_cv_cxx11_H5CXX" = xno ; then
+  H5CXX=no
+fi
+AM_CONDITIONAL([HDF5_AVAILABLE], [test "x$H5CXX" != xno])
+AC_ARG_VAR([H5CXXFLAGS], [HDF5 C++ compiler flags])
+if test "x${H5CXXFLAGS-undefined}" = xundefined ; then
+  H5CXXFLAGS="$CXXFLAGS"
+fi
+
 dnl The GCC DragonEgg plugin, while not strictly required by Byfl,
 dnl precludes the use of most of the Byfl wrapper scripts.
 AC_ARG_VAR([DRAGONEGG], [absolute filename of the GCC DragonEgg plugin])
@@ -77,21 +99,6 @@ elif test ! -e "$DRAGONEGG" ; then
   AC_MSG_WARN([Did you specify an incorrect file for the DRAGONEGG variable ($DRAGONEGG)?])
 fi
 
-dnl HDF5 is installed we can build bfbin2hdf5.  We check only that the
-dnl wrapper script exists.  Out of laziness we assume that if the script
-dnl exists, it must work.
-AC_ARG_VAR([H5CXX], [Compiler for C++ code using HDF5])
-AC_CHECK_PROGS([H5CXX], [h5c++], [no])
-AX_CHECK_CXX11([H5CXX])
-if test "x$ax_cv_cxx11_H5CXX" = xno ; then
-  H5CXX=no
-fi
-AM_CONDITIONAL([HDF5_AVAILABLE], [test "x$H5CXX" != xno])
-AC_ARG_VAR([H5CXXFLAGS], [HDF5 C++ compiler flags])
-if test "x${H5CXXFLAGS-undefined}" = xundefined ; then
-  H5CXXFLAGS="$CXXFLAGS"
-fi
-
 dnl Generate all of the Byfl Makefiles and other files.
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([include/Makefile])
@@ -116,9 +123,12 @@ AC_OUTPUT
 
 dnl Issue various warning messages here, where we hope the user will
 dnl notice them.
+if test "x$ac_cv_header_execinfo_h" != xyes ; then
+  AC_MSG_WARN([Binary basic-block output cannot include addresses without access to the backtrace_symbols function])
+fi
 if test "x$H5CXX" = xno ; then
   AC_MSG_WARN([Not building the bfbin2hdf5 postprocessor because it requires HDF5 with C++11 support])
 fi
-if test "$enable_shared" = no ; then
-  AC_MSG_WARN([Byfl's LLVM plugin must be built as a shared object.  The build will attempt to override --disable-shared in the lib/bytesflops directory.])
+if test "x$enable_shared" = xno ; then
+  AC_MSG_WARN([Byfl's LLVM plugin must be built as a shared object.  The build will override --disable-shared in the lib/bytesflops directory.])
 fi
