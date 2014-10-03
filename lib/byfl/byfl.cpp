@@ -74,7 +74,7 @@ public:
         for (size_t i = 0; i < NUM_OPCODES; i++)
           inst_mix_histo[i] = 0;
       else
-        for(size_t i = 0; i < NUM_OPCODES; i++)
+        for (size_t i = 0; i < NUM_OPCODES; i++)
           inst_mix_histo[i] = initial_inst_mix_histo[i];
     }
 
@@ -1539,8 +1539,8 @@ private:
 
   // Report cache performance if it was used.
   void report_cache (ByteFlopCounters& counter_totals) {
-    /* where n different dump files are created. */
-    const int n = 3;
+    // Accumulate our measured cache data.
+    const int n = 3;   // n different dump files are created.
     uint64_t accesses[n] = {bf_get_private_cache_accesses(),
                             bf_get_shared_cache_accesses(),
                             bf_get_shared_cache_accesses()};
@@ -1554,31 +1554,49 @@ private:
                                       bf_get_shared_misaligned_mem_ops(),
                                       bf_get_shared_misaligned_mem_ops()};
 
-    if (bf_cache_model){
-      string names[n]{"private-cache.dump",
-                      "shared-cache.dump",
-                      "remote-shared-cache.dump"};
-      ofstream dumpfiles[n];
-      for(int i = 0; i < n; ++i){
-        dumpfiles[i].open(names[i]);
-        dumpfiles[i] << "Total cache accesses\t" << accesses[i] << endl;
-        dumpfiles[i] << "Cold misses\t" << cold_misses[i] << endl;
-        dumpfiles[i] << "Line size\t" << bf_line_size << endl;
-      }
-      for(uint64_t set = 0; set < bf_max_set_bits; ++set){
-        // dump the same things for both shared and private caches
-        for(int i = 0; i < n; ++i){
-          dumpfiles[i] << "Sets\t" << (1 << set) << endl;
-          for(const auto& elem : hits[i][set]){
-            dumpfiles[i] << elem.first << "\t" << elem.second << endl;
-          }
+    // Write detailed information for both shared and private caches.
+    // TODO: Write this information only to the binary output file.
+    string names[n]{"private-cache.dump",
+        "shared-cache.dump",
+        "remote-shared-cache.dump"};
+    string table_names[n]{
+        "Private cache",
+        "Shared cache",
+        "Remote shared cache"};
+    for (int i = 0; i < n; ++i) {
+      // Write some header information.
+      ofstream dumpfile(names[i]);
+      dumpfile << "Total cache accesses\t" << accesses[i] << endl;
+      dumpfile << "Cold misses\t" << cold_misses[i] << endl;
+      dumpfile << "Line size\t" << bf_line_size << endl;
+      *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << (table_names[i] + " summary");
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Total cache accesses" << accesses[i]
+             << uint8_t(BINOUT_COL_UINT64) << "Cold misses" << cold_misses[i]
+             << uint8_t(BINOUT_COL_UINT64) << "Line size" << bf_line_size
+             << uint8_t(BINOUT_COL_NONE);
+
+      // Dump pairs of {lines searched, tally} for each set size.
+      *bfbin << uint8_t(BINOUT_TABLE_BASIC) << table_names[i] + " model data";
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Set size"
+             << uint8_t(BINOUT_COL_UINT64) << "LRU search distance"
+             << uint8_t(BINOUT_COL_UINT64) << "Tally"
+             << uint8_t(BINOUT_COL_NONE);
+      for (uint64_t set = 0; set < bf_max_set_bits; ++set) {
+        uint64_t num_sets = 1<<set;
+        dumpfile << "Sets\t" << num_sets << endl;
+        for (const auto& elem : hits[i][set]) {
+          dumpfile << elem.first << "\t" << elem.second << endl;
+          *bfbin << uint8_t(BINOUT_ROW_DATA)
+                 << num_sets << elem.first << elem.second;
         }
       }
-      for(int i = 0; i < n; ++i){
-        dumpfiles[i].close();
-      }
+
+      // Close the current dump file.
+      *bfbin << uint8_t(BINOUT_ROW_NONE);
+      dumpfile.close();
     }
 
+    // Output textual summary information.
     string tag(bf_output_prefix + "BYFL_SUMMARY");
     uint64_t global_mem_ops = counter_totals.load_ins + counter_totals.store_ins;
     *bfout << tag << ": " << setw(25)
@@ -1588,6 +1606,13 @@ private:
            << "line size = " << bf_line_size << " bytes)\n";
     *bfout << tag << ": " << separator << '\n';
 
+    // Output binary summary information.
+    *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << "Cache model";
+    *bfbin << uint8_t(BINOUT_COL_UINT64) << "Modeled line size (bytes)" << bf_line_size
+           << uint8_t(BINOUT_COL_UINT64) << "Cache accesses" << accesses[0]
+           << uint8_t(BINOUT_COL_UINT64) << "Aligned memory operations" << global_mem_ops - misaligned_mem_ops[0]
+           << uint8_t(BINOUT_COL_UINT64) << "Misaligned memory operations" << misaligned_mem_ops[0]
+           << uint8_t(BINOUT_COL_NONE);
   }
 
   // Report miscellaneous information in the binary output file.
