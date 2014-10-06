@@ -31,8 +31,9 @@ string progname;
 // unlimited-extent data).
 const hsize_t chunk_size = 1024;
 
-// Define a variable-length string datatype.
+// Define a variable-length string datatype and a boolean datatype.
 StrType strtype;
+EnumType booltype;
 
 // Abort the program.  This is expected to be used at the end of a
 // stream write.
@@ -152,7 +153,7 @@ string replace_extension (const string oldfilename, const string newext)
 
 // Construct an HDF5 datatype based on the Byfl column header.
 CompType construct_hdf5_datatype (vector<byfl_column_t>& byfl_column_header,
-				  size_t datatype_bytes)
+                                  size_t datatype_bytes)
 {
   CompType datatype(datatype_bytes);
   size_t byte_offset = 0;    // Running total of bytes consumed by each element
@@ -172,7 +173,7 @@ CompType construct_hdf5_datatype (vector<byfl_column_t>& byfl_column_header,
         break;
 
       case BINOUT_COL_BOOL:
-        datatype.insertMember(colname, byte_offset, PredType::STD_U8BE);
+        datatype.insertMember(colname, byte_offset, booltype);
         byte_offset += sizeof(uint8_t);
         break;
 
@@ -188,7 +189,7 @@ CompType construct_hdf5_datatype (vector<byfl_column_t>& byfl_column_header,
 
 // Free C strings that appear in raw row data.
 void free_c_strings (vector<byfl_column_t>& byfl_column_header,
-		     vector<uint8_t>& row_data)
+                     vector<uint8_t>& row_data)
 {
   uint8_t* rawptr = row_data.data();    // Pointer into the raw data
   for (auto iter = byfl_column_header.cbegin();
@@ -197,26 +198,26 @@ void free_c_strings (vector<byfl_column_t>& byfl_column_header,
     BINOUT_COL_T coltype = iter->second;
     switch (coltype) {
       case BINOUT_COL_UINT64:
-	rawptr += sizeof(uint64_t);
-	break;
+        rawptr += sizeof(uint64_t);
+        break;
 
       case BINOUT_COL_STRING:
-	{
-	  char* charptr = *(char**) rawptr;
-	  free((void*) charptr);
-	  rawptr += sizeof(char*);
-	}
-	break;
+        {
+          char* charptr = *(char**) rawptr;
+          free((void*) charptr);
+          rawptr += sizeof(char*);
+        }
+        break;
 
       case BINOUT_COL_BOOL:
-	rawptr += sizeof(uint8_t);
-	break;
+        rawptr += sizeof(uint8_t);
+        break;
 
       default:
-	cerr << progname << ": Internal error at "
-	     << __FILE__ << ':' << __LINE__ << endl
-	     << die;
-	break;
+        cerr << progname << ": Internal error at "
+             << __FILE__ << ':' << __LINE__ << endl
+             << die;
+        break;
     }
   }
 }
@@ -312,7 +313,7 @@ void convert_basic_table (ByflFile& byflfile, H5File& hdf5file)
 
         case BINOUT_COL_BOOL:
           // Push a boolean as an unsigned 8-bit integer.
-	  {
+          {
             uint8_t onebyte;
             byflfile >> onebyte;
             row_data.push_back(onebyte);
@@ -374,13 +375,13 @@ void convert_key_value_table (ByflFile& byflfile, H5File& hdf5file)
     // Read and process the column type and contents.
     switch (column_tag) {
       case BINOUT_COL_UINT64:
-	// Column represents a big-endian unsigned 64-bit integer.
-	for (int i = 0; i < sizeof(uint64_t); ++i) {
-	  uint8_t onebyte;
-	  byflfile >> onebyte;
-	  row_data.push_back(onebyte);
-	}
-	break;
+        // Column represents a big-endian unsigned 64-bit integer.
+        for (int i = 0; i < sizeof(uint64_t); ++i) {
+          uint8_t onebyte;
+          byflfile >> onebyte;
+          row_data.push_back(onebyte);
+        }
+        break;
 
         case BINOUT_COL_STRING:
           // Column represents a C string.
@@ -395,19 +396,19 @@ void convert_key_value_table (ByflFile& byflfile, H5File& hdf5file)
           break;
 
       case BINOUT_COL_BOOL:
-	// Column represents a boolean as a big-endian unsigned 8-bit integer.
-	{
-	  uint8_t onebyte;
-	  byflfile >> onebyte;
-	  row_data.push_back(onebyte);
-	}
-	break;
+        // Column represents a boolean as a big-endian unsigned 8-bit integer.
+        {
+          uint8_t onebyte;
+          byflfile >> onebyte;
+          row_data.push_back(onebyte);
+        }
+        break;
 
       default:
-	cerr << progname << ": Internal error at "
-	     << __FILE__ << ':' << __LINE__ << endl
-	     << die;
-	break;
+        cerr << progname << ": Internal error at "
+             << __FILE__ << ':' << __LINE__ << endl
+             << die;
+        break;
     }
   }
 
@@ -451,9 +452,16 @@ void convert_byfl_to_hdf5 (string byflfilename, string hdf5filename)
          << " does not appear to contain Byfl binary output\n"
          << die;
 
+  // Define a variable-length string datatype and a boolean datatype.
+  strtype = StrType(PredType::C_S1, H5T_VARIABLE);
+  booltype = EnumType(PredType::STD_U8BE);
+  uint8_t boolval = 0;
+  booltype.insert("No", &boolval);
+  boolval = 1;
+  booltype.insert("Yes", &boolval);
+
   // Process in turn each table we encounter.
   uint8_t tabletype;
-  strtype = StrType(PredType::C_S1, H5T_VARIABLE);
   for (byflfile >> tabletype; tabletype != BINOUT_TABLE_NONE; byflfile >> tabletype)
     switch (tabletype) {
       case BINOUT_TABLE_BASIC:
