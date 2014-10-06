@@ -77,7 +77,7 @@ static name_to_vector_t* user_defined_vector_usage = NULL;
 namespace bytesflops {
 
 extern ostream* bfout;
-
+extern BinaryOStream* bfbin;
 
 // Initialize some of our variables at first use.
 void initialize_vectors (void)
@@ -85,7 +85,6 @@ void initialize_vectors (void)
   function_vector_usage = new name_to_vector_t();
   user_defined_vector_usage = new name_to_vector_t();
 }
-
 
 // Associate a vector operation with a given name.
 static void tally_vector_operation (name_to_vector_t* vector_usage,
@@ -138,7 +137,6 @@ void bf_tally_vector_operation (const char *funcname, uint64_t num_elements,
     tally_vector_operation(user_defined_vector_usage, partition, num_elements, element_bits, is_flop);
 }
 
-
 // Acquire statistics on all vector operations encountered.
 void bf_get_vector_statistics(uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits) {
   *num_ops = *total_elts = *total_bits = 0;
@@ -177,11 +175,10 @@ void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* tota
   }
 }
 
-
 // Output a histogram of all vector operations encountered.
 void bf_report_vector_operations (size_t call_stack_depth)
 {
-  // Output a header line.
+  // Output a textual header line.
   *bfout << bf_output_prefix
          << "BYFL_VECTOR_HEADER: "
          << setw(20) << "Elements" << ' '
@@ -197,8 +194,24 @@ void bf_report_vector_operations (size_t call_stack_depth)
   }
   *bfout << '\n';
 
-  // Output a histogram.  Each line represents one set of vector
-  // characteristics from one function.
+  // Output a binary table header.
+  *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Vector operations";
+  *bfbin << uint8_t(BINOUT_COL_UINT64) << "Elements per vector"
+         << uint8_t(BINOUT_COL_UINT64) << "Bits per element"
+         << uint8_t(BINOUT_COL_BOOL) << "Floating point"
+         << uint8_t(BINOUT_COL_UINT64) << "Tally";
+  if (bf_per_func) {
+    if (bf_call_stack)
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled call stack"
+             << uint8_t(BINOUT_COL_STRING) << "Demangled call stack";
+    else
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled function name"
+             << uint8_t(BINOUT_COL_STRING) << "Demangled function name";
+  }
+  *bfbin << uint8_t(BINOUT_COL_NONE);
+
+  // Output a histogram both textually and in binary.  Each line
+  // represents one set of vector characteristics from one function.
   for (name_to_vector_t::iterator vectally_iter = function_vector_usage->begin();
        vectally_iter != function_vector_usage->end();
        vectally_iter++) {
@@ -215,11 +228,16 @@ void bf_report_vector_operations (size_t call_stack_depth)
              << setw(20) << vecop->element_bits << ' '
              << (vecop->is_flop ? "FP   " : "Int   ")
              << setw(20) << tally;
-      if (bf_per_func)
+      *bfbin << uint8_t(BINOUT_ROW_DATA)
+             << vecop->num_elements << vecop->element_bits << vecop->is_flop << tally;
+      if (bf_per_func) {
         *bfout << ' ' << funcname;
+        *bfbin << funcname << demangle_func_name(funcname);
+      }
       *bfout << '\n';
     }
   }
+  *bfbin << uint8_t(BINOUT_ROW_NONE);
 }
 
 } // namespace bytesflops

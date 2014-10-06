@@ -1295,7 +1295,7 @@ private:
       else
         bf_get_vector_statistics(&num_vec_ops, &total_vec_elts, &total_vec_bits);
 
-      // Output information textually.
+      // Output information textually (excluding zeroes).
       *bfout << tag << ": " << setw(25) << num_vec_ops << " vector operations (FP & int)\n";
       if (num_vec_ops > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
