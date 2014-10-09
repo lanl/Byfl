@@ -5,4 +5,5 @@
 # By Scott Pakin <pakin@lanl.gov>     #
 #######################################
 
-EXTRA_DIST = binarytagdefs.h byfl-common.h
+pkginclude_HEADERS = binarytagdefs.h
+EXTRA_DIST = byfl-common.h

@@ -28,6 +28,7 @@ if test "$LLVM_CONFIG" = no ; then
 fi
 if test "${CPPFLAGS:-undefined}" = undefined ; then
    CPPFLAGS=`${LLVM_CONFIG} --cppflags`
+   echo "$CPPFLAGS" | $GREP -- -D_GNU_SOURCE >/dev/null 2>&1 || CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE"
 fi
 if test "${CFLAGS:-undefined}" = undefined ; then
    CFLAGS=`${LLVM_CONFIG} --cflags`
@@ -70,6 +71,10 @@ else
 fi
 AC_DEFINE_UNQUOTED([MAX_CMD_LINE_LEN], [$cmd_max_len],
   [Define as the maximum length of a command line in bytes.])
+
+dnl The Byfl binary-output library uses asprintf for error reporting can
+dnl work around its absence with an unsafe alternative.
+AC_CHECK_FUNCS([asprintf])
 
 dnl If HDF5 is installed we can build bfbin2hdf5.  We check only that the
 dnl wrapper script exists.  Out of laziness we assume that if the script
@@ -138,6 +143,9 @@ AC_OUTPUT
 
 dnl Issue various warning messages here, where we hope the user will
 dnl notice them.
+if test "x$ac_cv_func_asprintf" != xyes; then
+  AC_MSG_WARN([Using an unsafe alternative to asprintf, which wasn't found])
+fi
 if test "x$ac_cv_header_execinfo_h" != xyes ; then
   AC_MSG_WARN([Binary basic-block output cannot include addresses without access to the backtrace_symbols function])
 fi
