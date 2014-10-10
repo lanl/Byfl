@@ -339,9 +339,7 @@ namespace bytesflops_pass {
 
   // Return true if and only if the given instruction should be
   // treated as a do-nothing operation.
-  bool BytesFlops::is_no_op(const Instruction& inst,
-                            const unsigned int opcode,
-                            const Type* instType) {
+  bool BytesFlops::is_no_op(const Instruction& inst) {
     // Reject certain instructions that we expect to turn into no-ops
     // during code generation.
     if (ignorable_call(&inst))

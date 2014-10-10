@@ -158,6 +158,7 @@ void free_c_strings (program_state_t* s)
 }
 
 // Report a parse error and abort.
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 void error_callback (void* state, const char* message)
 {
   cerr << progname << ": " << message << endl << die;
@@ -206,7 +207,7 @@ void end_column (void* state)
 void write_uint64 (void* state, uint64_t value)
 {
   program_state_t* s = (program_state_t*)state;
-  for (int i = 0; i < sizeof(uint64_t); i++) {
+  for (size_t i = 0; i < sizeof(uint64_t); i++) {
     uint8_t onebyte = ((uint8_t*)&value)[i];
     s->row_data.push_back(onebyte);
   }
@@ -218,7 +219,7 @@ void write_string (void* state, const char *str)
   program_state_t* s = (program_state_t*)state;
   const char* sptr = strdup(str);                 // String pointer
   const uint8_t* sptrp = (const uint8_t*) &sptr;  // Address of the above, cast to an array of bytes
-  for (int i = 0; i < sizeof(uint8_t*); i++)
+  for (size_t i = 0; i < sizeof(uint8_t*); i++)
     s->row_data.push_back(sptrp[i]);
 }
 
@@ -275,7 +276,7 @@ void store_keyval_uint64 (void* state, const char* column_name, uint64_t value)
   program_state_t* s = (program_state_t*)state;
   string name(column_name);
   s->column_info.push_back(column_info_t(name, BYFL_UINT64));
-  for (int i = 0; i < sizeof(uint64_t); i++) {
+  for (size_t i = 0; i < sizeof(uint64_t); i++) {
     uint8_t onebyte = ((uint8_t*)&value)[i];
     s->row_data.push_back(onebyte);
   }
@@ -289,7 +290,7 @@ void store_keyval_string (void* state, const char* column_name, const char* str)
   s->column_info.push_back(column_info_t(name, BYFL_STRING));
   const char* sptr = strdup(str);                 // String pointer
   const uint8_t* sptrp = (const uint8_t*) &sptr;  // Address of the above, cast to an array of bytes
-  for (int i = 0; i < sizeof(uint8_t*); i++)
+  for (size_t i = 0; i < sizeof(uint8_t*); i++)
     s->row_data.push_back(sptrp[i]);
 }
 

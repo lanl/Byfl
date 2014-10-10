@@ -221,11 +221,11 @@ namespace bytesflops_pass {
     vector<string> command_line = parse_command_line();   // All command-line arguments
     string bf_cmdline;   // Reconstructed command line with -bf-* options only
     for (auto iter = command_line.cbegin(); iter != command_line.end(); iter++)
-      if (iter->compare(0, 3, "-bf")) {
+      if (iter->compare(0, 3, "-bf") == 0) {
         bf_cmdline += ' ';
         bf_cmdline += *iter;
       }
-    if (bf_cmdline.length() == 0 && command_line[0].compare(0, 7, "[failed"))
+    if (bf_cmdline.length() == 0 && command_line[0].compare(0, 7, "[failed") == 0)
       bf_cmdline = command_line[0];
     else
       bf_cmdline.erase(0, 1);  // Remove the leading space character.
@@ -460,15 +460,9 @@ namespace bytesflops_pass {
       // bf_categorize_counters().
       return false;
 
-    if ( "bf_initialize_func_map" == function_name )
-    {
-        return false;
-    }
+    if ("bf_initialize_func_map" == function_name || function.empty())
+      return false;
 
-    if ( function.empty() )
-    {
-        return false;
-    }
     // Reset all of our static counters.
     static_loads = 0;
     static_stores = 0;

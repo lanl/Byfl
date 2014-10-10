@@ -262,7 +262,7 @@ namespace bytesflops_pass {
 
     // Return true if and only if the given instruction should be
     // treated as a do-nothing operation.
-    bool is_no_op(const Instruction& inst, const unsigned int opcode, const Type* instType);
+    bool is_no_op(const Instruction& inst);
 
     // Return true if and only if the given instruction should be
     // tallied as a floating-point operation.
@@ -336,15 +336,11 @@ namespace bytesflops_pass {
 
     // Instrument Call instructions.
     void instrument_call(Module* module,
-                         StringRef function_name,
                          Instruction* inst,
-                         BasicBlock::iterator& insert_before,
-                         int& must_clear);
+                         BasicBlock::iterator& insert_before);
 
     // Instrument all instructions.
-    void instrument_all(Module* module,
-                        StringRef function_name,
-                        Instruction& iter,
+    void instrument_all(Instruction& iter,
                         LLVMContext& bbctx,
                         BasicBlock::iterator& insert_before,
                         int& must_clear);

@@ -263,10 +263,8 @@ namespace bytesflops_pass {
   // Instrument Call instructions.  Note that we've already skipped
   // over calls to llvm.dbg.*.
   void BytesFlops::instrument_call(Module* module,
-                                   StringRef function_name,
                                    Instruction* inst,
-                                   BasicBlock::iterator& insert_before,
-                                   int& must_clear) {
+                                   BasicBlock::iterator& insert_before) {
     Function* func = dyn_cast<CallInst>(inst)->getCalledFunction();
     if (!func)
       return;
@@ -312,16 +310,13 @@ namespace bytesflops_pass {
   }
 
   // Instrument all instructions except no-ops.
-  void BytesFlops::instrument_all(Module* module,
-                                  StringRef function_name,
-                                  Instruction& inst,
+  void BytesFlops::instrument_all(Instruction& inst,
                                   LLVMContext& bbctx,
                                   BasicBlock::iterator& insert_before,
                                   int& must_clear) {
     // Ignore operations that are likely to be discarded during code generation.
     const Type* instType = inst.getType();    // Type of this instruction
-    unsigned int opcode = inst.getOpcode();   // Current instruction's opcode
-    if (is_no_op(inst, opcode, instType))
+    if (is_no_op(inst))
       return;
 
     // Process all other instructions.
@@ -517,15 +512,14 @@ namespace bytesflops_pass {
             break;
 
           case Instruction::Call:
-            instrument_call(module, function_name, &inst, terminator_inst,
-                            must_clear);
+            instrument_call(module, &inst, terminator_inst);
             break;
 
           default:
             instrument_other(module, function_name, inst, bbctx, terminator_inst, must_clear);
             break;
         }
-        instrument_all(module, function_name, inst, bbctx, terminator_inst, must_clear);
+        instrument_all(inst, bbctx, terminator_inst, must_clear);
       }
 
       // Add one last bit of code then release the mega-lock and elide

@@ -54,30 +54,35 @@ BinaryOStreamReal& BinaryOStreamReal::operator<< (const bool val)
 
 
 // Discard an unsigned 8-bit integer.
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 BinaryOStream& BinaryOStream::operator<< (const uint8_t val)
 {
   return *this;
 }
 
 // Discard an unsigned 64-bit integer.
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 BinaryOStream& BinaryOStream::operator<< (const uint64_t val)
 {
   return *this;
 }
 
 // Discard a string (i.e., char *).
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 BinaryOStream& BinaryOStream::operator<< (const char *str)
 {
   return *this;
 }
 
 // Discard a C++ string.
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 BinaryOStream& BinaryOStream::operator<< (const string& str)
 {
   return *this;
 }
 
 // Discard a boolean value.
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 BinaryOStream& BinaryOStream::operator<< (const bool val)
 {
   return *this;

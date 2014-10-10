@@ -1640,7 +1640,8 @@ private:
            << uint8_t(BINOUT_COL_NONE);
     vector<string> command_line = parse_command_line();   // All command-line arguments
     for (auto iter = command_line.cbegin(); iter != command_line.end(); iter++)
-      *bfbin << uint8_t(BINOUT_ROW_DATA) << *iter << uint8_t(BINOUT_ROW_NONE);
+      *bfbin << uint8_t(BINOUT_ROW_DATA) << *iter;
+    *bfbin << uint8_t(BINOUT_ROW_NONE);
 
     // Report the Byfl options specified at compile time.  We're given
     // these as a single string so we split the string heuristically
