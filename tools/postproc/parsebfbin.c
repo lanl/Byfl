@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <setjmp.h>
 #include "bfbin.h"
+#include "binarytagdefs.h"
 
 /* Buffer this many bytes of input data for improved performance. */
 #define READ_BUFFER_SIZE (10*1024*1024)
@@ -34,6 +35,15 @@
   do {                                                          \
     if (state->callback_list->FUNC != NULL)                     \
       state->callback_list->FUNC(state->user_data, ARG);        \
+  }                                                             \
+  while (0)
+
+/* Invoke a 2-argument (excluding user data) callback function, but
+ * only if non-NULL.  Otherwise, do nothing. */
+#define INVOKE_CB_2(FUNC, ARG1, ARG2)                           \
+  do {                                                          \
+    if (state->callback_list->FUNC != NULL)                     \
+      state->callback_list->FUNC(state->user_data, ARG1, ARG2); \
   }                                                             \
   while (0)
 
@@ -99,7 +109,7 @@ static void open_binary_file (parse_state_t *state)
   if (!state->read_buffer)
     THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
                 (unsigned long)READ_BUFFER_SIZE, strerror(errno));
-  if (setvbuf(state->fd, state->read_buffer, _IOFBF, READ_BUFFER_SIZE)) {
+  if (setvbuf(state->fd, (char *)state->read_buffer, _IOFBF, READ_BUFFER_SIZE)) {
     /* It's not critical if setvbuf fails. */
     free(state->read_buffer);
     state->read_buffer = NULL;
@@ -165,7 +175,7 @@ static void read_string (parse_state_t *state)
   string_len = *(uint16_t *)state->last_value;
 
   /* Ensure we have enough space. */
-  if (state->value_space < string_len + 1) {
+  if (state->value_space < (size_t)(string_len + 1)) {
     state->value_space = string_len + 1;
     state->last_value = realloc(state->last_value, state->value_space);
     if (!state->last_value)
@@ -192,8 +202,8 @@ static void process_byfl_basic_table (parse_state_t *state)
   INVOKE_CB_0(column_begin_cb);
   do {
     /* Read and store a column header. */
-    read_big_endian(state, sizeof(BINOUT_COL_T));
-    coltype = *(BINOUT_COL_T *)state->last_value;
+    read_big_endian(state, sizeof(uint8_t));
+    coltype = (BINOUT_COL_T) (*(uint8_t *)state->last_value);
     if (coltype != BINOUT_COL_NONE) {
       numcols++;
       if (numcols > cols_alloced) {
@@ -202,7 +212,7 @@ static void process_byfl_basic_table (parse_state_t *state)
         columntypes = realloc(columntypes, cols_alloced*sizeof(BINOUT_COL_T));
         if (!columntypes)
           THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
-                      cols_alloced*sizeof(BINOUT_COL_T), strerror(errno));
+                      cols_alloced*sizeof(uint8_t), strerror(errno));
       }
       columntypes[numcols - 1] = coltype;
     }
@@ -240,8 +250,8 @@ static void process_byfl_basic_table (parse_state_t *state)
     size_t i;
 
     /* Determine if the row contains any data. */
-    read_big_endian(state, sizeof(BINOUT_ROW_T));
-    rowtype = *(BINOUT_ROW_T *)state->last_value;
+    read_big_endian(state, sizeof(uint8_t));
+    rowtype = (BINOUT_ROW_T) (*(uint8_t *)state->last_value);
     if (rowtype == BINOUT_ROW_NONE)
       break;
 
@@ -273,36 +283,48 @@ static void process_byfl_basic_table (parse_state_t *state)
 }
 
 /* Process a key:value Byfl table. */
-static void process_byfl_key_value_table (parse_state_t *state)
+static void process_byfl_keyval_table (parse_state_t *state)
 {
+  char *column_name = NULL;     /* Name of the current column */
+  size_t name_alloced = 0;      /* Number of bytes allocated for the above */
+
   while (1) {
-    BINOUT_COL_T coltype;          /* Type of the current column */
+    BINOUT_COL_T coltype;       /* Type of the current column */
+    size_t name_len;            /* Length of the column name */
 
     /* Read a key type and name. */
-    read_big_endian(state, sizeof(BINOUT_COL_T));
-    coltype = *(BINOUT_COL_T *)state->last_value;
-    if (coltype != BINOUT_COL_NONE)
+    read_big_endian(state, sizeof(uint8_t));
+    coltype = (BINOUT_COL_T) (*(uint8_t *)state->last_value);
+    if (coltype == BINOUT_COL_NONE)
       break;
     read_string(state);
+    name_len = strlen(state->last_value);
+    if (name_alloced < name_len + 1) {
+      /* Allocate more space to store the name. */
+      name_alloced = (name_len + 1) * 2;
+      free(column_name);
+      column_name = (char *) malloc(name_alloced);
+      if (column_name == NULL)
+        THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
+                    (unsigned long)name_alloced, strerror(errno));
+    }
+    strcpy(column_name, state->last_value);
 
     /* Invoke the appropriate callback functions. */
     switch (coltype) {
       case BINOUT_COL_UINT64:
-        INVOKE_CB_1(column_uint64_cb, state->last_value);
         read_big_endian(state, sizeof(uint64_t));
-        INVOKE_CB_1(data_uint64_cb, *(uint64_t *)state->last_value);
+        INVOKE_CB_2(keyval_uint64_cb, column_name, *(uint64_t *)state->last_value);
         break;
 
       case BINOUT_COL_STRING:
-        INVOKE_CB_1(column_string_cb, state->last_value);
         read_string(state);
-        INVOKE_CB_1(data_string_cb, state->last_value);
+        INVOKE_CB_2(keyval_string_cb, column_name, state->last_value);
         break;
 
       case BINOUT_COL_BOOL:
-        INVOKE_CB_1(column_bool_cb, state->last_value);
         read_big_endian(state, sizeof(uint8_t));
-        INVOKE_CB_1(data_bool_cb, *(uint8_t *)state->last_value);
+        INVOKE_CB_2(keyval_bool_cb, column_name, *(uint8_t *)state->last_value);
         break;
 
       default:
@@ -310,6 +332,7 @@ static void process_byfl_key_value_table (parse_state_t *state)
         break;
     }
   }
+  free((void *)column_name);
 }
 
 /* Process a complete Byfl table.  Return 1 on success, 0 on EOF. */
@@ -318,8 +341,8 @@ static int process_byfl_table (parse_state_t *state)
   BINOUT_TABLE_T tabletype;
 
   /* Read the table type and table name. */
-  read_big_endian(state, sizeof(BINOUT_TABLE_T));
-  tabletype = *(BINOUT_TABLE_T *)state->last_value;
+  read_big_endian(state, sizeof(uint8_t));
+  tabletype = (BINOUT_TABLE_T) (*(uint8_t *)state->last_value);
   if (tabletype == BINOUT_TABLE_NONE)
     return 0;
   read_string(state);
@@ -327,15 +350,15 @@ static int process_byfl_table (parse_state_t *state)
   /* Invoke the appropriate function to parse the table. */
   switch (tabletype) {
     case BINOUT_TABLE_BASIC:
-      INVOKE_CB_1(table_basic_cb, state->last_value);
+      INVOKE_CB_1(table_begin_basic_cb, state->last_value);
       process_byfl_basic_table(state);
-      INVOKE_CB_0(table_end_cb);
+      INVOKE_CB_0(table_end_basic_cb);
       break;
 
     case BINOUT_TABLE_KEYVAL:
-      INVOKE_CB_1(table_keyval_cb, state->last_value);
+      INVOKE_CB_1(table_begin_keyval_cb, state->last_value);
       process_byfl_keyval_table(state);
-      INVOKE_CB_0(table_end_cb);
+      INVOKE_CB_0(table_end_keyval_cb);
       break;
 
     default:
@@ -356,7 +379,7 @@ void bf_process_byfl_file (const char *byfl_filename,
 
   /* Ensure the caller was built against the correct version of the
    * header and library. */
-  if (sizeof(callback_list) != callback_list_len) {
+  if (sizeof(bfbin_callback_t) != callback_list_len) {
     if (callback_list_len > sizeof(void *) && callback_list->error_cb != NULL)
       callback_list->error_cb(user_data, "Mismatched bfbin header and library file");
     return;
