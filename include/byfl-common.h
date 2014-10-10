@@ -10,13 +10,17 @@
 #define _BYFL_COMMON_H_
 
 #include "config.h"
+#include <iostream>
 #include <string>
+#include <vector>
+#include <fstream>
 #include <sstream>
 #include <cxxabi.h>
+#include <string.h>
 
 using namespace std;
 
-typedef uint64_t    KeyType_t;
+typedef uint64_t KeyType_t;
 
 enum {
   BF_OP_LOAD,
@@ -93,7 +97,8 @@ mem_type_to_index(uint64_t memop,
 // names or argument types.
 #pragma GCC diagnostic ignored "-Wunused-function"
 static std::string
-demangle_func_name(std::string mangled_name_list) {
+demangle_func_name(std::string mangled_name_list)
+{
   std::istringstream mangled_stream(mangled_name_list);  // Stream of mangled names
   std::string mangled_name;      // A single mangled name
   char idelim = ' ';             // Delimiter between input mangled names
@@ -113,6 +118,46 @@ demangle_func_name(std::string mangled_name_list) {
       demangled_stream << mangled_name;
   }
   return demangled_stream.str();
+}
+
+// Read /proc/self/cmdline and parse it into a vector of strings.  If
+// /proc/self/cmdline doesn't exist or can't be read, return a dummy
+// string instead.
+#pragma GCC diagnostic ignored "-Wunused-function"
+static std::vector<std::string>
+parse_command_line (void)
+{
+  // Open the command-line pseudo-file.
+  std::vector<std::string> arglist;   // Vector of arguments to return
+  ifstream cmdline("/proc/self/cmdline");   // Full command line passed to opt
+  string failed_read("[failed to read /proc/self/cmdline]");  // Error return
+  if (!cmdline.is_open()) {
+    arglist.push_back(failed_read);
+    return arglist;
+  }
+
+  // Read the entire command line into a buffer.
+  const size_t maxcmdlinelen = 131072;     // Maximum buffer space we're willing to allocate
+  char cmdline_chars[maxcmdlinelen] = {0};
+  cmdline.read(cmdline_chars, maxcmdlinelen);
+  cmdline.close();
+
+  // Parse the command line.  Each argument is terminated by a null
+  // character, and the command line as a whole is terminated by two
+  // null characters.
+  if (cmdline.bad()) {
+    arglist.push_back(failed_read);
+    return arglist;
+  }
+  char* arg = cmdline_chars;
+  while (1) {
+    size_t arglen = strlen(arg);
+    if (arglen == 0)
+      break;
+    arglist.push_back(arg);
+    arg += arglen + 1;
+  }
+  return arglist;
 }
 
 #endif

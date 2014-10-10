@@ -147,7 +147,7 @@ namespace bytesflops_pass {
     LLVMContext& globctx = module.getContext();
     IntegerType* i64type = Type::getInt64Ty(globctx);
     PointerType* i64ptrtype = Type::getInt64PtrTy(globctx);
-      
+
     mem_insts_var      = declare_global_var(module, i64ptrtype, "bf_mem_insts_count", true);
     inst_mix_histo_var = declare_global_var(module, i64ptrtype, "bf_inst_mix_histo", true);
     terminator_var     = declare_global_var(module, i64ptrtype, "bf_terminator_count", true);
@@ -218,45 +218,24 @@ namespace bytesflops_pass {
     create_global_constant(module, "bf_max_set_bits", uint64_t(CacheMaxSetBits));
 
     // Create a global string that stores all of our command-line options.
-    ifstream cmdline("/proc/self/cmdline");   // Full command line passed to opt
-    string bf_cmdline("[failed to read /proc/self/cmdline]");  // Reconstructed command line with -bf-* options only
-    if (cmdline.is_open()) {
-      // Read the command line into a buffer.
-      const size_t maxcmdlinelen = MAX_CMD_LINE_LEN*2 + 2;   // Double to include space for end-of-argument NULLs.
-      char cmdline_chars[maxcmdlinelen] = {0};
-      cmdline.read(cmdline_chars, maxcmdlinelen);
-      cmdline.close();
-
-      // Parse the command line.  Each argument is terminated by a
-      // null character, and the command line as a whole is terminated
-      // by two null characters.
-      if (!cmdline.bad()) {
-        char* arg = cmdline_chars;
-        bf_cmdline = "";
-        while (1) {
-          size_t arglen = strlen(arg);
-          if (arglen == 0)
-            break;
-          if (!strncmp(arg, "-bf", 3)) {
-            bf_cmdline += ' ';
-            bf_cmdline += arg;
-          }
-          arg += arglen + 1;
-        }
+    vector<string> command_line = parse_command_line();   // All command-line arguments
+    string bf_cmdline;   // Reconstructed command line with -bf-* options only
+    for (auto iter = command_line.cbegin(); iter != command_line.end(); iter++)
+      if (iter->compare(0, 3, "-bf")) {
+        bf_cmdline += ' ';
+        bf_cmdline += *iter;
       }
-    }
-    const char *bf_cmdline_str = bf_cmdline.c_str();
-    if (bf_cmdline_str[0] == ' ')
-      bf_cmdline_str++;
-    bf_cmdline_str = strdup(bf_cmdline_str);
-    create_global_constant(module, "bf_option_string", bf_cmdline_str);
+    if (bf_cmdline.length() == 0 && command_line[0].compare(0, 7, "[failed"))
+      bf_cmdline = command_line[0];
+    else
+      bf_cmdline.erase(0, 1);  // Remove the leading space character.
+    create_global_constant(module, "bf_option_string", strdup(bf_cmdline.c_str()));
 
-    /**
-     * Instead of using a map with the function names as keys, we associate a unique
-     * integer with each function and use that as the key.  We maintain the association
-     * of the function names to their integer keys at compile time, then create a
-     * constructor to record the map via a call to bf_record_funcs2keys.
-     */
+    /* Instead of using a map with the function names as keys, we
+     * associate a unique integer with each function and use that as
+     * the key.  We maintain the association of the function names to
+     * their integer keys at compile time, then create a constructor
+     * to record the map via a call to bf_record_funcs2keys. */
     vector<Type*> func_arg;
     func_arg.push_back(IntegerType::get(globctx, 8*sizeof(uint32_t)));
     func_arg.push_back(PointerType::get(IntegerType::get(globctx, 8*sizeof(uint64_t)),0));
@@ -360,8 +339,8 @@ namespace bytesflops_pass {
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       assoc_addrs_with_prog =
         declare_extern_c(void_func_result,
-			 FindMemFootprint
-			 ? "bf_assoc_addresses_with_prog_tb"
+                         FindMemFootprint
+                         ? "bf_assoc_addresses_with_prog_tb"
                          : "bf_assoc_addresses_with_prog",
                          &module);
 
@@ -376,13 +355,13 @@ namespace bytesflops_pass {
           FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
         assoc_addrs_with_func =
           declare_extern_c(void_func_result,
-			   FindMemFootprint
-			   ? "bf_assoc_addresses_with_func_tb"
-			   : "bf_assoc_addresses_with_func",
+                           FindMemFootprint
+                           ? "bf_assoc_addresses_with_func_tb"
+                           : "bf_assoc_addresses_with_func",
                            &module);
       }
     }
-      
+
     // Declare bf_touch_cache() only if we are asked to use it.
     if (CacheModel) {
       vector<Type*> all_function_args;
@@ -390,7 +369,7 @@ namespace bytesflops_pass {
       all_function_args.push_back(IntegerType::get(globctx, 64));
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
-      access_cache = 
+      access_cache =
         declare_extern_c(void_func_result,
                          "_ZN10bytesflops14bf_touch_cacheEmm",
                          &module);
@@ -506,22 +485,13 @@ namespace bytesflops_pass {
     return true;
   }
 
-
-  bool BytesFlops::runOnModule(Module & module)
-  {
-      doInitialization(module);
-      
-      /**
-       * for each function in the module, run a function pass on it.
-       */
-      for ( auto fiter = module.begin(); fiter != module.end(); fiter++ )
-      {
-          runOnFunction(*fiter);
-      }
-
-      doFinalization(module);
-
-      return true;
+  // For each function in the module, run a function pass on it.
+  bool BytesFlops::runOnModule(Module & module) {
+    doInitialization(module);
+    for (auto fiter = module.begin(); fiter != module.end(); fiter++)
+      runOnFunction(*fiter);
+    doFinalization(module);
+    return true;
   }
 
   // Output what we instrumented.

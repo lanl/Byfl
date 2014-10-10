@@ -57,21 +57,6 @@ AC_CHECK_FUNC([backtrace_symbols],
     [AC_DEFINE([HAVE_BACKTRACE], [1],
       [Define to 1 if the GNU `backtrace' and `backtrace_symbols' functions are available.])])])
 
-dnl Determine the maximum length of the command line.
-LT_CMD_MAX_LEN
-cmd_max_len=$lt_cv_sys_max_cmd_len
-if test $cmd_max_len -le 0 ; then
-  # Default to something large.
-  cmd_max_len=1048576
-else
-  # Libtool's macro divides by two as a fudge factor.  We therefore
-  # multiply by two so we more accurately know how much buffer space
-  # to allocate.
-  cmd_max_len=`expr $cmd_max_len \* 2`
-fi
-AC_DEFINE_UNQUOTED([MAX_CMD_LINE_LEN], [$cmd_max_len],
-  [Define as the maximum length of a command line in bytes.])
-
 dnl The Byfl binary-output library uses asprintf for error reporting can
 dnl work around its absence with an unsafe alternative.
 AC_CHECK_FUNCS([asprintf])

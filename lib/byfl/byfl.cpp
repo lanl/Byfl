@@ -1635,23 +1635,12 @@ private:
     *bfbin << uint8_t(BINOUT_ROW_NONE);
 
     // Report the program command line, if possible (probably only Linux).
-    string cmdline_filename("/proc/self/cmdline");
-    ifstream cmdline_stream(cmdline_filename);
-    if (cmdline_stream) {
-      const size_t maxbytes = MAX_CMD_LINE_LEN*2 + 2;   // Double to include space for end-of-argument NULLs.
-      char* cmdline = new char[maxbytes + 1];
-      memset(cmdline, '\0', maxbytes + 1);   // Ensure we end with a double NULL.
-      cmdline_stream.read(cmdline, maxbytes);
-      if (!cmdline_stream.bad()) {
-        *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Command line";
-        *bfbin << uint8_t(BINOUT_COL_STRING) << "Argument"
-               << uint8_t(BINOUT_COL_NONE);
-        for (char* s = cmdline; *s != '\0'; s += strlen(s) + 1)
-          *bfbin << uint8_t(BINOUT_ROW_DATA) << s;
-        *bfbin << uint8_t(BINOUT_ROW_NONE);
-      }
-      delete[] cmdline;
-    }
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Command line";
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Argument"
+           << uint8_t(BINOUT_COL_NONE);
+    vector<string> command_line = parse_command_line();   // All command-line arguments
+    for (auto iter = command_line.cbegin(); iter != command_line.end(); iter++)
+      *bfbin << uint8_t(BINOUT_ROW_DATA) << *iter << uint8_t(BINOUT_ROW_NONE);
 
     // Report the Byfl options specified at compile time.  We're given
     // these as a single string so we split the string heuristically
