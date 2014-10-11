@@ -617,9 +617,29 @@ static bool suppress_output (void)
 
     // If the BF_BINOUT environment variable is set, expand it, treat it
     // as a filename, create the file, and write a magic pattern to it.
-    char *binout = getenv("BF_BINOUT");
-    if (binout) {
-      string bfbin_filename = shell_expansion(binout, "BF_BINOUT");
+    char *binout_raw = getenv("BF_BINOUT");
+    string binout;
+    if (binout_raw)
+      // BF_BINOUT was specified.  Use it as is.
+      binout = binout_raw;
+    else {
+      // BF_BINOUT was not specified.  Append ".byfl" to the name of
+      // the executable.
+      binout = "a.out";
+      vector<string> cmdline = parse_command_line();
+      if (cmdline.size() > 0 &&
+          cmdline[0].length() > 0 &&
+          cmdline[0].compare(0, 7, "[failed") != 0)
+        binout = cmdline[0];
+      binout += ".byfl";
+    }
+    string bfbin_filename = shell_expansion(binout.c_str(), "BF_BINOUT");
+    if (bfbin_filename == "")
+      // Empty string (as opposed to unspecified environment
+      // variable): discard all binary data.
+      bfbin = new BinaryOStream();
+    else {
+      // Non-empty string: write to the named file.
       bfbin_file = new ofstream(bfbin_filename, ios_base::out | ios_base::trunc | ios_base::binary);
       if (bfbin_file->fail()) {
         cerr << "Failed to create output file " << bfbin_filename << '\n';
@@ -629,8 +649,6 @@ static bool suppress_output (void)
       *bfbin << uint8_t('B') << uint8_t('Y') << uint8_t('F') << uint8_t('L')
              << uint8_t('B') << uint8_t('I') << uint8_t('N');
     }
-    else
-      bfbin = new BinaryOStream();
 
     // If the BF_PREFIX environment variable is set, expand it and
     // output it before each line of output.
