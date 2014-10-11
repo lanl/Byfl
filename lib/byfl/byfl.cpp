@@ -802,22 +802,10 @@ void bf_report_bb_tallies (void)
   if (suppress_output())
     return;
 
-  // If this is our first invocation, output a basic-block header line.
+  // If this is our first invocation, begin a basic-block table.  We
+  // output only in binary format to avoid flooding the standard
+  // output device.
   if (__builtin_expect(!showed_header, 0)) {
-    // Textual output
-    *bfout << bf_output_prefix
-           << "BYFL_BB_HEADER: "
-           << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
-           << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
-           << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "Flops" << ' '
-           << setw(HDR_COL_WIDTH) << "FP_bits" << ' '
-           << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "Int_op_bits";
-    *bfout << '\n';
-
-    // Binary output
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks";
     if (bf_bb_merge == 1) {
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Tag";
@@ -848,24 +836,11 @@ void bf_report_bb_tallies (void)
   // If we've accumulated enough basic blocks, output the aggregate of
   // their values.
   if (__builtin_expect(++num_merged >= bf_bb_merge, 0)) {
-    // Output the difference between the current counter values and
-    // our previously saved values.
+    // Output -- only to the binary output file, not the standard
+    // output device -- the difference between the current counter
+    // values and our previously saved values.
     static ByteFlopCounters counter_deltas;
     (void) global_totals.difference(&prev_global_totals, &counter_deltas);
-    *bfout << bf_output_prefix
-           << "BYFL_BB:        "
-           << setw(HDR_COL_WIDTH) << counter_deltas.loads << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas.stores << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas.load_ins << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas.store_ins << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas.flops << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas.fp_bits << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas.ops << ' '
-           << setw(HDR_COL_WIDTH) << counter_deltas.op_bits;
-    *bfout << '\n';
-
-    // Do the same but in binary.  Note that we include more fields
-    // here than in the textual output.
     *bfbin << uint8_t(BINOUT_ROW_DATA);
     if (bf_bb_merge == 1) {
       const char* partition = bf_categorize_counters();
