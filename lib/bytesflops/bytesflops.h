@@ -28,6 +28,7 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 
+#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -35,6 +36,9 @@
 #include <set>
 #include <iomanip>
 #include <unordered_map>
+#include <time.h>
+#include <unistd.h>
+#include <sys/types.h>
 #include "byfl-common.h"
 #include "functionkeygen.h"
 

@@ -48,8 +48,6 @@ public:
   // Ditto for the size() method.
   size_t size() const { return the_map->size(); }
 
-  size_t count(const Key & key) { return the_map->count(key);}
-
   iterator contains( const T & value )
   {
       for ( auto iter = this->begin(); iter != this->end(); iter++ )

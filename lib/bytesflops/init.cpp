@@ -7,7 +7,6 @@
  *    Rob Aulwes <rta@lanl.gov>
  */
 
-#include <iostream>
 #include "bytesflops.h"
 
 namespace bytesflops_pass {
@@ -147,7 +146,7 @@ namespace bytesflops_pass {
     LLVMContext& globctx = module.getContext();
     IntegerType* i64type = Type::getInt64Ty(globctx);
     PointerType* i64ptrtype = Type::getInt64PtrTy(globctx);
-      
+
     mem_insts_var      = declare_global_var(module, i64ptrtype, "bf_mem_insts_count", true);
     inst_mix_histo_var = declare_global_var(module, i64ptrtype, "bf_inst_mix_histo", true);
     terminator_var     = declare_global_var(module, i64ptrtype, "bf_terminator_count", true);
@@ -360,8 +359,8 @@ namespace bytesflops_pass {
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       assoc_addrs_with_prog =
         declare_extern_c(void_func_result,
-			 FindMemFootprint
-			 ? "bf_assoc_addresses_with_prog_tb"
+                         FindMemFootprint
+                         ? "bf_assoc_addresses_with_prog_tb"
                          : "bf_assoc_addresses_with_prog",
                          &module);
 
@@ -376,13 +375,13 @@ namespace bytesflops_pass {
           FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
         assoc_addrs_with_func =
           declare_extern_c(void_func_result,
-			   FindMemFootprint
-			   ? "bf_assoc_addresses_with_func_tb"
-			   : "bf_assoc_addresses_with_func",
+                           FindMemFootprint
+                           ? "bf_assoc_addresses_with_func_tb"
+                           : "bf_assoc_addresses_with_func",
                            &module);
       }
     }
-      
+
     // Declare bf_touch_cache() only if we are asked to use it.
     if (CacheModel) {
       vector<Type*> all_function_args;
@@ -390,7 +389,7 @@ namespace bytesflops_pass {
       all_function_args.push_back(IntegerType::get(globctx, 64));
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
-      access_cache = 
+      access_cache =
         declare_extern_c(void_func_result,
                          "_ZN10bytesflops14bf_touch_cacheEmm",
                          &module);
@@ -438,11 +437,15 @@ namespace bytesflops_pass {
       release_mega_lock = declare_thunk(&module, "bf_release_mega_lock");
     }
 
-    // initialize the function key generator
-    FunctionKeyGen::Seed_t  seed;
+    // Initialize the function key generator.
+    FunctionKeyGen::Seed_t seed;
     std::hash<std::string> hash_key;
-    seed = hash_key(module.getModuleIdentifier());
-
+    struct timespec now;
+    (void) clock_gettime(CLOCK_REALTIME, &now);
+    seed = (hash_key(module.getModuleIdentifier())*UINT64_C(281474976710677) +
+            getpid()*UINT64_C(4294967311) +
+            now.tv_sec*UINT64_C(65537) +
+            now.tv_nsec);
     m_keygen = std::unique_ptr<FunctionKeyGen>(new FunctionKeyGen(seed));
 
 
@@ -510,7 +513,7 @@ namespace bytesflops_pass {
   bool BytesFlops::runOnModule(Module & module)
   {
       doInitialization(module);
-      
+
       /**
        * for each function in the module, run a function pass on it.
        */

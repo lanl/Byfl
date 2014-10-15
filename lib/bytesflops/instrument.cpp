@@ -246,16 +246,12 @@ namespace bytesflops_pass {
       FunctionKeyGen::KeyID keyval;
 
       auto cit = func_key_map.find(fname);
-      if ( cit == func_key_map.end() )
-      {
-          keyval = m_keygen->nextRandomKey();
-          func_key_map[fname] = keyval;
+      if (cit == func_key_map.end()) {
+        keyval = m_keygen->nextRandomKey();
+        func_key_map[fname] = keyval;
       }
       else
-      {
-          keyval = cit->second;
-      }
-
+        keyval = cit->second;
       return keyval;
   }
 

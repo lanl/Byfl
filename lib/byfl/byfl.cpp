@@ -297,35 +297,20 @@ static str2bfc_t& user_defined_totals()
   return *mapping;
 }
 
+// Associate a function name (which will not be unique across files)
+// with a unique key.  Abort if duplicate keys are detected.  (This
+// should be exceedingly unlikely.)
 static
 void bf_record_key(const char* funcname, KeyType_t keyID)
 {
-    bool fatal = false;
-
-    auto & map = key_to_func();
-    auto iter = map.find(keyID);
-    if ( iter != map.end() )
-    {
-        // check for duplicates
-        if ( iter->second != funcname )
-        {
-            fatal = true;
-        }
-        else if ( map.count(keyID) > 1 )
-        {
-            fatal = true;
-        }
-    }
-
-    if ( fatal )
-    {
-        std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
-        exit(-1);
-    }
-
-    map[keyID] = std::move(std::string(funcname));
+  auto & map = key_to_func();
+  auto iter = map.find(keyID);
+  if (iter != map.end() && iter->second != funcname) {
+    std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
+    exit(-1);
+  }
+  map[keyID] = std::move(std::string(funcname));
 }
-
 
 // bf_categorize_counters() is intended to be overridden by a
 // user-defined function.
