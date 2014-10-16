@@ -280,6 +280,7 @@ static void process_byfl_basic_table (parse_state_t *state)
       }
     INVOKE_CB_0(row_end_cb);
   }
+  free(columntypes);
 }
 
 /* Process a key:value Byfl table. */
@@ -502,6 +503,8 @@ void bf_process_byfl_file (const char *byfl_filename,
   while (process_byfl_table(&local_state))
     ;
 
-  /* Close the Byfl binary-output file. */
+  /* Close the Byfl binary-output file and free allocated memory. */
   fclose(local_state.fd);
+  free(local_state.read_buffer);
+  free(local_state.last_value);
 }
