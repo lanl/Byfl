@@ -27,9 +27,6 @@ typedef struct {
   void (*data_string_cb)(void *user_data, const char *data);    /* String data */
   void (*data_bool_cb)(void *user_data, uint8_t data);          /* Boolean data (0 or 1) */
   void (*row_end_cb)(void *user_data);                          /* End of a row of data */
-  void (*keyval_uint64_cb)(void *user_data, const char *name, uint64_t data);     /* Key + unsigned 64-bit integer value */
-  void (*keyval_string_cb)(void *user_data, const char *name, const char *data);  /* Key + string value */
-  void (*keyval_bool_cb)(void *user_data, const char *name, uint8_t data);        /* Key + Boolean value */
 } bfbin_callback_t;
 
 /* Declare the parsing function. */
@@ -38,9 +35,9 @@ extern "C" {
 #endif
 extern void
 bf_process_byfl_file (const char *byfl_filename,
-		      bfbin_callback_t *callback_list,
-		      size_t callback_list_len,
-		      void *user_data);
+                      bfbin_callback_t *callback_list,
+                      size_t callback_list_len,
+                      void *user_data);
 #ifdef __cplusplus
 }
 #endif

@@ -164,8 +164,8 @@ void error_callback (void* state, const char* message)
   cerr << progname << ": " << message << endl << die;
 }
 
-// Begin a new basic table.
-void begin_basic_table (void* state, const char* table_name)
+// Begin a new table.
+void begin_any_table (void* state, const char* table_name)
 {
   program_state_t* s = (program_state_t*)state;
   s->table_name = table_name;
@@ -256,87 +256,10 @@ void end_row (void* state)
   s->row_data.clear();
 }
 
-// Clean up when we finish writing a basic table.
-void end_basic_table (void* state)
+// Clean up when we finish writing a table.
+void end_any_table (void* state)
 {
   program_state_t* s = (program_state_t*)state;
-  s->column_info.clear();
-}
-
-// Begin a new key:value table.
-void begin_keyval_table (void* state, const char* table_name)
-{
-  program_state_t* s = (program_state_t*)state;
-  s->table_name = table_name;
-}
-
-// Buffer unsigned 64-bit integer key:value data for later.
-void store_keyval_uint64 (void* state, const char* column_name, uint64_t value)
-{
-  program_state_t* s = (program_state_t*)state;
-  string name(column_name);
-  s->column_info.push_back(column_info_t(name, BYFL_UINT64));
-  for (size_t i = 0; i < sizeof(uint64_t); i++) {
-    uint8_t onebyte = ((uint8_t*)&value)[i];
-    s->row_data.push_back(onebyte);
-  }
-}
-
-// Buffer string key:value data for later.
-void store_keyval_string (void* state, const char* column_name, const char* str)
-{
-  program_state_t* s = (program_state_t*)state;
-  string name(column_name);
-  s->column_info.push_back(column_info_t(name, BYFL_STRING));
-  const char* sptr = strdup(str);                 // String pointer
-  const uint8_t* sptrp = (const uint8_t*) &sptr;  // Address of the above, cast to an array of bytes
-  for (size_t i = 0; i < sizeof(uint8_t*); i++)
-    s->row_data.push_back(sptrp[i]);
-}
-
-// Buffer boolean key:value data for later.
-void store_keyval_bool (void* state, const char* column_name, uint8_t value)
-{
-  program_state_t* s = (program_state_t*)state;
-  string name(column_name);
-  s->column_info.push_back(column_info_t(name, BYFL_BOOL));
-  s->row_data.push_back(value);
-}
-
-// When a key:value table is complete, do all of the work of writing
-// it to HDF5.
-void end_keyval_table (void* state)
-{
-  program_state_t* s = (program_state_t*)state;
-
-  // Create a global dataspace.
-  s->current_dims = 1;
-  DataSpace global_dataspace(1, &s->current_dims);
-
-  // Define an HDF5 datatype based on the Byfl column header.
-  construct_hdf5_datatype(s);
-
-  // Create a dataset.  We enable neither compression nor chunking
-  // because we'll be writing only a single row, and these features
-  // are unlikely to be of much use for a single-row dataset.
-  s->dataset = s->hdf5file.createDataSet(s->table_name, s->datatype, global_dataspace);
-
-  // Create a file dataspace.
-  DataSpace file_dataspace = s->dataset.getSpace();
-
-  // Point the file dataspace to the last row of the dataset.
-  hsize_t data_offset = s->current_dims - 1;
-  hsize_t num_rows = 1;
-  file_dataspace.selectHyperslab(H5S_SELECT_SET, &num_rows, &data_offset);
-
-  // Write the raw row data to the dataspace.
-  uint8_t* raw_row_data = s->row_data.data();
-  s->dataset.write(raw_row_data, s->datatype, mem_dataspace, file_dataspace);
-
-  // Free the memory consumed by all of the C strings, by the row
-  // data, and by the column data.
-  free_c_strings(s);
-  s->row_data.clear();
   s->column_info.clear();
 }
 
@@ -348,8 +271,10 @@ static void convert_byfl_to_hdf5 (string byflfilename, string hdf5filename)
   memset(&callbacks, 0, sizeof(bfbin_callback_t));
   callbacks.error_cb = error_callback;
 
-  // Register callbacks for processing basic tables.
-  callbacks.table_begin_basic_cb = begin_basic_table;
+  // Register callbacks.  Note that we don't distinguish between basic
+  // and key:value tables.
+  callbacks.table_begin_basic_cb = begin_any_table;
+  callbacks.table_begin_keyval_cb = begin_any_table;
   callbacks.column_uint64_cb = add_column<BYFL_UINT64>;
   callbacks.column_string_cb = add_column<BYFL_STRING>;
   callbacks.column_bool_cb = add_column<BYFL_BOOL>;
@@ -358,14 +283,8 @@ static void convert_byfl_to_hdf5 (string byflfilename, string hdf5filename)
   callbacks.data_string_cb = write_string;
   callbacks.data_bool_cb = write_bool;
   callbacks.row_end_cb = end_row;
-  callbacks.table_end_basic_cb = end_basic_table;
-
-  // Register callbacks for processing key:value tables.
-  callbacks.table_begin_keyval_cb = begin_keyval_table;
-  callbacks.keyval_uint64_cb = store_keyval_uint64;
-  callbacks.keyval_string_cb = store_keyval_string;
-  callbacks.keyval_bool_cb = store_keyval_bool;
-  callbacks.table_end_keyval_cb = end_keyval_table;
+  callbacks.table_end_basic_cb = end_any_table;
+  callbacks.table_end_keyval_cb = end_any_table;
 
   // Create the output file.
   H5File hdf5file(hdf5filename, H5F_ACC_TRUNC);

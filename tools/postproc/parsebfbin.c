@@ -285,46 +285,94 @@ static void process_byfl_basic_table (parse_state_t *state)
 /* Process a key:value Byfl table. */
 static void process_byfl_keyval_table (parse_state_t *state)
 {
-  char *column_name = NULL;     /* Name of the current column */
-  size_t name_alloced = 0;      /* Number of bytes allocated for the above */
+  BINOUT_COL_T *column_types = NULL;  /* List of all column types */
+  size_t cols_alloced = 0;        /* Number of columns allocated for the above */
+  size_t num_cols = 0;            /* Number of columns */
+  uint8_t *row_data = NULL;       /* One row's worth of data */
+  size_t bytes_alloced = 0;       /* Number of bytes allocated for the above */
+  size_t valid_bytes = 0;         /* Number of valid row-data bytes */
+  uint8_t *datap;                 /* Pointer into row_data */
+  size_t col;                     /* Current column index */
 
   while (1) {
-    BINOUT_COL_T coltype;       /* Type of the current column */
-    size_t name_len;            /* Length of the column name */
+    BINOUT_COL_T coltype;         /* Type of the current column */
+    size_t string_len;            /* Length of the current string data */
 
-    /* Read a key type and name. */
+    /* Store the column type. */
     read_big_endian(state, sizeof(uint8_t));
     coltype = (BINOUT_COL_T) (*(uint8_t *)state->last_value);
     if (coltype == BINOUT_COL_NONE)
       break;
-    read_string(state);
-    name_len = strlen(state->last_value);
-    if (name_alloced < name_len + 1) {
-      /* Allocate more space to store the name. */
-      name_alloced = (name_len + 1) * 2;
-      free(column_name);
-      column_name = (char *) malloc(name_alloced);
-      if (column_name == NULL)
+    num_cols++;
+    if (num_cols >= cols_alloced) {
+      cols_alloced = cols_alloced == 0 ? 32 : num_cols*2;  /* 32 is probably a reasonable guess for an upper bound on the number of columns. */
+      column_types = (BINOUT_COL_T *) realloc(column_types, cols_alloced*sizeof(BINOUT_COL_T));
+      if (!column_types)
         THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
-                    (unsigned long)name_alloced, strerror(errno));
+                    (unsigned long)(cols_alloced*sizeof(BINOUT_COL_T)), strerror(errno));
     }
-    strcpy(column_name, state->last_value);
+    column_types[num_cols - 1] = coltype;
 
-    /* Invoke the appropriate callback functions. */
+    /* Invoke the appropriate per-column callback function. */
+    read_string(state);
+    switch (coltype) {
+      case BINOUT_COL_UINT64:
+        INVOKE_CB_1(column_uint64_cb, state->last_value);
+        break;
+
+      case BINOUT_COL_STRING:
+        INVOKE_CB_1(column_string_cb, state->last_value);
+        break;
+
+      case BINOUT_COL_BOOL:
+        INVOKE_CB_1(column_bool_cb, state->last_value);
+        break;
+
+      default:
+        THROW_ERROR("Internal error at %s, line %d", __FILE__, __LINE__);
+        break;
+    }
+
+    /* Store the associated data until we've read all of our columns. */
     switch (coltype) {
       case BINOUT_COL_UINT64:
         read_big_endian(state, sizeof(uint64_t));
-        INVOKE_CB_2(keyval_uint64_cb, column_name, *(uint64_t *)state->last_value);
+        if (valid_bytes + sizeof(uint64_t) > bytes_alloced) {
+          bytes_alloced = bytes_alloced == 0 ? 256 : (bytes_alloced + sizeof(uint64_t)) * 2;
+          row_data = (uint8_t *) realloc(row_data, bytes_alloced);
+          if (!row_data)
+            THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
+                        (unsigned long)bytes_alloced, strerror(errno));
+        }
+        memcpy(&row_data[valid_bytes], state->last_value, sizeof(uint64_t));
+        valid_bytes += sizeof(uint64_t);
         break;
 
       case BINOUT_COL_STRING:
         read_string(state);
-        INVOKE_CB_2(keyval_string_cb, column_name, state->last_value);
+        string_len = strlen(state->last_value);
+        if (valid_bytes + sizeof(char *) > bytes_alloced) {
+          bytes_alloced = bytes_alloced == 0 ? 256 : (bytes_alloced + string_len) * 2;
+          row_data = (uint8_t *) realloc(row_data, bytes_alloced);
+          if (!row_data)
+            THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
+                        (unsigned long)bytes_alloced, strerror(errno));
+        }
+        strcpy((char *)&row_data[valid_bytes], state->last_value);
+        valid_bytes += string_len + 1;
         break;
 
       case BINOUT_COL_BOOL:
         read_big_endian(state, sizeof(uint8_t));
-        INVOKE_CB_2(keyval_bool_cb, column_name, *(uint8_t *)state->last_value);
+        if (valid_bytes + sizeof(uint64_t) > bytes_alloced) {
+          bytes_alloced = bytes_alloced == 0 ? 256 : (bytes_alloced + sizeof(uint8_t)) * 2;
+          row_data = (uint8_t *) realloc(row_data, bytes_alloced);
+          if (!row_data)
+            THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
+                        (unsigned long)bytes_alloced, strerror(errno));
+        }
+        row_data[valid_bytes] = *(uint8_t *)state->last_value;
+        valid_bytes++;
         break;
 
       default:
@@ -332,7 +380,38 @@ static void process_byfl_keyval_table (parse_state_t *state)
         break;
     }
   }
-  free((void *)column_name);
+  INVOKE_CB_0(column_end_cb);
+
+  /* Now that we've read all of our columns and have all of our row
+   * data, invoke the appropriate callback functions. */
+  INVOKE_CB_0(row_begin_cb);
+  datap = row_data;
+  for (col = 0; col < num_cols; col++)
+    switch (column_types[col]) {
+      case BINOUT_COL_UINT64:
+        INVOKE_CB_1(data_uint64_cb, *(uint64_t *)datap);
+        datap += sizeof(uint64_t);
+        break;
+
+      case BINOUT_COL_STRING:
+        INVOKE_CB_1(data_string_cb, (char *)datap);
+        datap += strlen((char *)datap) + 1;
+        break;
+
+      case BINOUT_COL_BOOL:
+        INVOKE_CB_1(data_bool_cb, *(uint8_t *)datap);
+        datap++;
+        break;
+
+      default:
+        THROW_ERROR("Internal error at %s, line %d", __FILE__, __LINE__);
+        break;
+    }
+  INVOKE_CB_0(row_end_cb);
+
+  /* Deallocate all of the column and row data we had allocated. */
+  free((void *)row_data);
+  free((void *)column_types);
 }
 
 /* Process a complete Byfl table.  Return 1 on success, 0 on EOF. */
@@ -356,9 +435,9 @@ static int process_byfl_table (parse_state_t *state)
       break;
 
     case BINOUT_TABLE_KEYVAL:
-      INVOKE_CB_1(table_begin_keyval_cb, state->last_value);
+      INVOKE_CB_1(table_begin_basic_cb, state->last_value);
       process_byfl_keyval_table(state);
-      INVOKE_CB_0(table_end_keyval_cb);
+      INVOKE_CB_0(table_end_basic_cb);
       break;
 
     default:
