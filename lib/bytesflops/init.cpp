@@ -7,7 +7,6 @@
  *    Rob Aulwes <rta@lanl.gov>
  */
 
-#include <iostream>
 #include "bytesflops.h"
 
 namespace bytesflops_pass {
@@ -417,11 +416,15 @@ namespace bytesflops_pass {
       release_mega_lock = declare_thunk(&module, "bf_release_mega_lock");
     }
 
-    // initialize the function key generator
-    FunctionKeyGen::Seed_t  seed;
+    // Initialize the function key generator.
+    FunctionKeyGen::Seed_t seed;
     std::hash<std::string> hash_key;
-    seed = hash_key(module.getModuleIdentifier());
-
+    struct timespec now;
+    (void) clock_gettime(CLOCK_REALTIME, &now);
+    seed = (hash_key(module.getModuleIdentifier())*UINT64_C(281474976710677) +
+            getpid()*UINT64_C(4294967311) +
+            now.tv_sec*UINT64_C(65537) +
+            now.tv_nsec);
     m_keygen = std::unique_ptr<FunctionKeyGen>(new FunctionKeyGen(seed));
 
 

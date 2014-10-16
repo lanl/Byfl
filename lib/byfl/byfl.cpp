@@ -311,33 +311,33 @@ typedef const char * MapKey_t;
 typedef CachedUnorderedMap<KeyType_t, ByteFlopCounters*> key2bfc_t;
 typedef CachedUnorderedMap<MapKey_t, ByteFlopCounters*> str2bfc_t;
 typedef str2bfc_t::iterator counter_iterator;
-static key2bfc_t& per_func_totals()
+static key2bfc_t& per_func_totals (void)
 {
   static key2bfc_t* mapping = new key2bfc_t();
   return *mapping;
 }
 typedef CachedUnorderedMap<KeyType_t, uint64_t> key2num_t;
-static key2num_t& func_call_tallies()
+static key2num_t& func_call_tallies (void)
 {
   static key2num_t* mapping = new key2num_t();
   return *mapping;
 }
 
 typedef CachedUnorderedMap<KeyType_t, std::string> key2name_t;
-static key2name_t & key_to_func()
+static key2name_t& key_to_func (void)
 {
-    static key2name_t * mapping = new key2name_t();
+    static key2name_t* mapping = new key2name_t();
     return *mapping;
 }
 
 typedef std::map<std::string, uint64_t> str2num_t;
-static str2num_t& final_call_tallies()
+static str2num_t& final_call_tallies (void)
 {
   static str2num_t* mapping = new str2num_t();
   return *mapping;
 }
 
-static uint32_t & bf_cnt()
+static uint32_t& bf_cnt (void)
 {
     static uint32_t * cnt = new uint32_t(0);
     return *cnt;
@@ -346,41 +346,25 @@ static uint32_t & bf_cnt()
 // Keep track of counters on a user-defined basis, being careful to
 // work around the "C++ static initialization order fiasco" (cf. the
 // C++ FAQ).
-static str2bfc_t& user_defined_totals()
+static str2bfc_t& user_defined_totals (void)
 {
   static str2bfc_t* mapping = new str2bfc_t();
   return *mapping;
 }
 
-static
-void bf_record_key(const char* funcname, KeyType_t keyID)
+// Associate a function name (which will not be unique across files)
+// with a unique key.  Abort if duplicate keys are detected.  (This
+// should be exceedingly unlikely.)
+static void bf_record_key (const char* funcname, KeyType_t keyID)
 {
-    bool fatal = false;
-
-    auto & map = key_to_func();
-    auto iter = map.find(keyID);
-    if ( iter != map.end() )
-    {
-        // check for duplicates
-        if ( iter->second != funcname )
-        {
-            fatal = true;
-        }
-        else if ( map.count(keyID) > 1 )
-        {
-            fatal = true;
-        }
-    }
-
-    if ( fatal )
-    {
-        std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
-        bf_abend();
-    }
-
-    map[keyID] = std::move(std::string(funcname));
+  auto & map = key_to_func();
+  auto iter = map.find(keyID);
+  if (iter != map.end() && iter->second != funcname) {
+    std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
+    exit(-1);
+  }
+  map[keyID] = std::move(std::string(funcname));
 }
-
 
 // bf_categorize_counters() is intended to be overridden by a
 // user-defined function.
