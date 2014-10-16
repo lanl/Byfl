@@ -361,7 +361,7 @@ static void bf_record_key (const char* funcname, KeyType_t keyID)
   auto iter = map.find(keyID);
   if (iter != map.end() && iter->second != funcname) {
     std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
-    exit(-1);
+    bf_abend();
   }
   map[keyID] = std::move(std::string(funcname));
 }
