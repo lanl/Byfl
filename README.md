@@ -50,7 +50,7 @@ Usage
 
 ### Basic usage
 
-Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc`, `bf-g++`, `bf-gfortran`, and `bf-gccgo` wrap, respectively, the GNU C, C++, Fortran, and Go compilers.  `bf-mpicc`, `bf-mpicxx`, `bf-mpif90`, and `bf-mpif77` further wrap the similarly named [Open MPI](http://www.open-mpi.org/) and [MPICH](http://www.mpich.org/) wrapper scripts to use the Byfl compiler scripts instead of the default C, C++, and Fortran compilers.  Use any of these scripts as you would the underlying compiler.  When you run your code, Byfl will output a sequence of `BYFL`-prefixed lines to the standard output device:
+Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc`, `bf-g++`, `bf-gfortran`, and `bf-gccgo` wrap, respectively, the GNU C, C++, Fortran, and Go compilers.  `bf-mpicc`, `bf-mpicxx`, `bf-mpif90`, and `bf-mpif77` further wrap the similarly named [Open MPI](http://www.open-mpi.org/) and [MPICH](http://www.mpich.org/) wrapper scripts to use the Byfl compiler scripts instead of the default C, C++, and Fortran compilers.  Use any of these scripts as you would the underlying compiler.  When you run your code, Byfl will output a sequence of `BYFL`-prefixed lines to the standard output device and a superset of the data to a binary file (called *filename*`.byfl` by default):
 
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                     1,280 bytes (512 loaded + 768 stored)
@@ -78,42 +78,8 @@ The Byfl wrapper scripts accept a number of options to provide more information 
 
 The following represents some sample output from a code instrumented with Byfl and most of the available options:
 
-    BYFL_INFO: Byfl command line: -bf-inst-mix -bf-by-func -bf-vectors -bf-unique-bytes -bf-every-bb -bf-types -bf-mem-footprint
-    BYFL_BB_HEADER:             LD_bytes             ST_bytes               LD_ops               ST_ops                Flops              FP_bits              Int_ops          Int_op_bits
-    BYFL_BB:                           0                    0                    0                    0                    0                    0                    4                  192
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                           0                   16                    0                    2                    2                  192                   20                 2626
-    BYFL_BB:                         512                  256                    2                    1                   32                 6144                  102                10656
+    BYFL_INFO: Byfl command line: -bf-unique-bytes -bf-vectors -bf-every-bb -bf-mem-footprint -bf-types -bf-inst-mix -bf-by-func -bf-call-stack
+    600
     BYFL_FUNC_HEADER:             LD_bytes             ST_bytes               LD_ops               ST_ops                Flops              FP_bits              Int_ops          Int_op_bits           Uniq_bytes             Cond_brs          Invocations Function
     BYFL_FUNC:                         512                  768                    2                   65                   96                12288                  746                94880                  768                   32                    1 main
     BYFL_CALLEE_HEADER:   Invocations Byfl Function
@@ -129,10 +95,6 @@ The following represents some sample output from a code instrumented with Byfl a
     BYFL_SUMMARY:                        34 branch ops (1 unconditional and direct + 32 conditional or indirect + 1 other)
     BYFL_SUMMARY:                       746 TOTAL OPS
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                         2 loads of vectors of 64-bit floating-point values
-    BYFL_SUMMARY:                        64 stores of 64-bit floating-point values
-    BYFL_SUMMARY:                         1 stores of vectors of 64-bit floating-point values
-    BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                    10,240 bits (4,096 loaded + 6,144 stored)
     BYFL_SUMMARY:                     6,144 unique bits
     BYFL_SUMMARY:                    12,288 flop bits
@@ -142,22 +104,26 @@ The following represents some sample output from a code instrumented with Byfl a
     BYFL_SUMMARY:                   32.0000 elements per vector
     BYFL_SUMMARY:                   64.0000 bits per element
     BYFL_SUMMARY: -----------------------------------------------------------------
+    BYFL_SUMMARY:                         2 loads of vectors of 64-bit floating-point values
+    BYFL_SUMMARY:                        64 stores of 64-bit floating-point values
+    BYFL_SUMMARY:                         1 stores of vectors of 64-bit floating-point values
+    BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                        96 Add            instructions executed
     BYFL_SUMMARY:                        67 BitCast        instructions executed
     BYFL_SUMMARY:                        65 Store          instructions executed
-    BYFL_SUMMARY:                        64 SIToFP         instructions executed
-    BYFL_SUMMARY:                        64 Trunc          instructions executed
     BYFL_SUMMARY:                        64 GetElementPtr  instructions executed
+    BYFL_SUMMARY:                        64 Trunc          instructions executed
     BYFL_SUMMARY:                        64 SRem           instructions executed
+    BYFL_SUMMARY:                        64 SIToFP         instructions executed
     BYFL_SUMMARY:                        64 Mul            instructions executed
     BYFL_SUMMARY:                        33 Br             instructions executed
+    BYFL_SUMMARY:                        32 PHI            instructions executed
     BYFL_SUMMARY:                        32 ICmp           instructions executed
     BYFL_SUMMARY:                        32 Shl            instructions executed
-    BYFL_SUMMARY:                        32 PHI            instructions executed
     BYFL_SUMMARY:                         3 Alloca         instructions executed
+    BYFL_SUMMARY:                         2 ExtractElement instructions executed
     BYFL_SUMMARY:                         2 Call           instructions executed
     BYFL_SUMMARY:                         2 Load           instructions executed
-    BYFL_SUMMARY:                         2 ExtractElement instructions executed
     BYFL_SUMMARY:                         1 Ret            instructions executed
     BYFL_SUMMARY:                         1 FMul           instructions executed
     BYFL_SUMMARY:                       688 TOTAL          instructions executed
@@ -214,9 +180,21 @@ This basic approach can be useful for instrumenting code in languages other than
 
 ### Postprocessing Byfl output
 
-Byfl installs two scripts to convert Byfl output (lines beginning with `BYFL`) into formats readable by various GUIs.  `bf2cgrind` converts Byfl output into [KCachegrind](http://kcachegrind.sourceforge.net/) input, and `bf2hpctk` converts Byfl output into [HPCToolkit](http://www.hpctoolkit.org/) input.  (The latter program is more robust and appears to be more actively maintained.)  Run each of those scripts with no arguments to see the usage text.
+Byfl provides a set of programs for converting Byfl binary output (`*.byfl` files) into various other formats.  Currently, these include the following:
 
-In addition, Byfl includes a script called `bfmerge`, which merges multiple Byfl output files by computing statistics across all of the files of each data value encountered.  These output files might represent multiple runs of a sequential application or multiple processes from a single run of a parallel application.  Currently, the set of statistics includes the sum, minimum, maximum, median, median absolute deviation, mean, and standard deviation.  Thus, `bfmerge` facilitates quantifying the similarities and differences across applications or processes.
+<dl>
+  <dt><code>bfbin2text</code></dt>
+  <dd>Output Byfl data in comma-separated value (CSV) format, suitable for processing with a spreadsheet program, an AWK script, etc.</dd>
+
+  <dt><code>bfbin2hdf5</code></dt>
+  <dd>Output Byfl data as a Hierarchical Data Format (<a href="http://www.hdfgroup.org/HDF5/">HDF5</a>) file for longer-term storage and processing (e.g.,&nbsp;with <a href="http://www.hdfgroup.org/products/java/hdfview/">HDFView</a>)</dd>
+</dl>
+
+Developers can write additional conversion tools using a simple API (installed as `bfbin.h` and `libbfbin.a`) that parses `.byfl` files into tables and invokes program-specified callback functions for each table component.
+
+In addition to the above, Byfl installs two scripts to convert Byfl textual output (lines beginning with `BYFL`) into formats readable by various GUIs.  `bf2cgrind` converts Byfl output into [KCachegrind](http://kcachegrind.sourceforge.net/) input, and `bf2hpctk` converts Byfl output into [HPCToolkit](http://www.hpctoolkit.org/) input.  (The latter program is more robust and appears to be more actively maintained.)  Run each of those scripts with no arguments to see the usage text.  These scripts will eventually be replaced by programs based on the Byfl parsing API.
+
+In addition, Byfl includes a script called `bfmerge`, which merges multiple Byfl output files by computing statistics across all of the files of each data value encountered.  These output files might represent multiple runs of a sequential application or multiple processes from a single run of a parallel application.  Currently, the set of statistics includes the sum, minimum, maximum, median, median absolute deviation, mean, and standard deviation.  Thus, `bfmerge` facilitates quantifying the similarities and differences across applications or processes.  This script can be considered deprecated, as its functionality is largely subsumed by the `bfbin2*` programs, and it will soon be removed from the Byfl distribution.
 
 Copyright and license
 ---------------------

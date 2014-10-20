@@ -708,21 +708,28 @@ Provide a space-separated list of B<bf-gcc> command-line arguments.
 Prefix each line of output with the contents of the C<BF_PREFIX>
 environment variable.
 
+=item C<BF_BINOUT>
+
+Specify the name of a C<.byfl> file to which to write detailed Byfl
+output in binary format.
+
 =back
 
-Command-line arguments take precedence over those read from the
-C<BF_OPTS> environment variable.  The advantage of using the
-environment variable, however, is that a user can rebuild a project
-with different sets of performance counters without having to modify
-the project's F<Makefile>s (or analogue in another build system)
-beyond an initial modification to use B<bf-gcc> as the C compiler.
+C<BF_OPTS> is used at compile time.  Command-line arguments take
+precedence over those read from the C<BF_OPTS> environment variable.
+The advantage of using the environment variable, however, is that a
+user can rebuild a project with different sets of performance counters
+without having to modify the project's F<Makefile>s (or analogue in
+another build system) beyond an initial modification to use B<bf-gcc>
+as the C compiler.
 
-An important characteristic of the C<BF_PREFIX> environment variable
-is that it honors POSIX shell-style variable expansions.  For example,
-if C<BF_PREFIX> is set to the string C<Rank ${OMPI_COMM_WORLD_RANK}>,
-then a line that would otherwise begin with C<BYFL_SUMMARY:> will
-instead begin with C<Rank 3 BYFL_SUMMARY:>, assuming that the
-C<OMPI_COMM_WORLD_RANK> environment variable has the value C<3>.
+C<BF_PREFIX> is used at run time.  An important characteristic of the
+C<BF_PREFIX> environment variable is that it honors POSIX shell-style
+variable expansions.  For example, if C<BF_PREFIX> is set to the
+string C<Rank ${OMPI_COMM_WORLD_RANK}>, then a line that would
+otherwise begin with C<BYFL_SUMMARY:> will instead begin with C<Rank 3
+BYFL_SUMMARY:>, assuming that the C<OMPI_COMM_WORLD_RANK> environment
+variable has the value C<3>.
 
 Although the characters C<|>, C<&>, C<;>, C<E<lt>>, C<E<gt>>, C<(>,
 C<)>, C<{>, and C<}> are not normally allowed within C<BF_PREFIX>,
@@ -737,6 +744,10 @@ As a special case, if C<BF_PREFIX> expands to a string that begins
 with C</> or C<./>, it is treated not as a prefix but as a filename.
 The Byfl-instrumented executable will redirect all of its Byfl output
 to that file instead of to the standard output device.
+
+C<BF_BINOUT> is also used at run time.  Like C<BF_PREFIX>, it honors
+POSIX shell-style variable expansions.  If C<BF_BINOUT> is set to the
+empty string, no binary output file will be produced.
 
 =head1 NOTES
 
