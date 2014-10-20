@@ -40,7 +40,8 @@ public:
   size_t colnum;          // Current column number (header or data row)
   unordered_set<string> included_tables;   // Set of tables to include
   unordered_set<string> excluded_tables;   // Set of tables to exclude
-  bool suppress_table;    // false=show the current table; true=skip it
+  bool suppress_table;    // true=skip the current table; false=show it
+  bool only_names;        // true=show only table names; false=show everything
 
   LocalState (int argc, char* argv[]);
   ~LocalState();
@@ -57,6 +58,7 @@ LocalState::LocalState (int argc, char* argv[])
   colsep = ",";
   colnum = 0;
   suppress_table = false;
+  only_names = false;
 
   // Walk the command line and process each option we encounter.
   static struct option cmd_line_options[] = {
@@ -64,11 +66,12 @@ LocalState::LocalState (int argc, char* argv[])
     { "colsep",  required_argument, NULL, 'c' },
     { "include", required_argument, NULL, 'i' },
     { "exclude", required_argument, NULL, 'e' },
+    { "list",    no_argument,       NULL, 'l' },
     { NULL,      0,                 NULL, 0 }
   };
   int opt_index = 0;
   while (true) {
-    int c = getopt_long(argc, argv, "o:c:i:e:", cmd_line_options, &opt_index);
+    int c = getopt_long(argc, argv, "o:c:i:e:l", cmd_line_options, &opt_index);
     if (c == -1)
       break;
     switch (c) {
@@ -87,6 +90,10 @@ LocalState::LocalState (int argc, char* argv[])
 
       case 'e':
         excluded_tables.emplace(optarg);
+        break;
+
+      case 'l':
+        only_names = true;
         break;
 
       case 0:
@@ -239,8 +246,11 @@ static void begin_any_table (void* state, const char* tablename)
     return;
 
   // Output the name of the current table.
-  if (lstate->tablenum++ > 0)
-    *lstate->outfile << '\n';
+  if (lstate->only_names)
+    lstate->suppress_table = true;
+  else
+    if (lstate->tablenum++ > 0)
+      *lstate->outfile << '\n';
   *lstate->outfile << quote_for_csv(name) << '\n';
 }
 
