@@ -5,6 +5,8 @@
 
 #include <iostream>
 #include <fstream>
+#include <unordered_set>
+#include <functional>
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
@@ -36,6 +38,9 @@ public:
   size_t tablenum;        // Current table number
   string colsep;          // Column separator or empty for "smart" spaces
   size_t colnum;          // Current column number (header or data row)
+  unordered_set<string> included_tables;   // Set of tables to include
+  unordered_set<string> excluded_tables;   // Set of tables to exclude
+  bool suppress_table;    // false=show the current table; true=skip it
 
   LocalState (int argc, char* argv[]);
   ~LocalState();
@@ -51,16 +56,19 @@ LocalState::LocalState (int argc, char* argv[])
   tablenum = 0;
   colsep = ",";
   colnum = 0;
+  suppress_table = false;
 
   // Walk the command line and process each option we encounter.
   static struct option cmd_line_options[] = {
-    { "output", required_argument, NULL, 'o' },
-    { "colsep", required_argument, NULL, 'c' },
-    { NULL,     0,                 NULL, 0 }
+    { "output",  required_argument, NULL, 'o' },
+    { "colsep",  required_argument, NULL, 'c' },
+    { "include", required_argument, NULL, 'i' },
+    { "exclude", required_argument, NULL, 'e' },
+    { NULL,      0,                 NULL, 0 }
   };
   int opt_index = 0;
   while (true) {
-    int c = getopt_long(argc, argv, "o:c:", cmd_line_options, &opt_index);
+    int c = getopt_long(argc, argv, "o:c:i:e:", cmd_line_options, &opt_index);
     if (c == -1)
       break;
     switch (c) {
@@ -71,6 +79,14 @@ LocalState::LocalState (int argc, char* argv[])
       case 'c':
         colsep = string(optarg);
         colsep = expand_escapes(colsep);
+        break;
+
+      case 'i':
+        included_tables.emplace(optarg);
+        break;
+
+      case 'e':
+        excluded_tables.emplace(optarg);
         break;
 
       case 0:
@@ -101,6 +117,11 @@ LocalState::LocalState (int argc, char* argv[])
       cerr << progname << ": Only a single input file is allowed to be specified\n" << die;
       break;
   }
+
+  // Ensure that tables are either included or excluded, not both.
+  if (excluded_tables.size() > 0 && included_tables.size() > 0)
+    cerr << progname << ": Only one of --include (-i) and --exclude (-e)"
+         << " may be specified\n" << die;
 
   // Open the output file if specified.
   if (outfilename != "") {
@@ -176,7 +197,7 @@ string LocalState::expand_escapes (string& in_str)
 // for strings containing commas.  We do, however, escape internal
 // double quotes by doubling them.  (Both LibreOffice and Microsoft
 // Excel seem to honor that convention.)
-static string quote_for_csv (string&& in_str)
+static string quote_for_csv (const string& in_str)
 {
   string out_str;
   if (in_str.length() > 0 && in_str[0] == '-')
@@ -191,6 +212,12 @@ static string quote_for_csv (string&& in_str)
   return out_str;
 }
 
+// Do the same as the above but accept an rvalue.
+static string quote_for_csv (const string&& in_str)
+{
+  return quote_for_csv(ref(in_str));
+}
+
 // Report a parse error and abort.
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static void error_callback (void* state, const char* message)
@@ -202,15 +229,27 @@ static void error_callback (void* state, const char* message)
 static void begin_any_table (void* state, const char* tablename)
 {
   LocalState* lstate = (LocalState*) state;
+  string name(tablename);
+
+  // Determine if we should show or suppress the current table.
+  lstate->suppress_table =
+    (lstate->included_tables.size() > 0 && lstate->included_tables.find(name) == lstate->included_tables.cend())
+    || lstate->excluded_tables.find(name) != lstate->excluded_tables.cend();
+  if (lstate->suppress_table)
+    return;
+
+  // Output the name of the current table.
   if (lstate->tablenum++ > 0)
     *lstate->outfile << '\n';
-  *lstate->outfile << quote_for_csv(tablename) << '\n';
+  *lstate->outfile << quote_for_csv(name) << '\n';
 }
 
 // Begin outputting a column header or a row of data.
 static void begin_row (void* state)
 {
   LocalState* lstate = (LocalState*) state;
+  if (lstate->suppress_table)
+    return;
   lstate->colnum = 0;
 }
 
@@ -218,6 +257,8 @@ static void begin_row (void* state)
 static void any_column_header (void* state, const char* colname)
 {
   LocalState* lstate = (LocalState*) state;
+  if (lstate->suppress_table)
+    return;
   if (lstate->colnum > 0)
     *lstate->outfile << lstate->colsep;
   *lstate->outfile << quote_for_csv(colname);
@@ -228,6 +269,8 @@ static void any_column_header (void* state, const char* colname)
 static void end_row (void* state)
 {
   LocalState* lstate = (LocalState*) state;
+  if (lstate->suppress_table)
+    return;
   *lstate->outfile << '\n';
 }
 
@@ -235,6 +278,8 @@ static void end_row (void* state)
 static void write_uint64_value (void* state, uint64_t value)
 {
   LocalState* lstate = (LocalState*) state;
+  if (lstate->suppress_table)
+    return;
   if (lstate->colnum > 0)
     *lstate->outfile << lstate->colsep;
   *lstate->outfile << value;
@@ -245,6 +290,8 @@ static void write_uint64_value (void* state, uint64_t value)
 static void write_string_value (void* state, const char* value)
 {
   LocalState* lstate = (LocalState*) state;
+  if (lstate->suppress_table)
+    return;
   if (lstate->colnum > 0)
     *lstate->outfile << lstate->colsep;
   *lstate->outfile << quote_for_csv(value);
@@ -255,6 +302,8 @@ static void write_string_value (void* state, const char* value)
 static void write_bool_value (void* state, uint8_t value)
 {
   LocalState* lstate = (LocalState*) state;
+  if (lstate->suppress_table)
+    return;
   if (lstate->colnum > 0)
     *lstate->outfile << lstate->colsep;
   *lstate->outfile << (value == 0 ? "FALSE" : "TRUE");
