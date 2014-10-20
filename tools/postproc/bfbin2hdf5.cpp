@@ -1,7 +1,7 @@
-/*********************************************
- * Convert Byfl binary data to NetCDF format *
- * By Scott Pakin <pakin@lanl.gov>           *
- *********************************************/
+/*******************************************
+ * Convert Byfl binary data to HDF5 format *
+ * By Scott Pakin <pakin@lanl.gov>         *
+ *******************************************/
 
 #include <iostream>
 #include <vector>

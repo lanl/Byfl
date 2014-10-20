@@ -295,6 +295,7 @@ static void process_byfl_keyval_table (parse_state_t *state)
   uint8_t *datap;                 /* Pointer into row_data */
   size_t col;                     /* Current column index */
 
+  INVOKE_CB_0(column_begin_cb);
   while (1) {
     BINOUT_COL_T coltype;         /* Type of the current column */
     size_t string_len;            /* Length of the current string data */

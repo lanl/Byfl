@@ -71,10 +71,17 @@ if test "x$ax_cv_cxx11_H5CXX" = xno ; then
   H5CXX=no
 fi
 AM_CONDITIONAL([HDF5_AVAILABLE], [test "x$H5CXX" != xno])
+if test "x$H5CXX" = xno ; then
+  H5CXX="$CXX"
+fi
 AC_ARG_VAR([H5CXXFLAGS], [HDF5 C++ compiler flags])
 if test "x${H5CXXFLAGS-undefined}" = xundefined ; then
   H5CXXFLAGS="$CXXFLAGS"
 fi
+
+dnl If getopt_long is available we can build bfbin2text.
+AC_CHECK_FUNCS([getopt_long])
+AM_CONDITIONAL([GETOPT_LONG_AVAILABLE], [test "x$ac_cv_func_getopt_long" != xno])
 
 dnl The GCC DragonEgg plugin, while not strictly required by Byfl,
 dnl precludes the use of most of the Byfl wrapper scripts.

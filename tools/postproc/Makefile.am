@@ -23,3 +23,10 @@ bfbin2hdf5_SOURCES = bfbin2hdf5.cpp
 bfbin2hdf5_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2hdf5_CXXFLAGS = $(H5CXXFLAGS)
 bfbin2hdf5_LDADD = libbfbin.la
+
+if GETOPT_LONG_AVAILABLE
+bin_PROGRAMS += bfbin2text
+endif
+bfbin2text_SOURCES = bfbin2text.cpp
+bfbin2text_CPPFLAGS = -I$(top_srcdir)/include
+bfbin2text_LDADD = libbfbin.la
