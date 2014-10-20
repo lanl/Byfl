@@ -7,6 +7,7 @@
 #include <fstream>
 #include <unordered_set>
 #include <functional>
+#include <bitset>
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
@@ -32,6 +33,12 @@ private:
   string expand_escapes (string& in_str);
 
 public:
+  enum {
+    SHOW_TABLE_NAMES,     // Show table names
+    SHOW_COLUMN_NAMES,    // Show column names
+    SHOW_DATA,            // Show data values
+    SHOW_NUM              // Number of the above
+  };
   string infilename;      // Name of the input file
   string outfilename;     // Name of the output file
   ostream* outfile;       // Output file stream
@@ -41,7 +48,7 @@ public:
   unordered_set<string> included_tables;   // Set of tables to include
   unordered_set<string> excluded_tables;   // Set of tables to exclude
   bool suppress_table;    // true=skip the current table; false=show it
-  bool only_names;        // true=show only table names; false=show everything
+  bitset<SHOW_NUM> show;  // Table elements to output
 
   LocalState (int argc, char* argv[]);
   ~LocalState();
@@ -58,20 +65,21 @@ LocalState::LocalState (int argc, char* argv[])
   colsep = ",";
   colnum = 0;
   suppress_table = false;
-  only_names = false;
+  show.set();
 
   // Walk the command line and process each option we encounter.
   static struct option cmd_line_options[] = {
-    { "output",  required_argument, NULL, 'o' },
-    { "colsep",  required_argument, NULL, 'c' },
-    { "include", required_argument, NULL, 'i' },
-    { "exclude", required_argument, NULL, 'e' },
-    { "list",    no_argument,       NULL, 'l' },
-    { NULL,      0,                 NULL, 0 }
+    { "output",       required_argument, NULL, 'o' },
+    { "colsep",       required_argument, NULL, 'c' },
+    { "include",      required_argument, NULL, 'i' },
+    { "exclude",      required_argument, NULL, 'e' },
+    { "list-tables",  no_argument,       NULL, 'l' },
+    { "list-columns", no_argument,       NULL, 'L' },
+    { NULL,        0,                    NULL, 0 }
   };
   int opt_index = 0;
   while (true) {
-    int c = getopt_long(argc, argv, "o:c:i:e:l", cmd_line_options, &opt_index);
+    int c = getopt_long(argc, argv, "o:c:i:e:lL", cmd_line_options, &opt_index);
     if (c == -1)
       break;
     switch (c) {
@@ -93,7 +101,14 @@ LocalState::LocalState (int argc, char* argv[])
         break;
 
       case 'l':
-        only_names = true;
+        show.reset();
+        show.set(SHOW_TABLE_NAMES);
+        break;
+
+      case 'L':
+        show.reset();
+        show.set(SHOW_TABLE_NAMES);
+        show.set(SHOW_COLUMN_NAMES);
         break;
 
       case 0:
@@ -245,13 +260,15 @@ static void begin_any_table (void* state, const char* tablename)
   if (lstate->suppress_table)
     return;
 
-  // Output the name of the current table.
-  if (lstate->only_names)
-    lstate->suppress_table = true;
-  else
-    if (lstate->tablenum++ > 0)
+  // Output a blank line if we're outputting multiple table components.
+  if (lstate->show.count() > 1)
+    if (lstate->tablenum > 0)
       *lstate->outfile << '\n';
-  *lstate->outfile << quote_for_csv(name) << '\n';
+  lstate->tablenum++;
+
+  // Output the name of the current table.
+  if (lstate->show[LocalState::SHOW_TABLE_NAMES])
+    *lstate->outfile << quote_for_csv(name) << '\n';
 }
 
 // Begin outputting a column header or a row of data.
@@ -267,7 +284,7 @@ static void begin_row (void* state)
 static void any_column_header (void* state, const char* colname)
 {
   LocalState* lstate = (LocalState*) state;
-  if (lstate->suppress_table)
+  if (lstate->suppress_table || !lstate->show[LocalState::SHOW_COLUMN_NAMES])
     return;
   if (lstate->colnum > 0)
     *lstate->outfile << lstate->colsep;
@@ -275,11 +292,11 @@ static void any_column_header (void* state, const char* colname)
   lstate->colnum++;
 }
 
-// Finish outputting a column header or row of data.
-static void end_row (void* state)
+// Finish outputting a column header.
+static void end_column_header (void* state)
 {
   LocalState* lstate = (LocalState*) state;
-  if (lstate->suppress_table)
+  if (lstate->suppress_table || !lstate->show[LocalState::SHOW_COLUMN_NAMES])
     return;
   *lstate->outfile << '\n';
 }
@@ -288,7 +305,7 @@ static void end_row (void* state)
 static void write_uint64_value (void* state, uint64_t value)
 {
   LocalState* lstate = (LocalState*) state;
-  if (lstate->suppress_table)
+  if (lstate->suppress_table || !lstate->show[LocalState::SHOW_DATA])
     return;
   if (lstate->colnum > 0)
     *lstate->outfile << lstate->colsep;
@@ -300,7 +317,7 @@ static void write_uint64_value (void* state, uint64_t value)
 static void write_string_value (void* state, const char* value)
 {
   LocalState* lstate = (LocalState*) state;
-  if (lstate->suppress_table)
+  if (lstate->suppress_table || !lstate->show[LocalState::SHOW_DATA])
     return;
   if (lstate->colnum > 0)
     *lstate->outfile << lstate->colsep;
@@ -312,12 +329,21 @@ static void write_string_value (void* state, const char* value)
 static void write_bool_value (void* state, uint8_t value)
 {
   LocalState* lstate = (LocalState*) state;
-  if (lstate->suppress_table)
+  if (lstate->suppress_table || !lstate->show[LocalState::SHOW_DATA])
     return;
   if (lstate->colnum > 0)
     *lstate->outfile << lstate->colsep;
   *lstate->outfile << (value == 0 ? "FALSE" : "TRUE");
   lstate->colnum++;
+}
+
+// Finish outputting a row of data.
+static void end_row (void* state)
+{
+  LocalState* lstate = (LocalState*) state;
+  if (lstate->suppress_table || !lstate->show[LocalState::SHOW_DATA])
+    return;
+  *lstate->outfile << '\n';
 }
 
 int main (int argc, char *argv[])
@@ -344,7 +370,7 @@ int main (int argc, char *argv[])
   callbacks.column_uint64_cb = any_column_header;
   callbacks.column_string_cb = any_column_header;
   callbacks.column_bool_cb = any_column_header;
-  callbacks.column_end_cb = end_row;
+  callbacks.column_end_cb = end_column_header;
   callbacks.row_begin_cb = begin_row;
   callbacks.data_uint64_cb = write_uint64_value;
   callbacks.data_string_cb = write_string_value;
