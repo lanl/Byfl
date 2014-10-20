@@ -31,6 +31,7 @@ static ostream& die (ostream& os)
 class LocalState {
 private:
   string expand_escapes (string& in_str);
+  void show_usage (ostream& os);
 
 public:
   enum {
@@ -54,6 +55,20 @@ public:
   ~LocalState();
 };
 
+// Output a usage string.
+void LocalState::show_usage (ostream& os)
+{
+  os << "Usage: " << progname
+     << " [--output=<filename.csv>]"
+     << " [--colsep=<string>]"
+     << " [--include=<table_name>]"
+     << " [--exclude=<table_name>]"
+     << " [--no-data]"
+     << " [--no-column-names]"
+     << " [--no-table-names]"
+     << " <filename.byfl>\n";
+}
+
 // Parse the command line into a LocalState.
 LocalState::LocalState (int argc, char* argv[])
 {
@@ -69,20 +84,27 @@ LocalState::LocalState (int argc, char* argv[])
 
   // Walk the command line and process each option we encounter.
   static struct option cmd_line_options[] = {
-    { "output",       required_argument, NULL, 'o' },
-    { "colsep",       required_argument, NULL, 'c' },
-    { "include",      required_argument, NULL, 'i' },
-    { "exclude",      required_argument, NULL, 'e' },
-    { "list-tables",  no_argument,       NULL, 'l' },
-    { "list-columns", no_argument,       NULL, 'L' },
-    { NULL,        0,                    NULL, 0 }
+    { "help",            no_argument,       NULL, 'h' },
+    { "output",          required_argument, NULL, 'o' },
+    { "colsep",          required_argument, NULL, 'c' },
+    { "include",         required_argument, NULL, 'i' },
+    { "exclude",         required_argument, NULL, 'e' },
+    { "no-data",         no_argument,       NULL, 'D' },
+    { "no-column-names", no_argument,       NULL, 'C' },
+    { "no-table-names",  no_argument,       NULL, 'T' },
+    { NULL,              0,                 NULL, 0 }
   };
   int opt_index = 0;
   while (true) {
-    int c = getopt_long(argc, argv, "o:c:i:e:lL", cmd_line_options, &opt_index);
+    int c = getopt_long(argc, argv, "ho:c:i:e:DCT", cmd_line_options, &opt_index);
     if (c == -1)
       break;
     switch (c) {
+      case 'h':
+        show_usage(cout);
+        exit(0);
+        break;
+
       case 'o':
         outfilename = string(optarg);
         break;
@@ -100,15 +122,16 @@ LocalState::LocalState (int argc, char* argv[])
         excluded_tables.emplace(optarg);
         break;
 
-      case 'l':
-        show.reset();
-        show.set(SHOW_TABLE_NAMES);
+      case 'D':
+        show.reset(SHOW_DATA);
         break;
 
-      case 'L':
-        show.reset();
-        show.set(SHOW_TABLE_NAMES);
-        show.set(SHOW_COLUMN_NAMES);
+      case 'C':
+        show.reset(SHOW_COLUMN_NAMES);
+        break;
+
+      case 'T':
+        show.reset(SHOW_TABLE_NAMES);
         break;
 
       case 0:
