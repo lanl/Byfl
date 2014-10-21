@@ -7,7 +7,7 @@
 
 CXX = $(H5CXX)
 
-dist_bin_SCRIPTS = bf2cgrind bf2hpctk bfmerge bf-parse-cache-dump
+dist_bin_SCRIPTS = bf2cgrind bf2hpctk bf-parse-cache-dump
 bin_PROGRAMS =
 
 lib_LTLIBRARIES = libbfbin.la
