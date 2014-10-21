@@ -60,7 +60,7 @@ namespace bytesflops {
   // Define a datatype for counting bytes.
   typedef uint32_t bytecount_t;
   const bytecount_t bf_max_bytecount = ~(bytecount_t)(0);  // Clamp to this value
-  typedef pair<bytecount_t, bytecount_t> bf_addr_tally_t;  // Number of times a count was seen ({count, multiplier})
+  typedef pair<bytecount_t, uint64_t> bf_addr_tally_t;  // Number of times a count was seen ({count, multiplier})
 
   // The following library functions are used in files other than the
   // one in which they're defined.
