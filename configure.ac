@@ -70,10 +70,13 @@ AX_CHECK_CXX11([H5CXX])
 if test "x$ax_cv_cxx11_H5CXX" = xno ; then
   H5CXX=no
 fi
-AM_CONDITIONAL([HDF5_AVAILABLE], [test "x$H5CXX" != xno])
 if test "x$H5CXX" = xno ; then
   H5CXX="$CXX"
+  BUILD_BFBIN2HDF5=no
+else
+  BUILD_BFBIN2HDF5=yes
 fi
+AM_CONDITIONAL([HDF5_AVAILABLE], [test $BUILD_BFBIN2HDF5 != no])
 AC_ARG_VAR([H5CXXFLAGS], [HDF5 C++ compiler flags])
 if test "x${H5CXXFLAGS-undefined}" = xundefined ; then
   H5CXXFLAGS="$CXXFLAGS"
@@ -141,7 +144,7 @@ fi
 if test "x$ac_cv_header_execinfo_h" != xyes ; then
   AC_MSG_WARN([Binary basic-block output cannot include addresses without access to the backtrace_symbols function])
 fi
-if test "x$H5CXX" = xno ; then
+if test $BUILD_BFBIN2HDF5 = no ; then
   AC_MSG_WARN([Not building the bfbin2hdf5 postprocessor because it requires HDF5 with C++11 support])
 fi
 if test "x$enable_shared" = xno ; then
