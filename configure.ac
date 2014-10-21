@@ -86,6 +86,14 @@ dnl If getopt_long is available we can build bfbin2text.
 AC_CHECK_FUNCS([getopt_long])
 AM_CONDITIONAL([GETOPT_LONG_AVAILABLE], [test "x$ac_cv_func_getopt_long" != xno])
 
+dnl If SQLite3 is available we can build bfbin2sqlite3.
+BUILD_BFBIN2SQLITE3=no
+AC_SEARCH_LIBS([sqlite3_prepare_v2], [sqlite3])
+if test "x$ac_cv_search_sqlite3_prepare_v2" != xno ; then
+  AC_CHECK_HEADER([sqlite3.h], [BUILD_BFBIN2SQLITE3=yes])
+fi
+AM_CONDITIONAL([SQLITE3_AVAILABLE], [test $BUILD_BFBIN2SQLITE3 = yes])
+
 dnl The GCC DragonEgg plugin, while not strictly required by Byfl,
 dnl precludes the use of most of the Byfl wrapper scripts.
 AC_ARG_VAR([DRAGONEGG], [absolute filename of the GCC DragonEgg plugin])
@@ -146,6 +154,9 @@ if test "x$ac_cv_header_execinfo_h" != xyes ; then
 fi
 if test $BUILD_BFBIN2HDF5 = no ; then
   AC_MSG_WARN([Not building the bfbin2hdf5 postprocessor because it requires HDF5 with C++11 support])
+fi
+if test $BUILD_BFBIN2SQLITE3 = no ; then
+  AC_MSG_WARN([Not building the bfbin2sqlite3 postprocessor because it requires a v2 version of SQLite3])
 fi
 if test "x$enable_shared" = xno ; then
   AC_MSG_WARN([Byfl's LLVM plugin must be built as a shared object.  The build will override --disable-shared in the lib/bytesflops directory.])

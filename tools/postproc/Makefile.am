@@ -30,3 +30,10 @@ endif
 bfbin2text_SOURCES = bfbin2text.cpp
 bfbin2text_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2text_LDADD = libbfbin.la
+
+if SQLITE3_AVAILABLE
+bin_PROGRAMS += bfbin2sqlite3
+endif
+bfbin2sqlite3_SOURCES = bfbin2sqlite3.cpp
+bfbin2sqlite3_CPPFLAGS = -I$(top_srcdir)/include
+bfbin2sqlite3_LDADD = libbfbin.la

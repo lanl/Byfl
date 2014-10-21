@@ -404,6 +404,5 @@ int main (int argc, char *argv[])
   bf_process_byfl_file(state.infilename.c_str(),
                        &callbacks, sizeof(bfbin_callback_t),
                        &state);
-
   return 0;
 }

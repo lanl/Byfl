@@ -311,10 +311,8 @@ int main (int argc, const char *argv[])
     progname.erase(0, slash_ofs + 1);
 
   // Parse the command line.
-  if (argc < 2 || argc > 3) {
-    cerr << "Usage: " << progname << " <input.byfl> [<output.h5>]\n";
-    exit(1);
-  }
+  if (argc < 2 || argc > 3)
+    cerr << "Usage: " << progname << " <input.byfl> [<output.h5>]\n" << die;
   byflfilename = argv[1];
   if (argc > 2)
     h5filename = argv[2];
