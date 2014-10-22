@@ -216,7 +216,12 @@ void bf_assoc_addresses_with_prog_tb (uint64_t baseaddr, uint64_t numaddrs)
 // count*multiplier product than another.
 bool more_accesses_than (bf_addr_tally_t a, bf_addr_tally_t b)
 {
-  return (a.first*a.second > b.first*b.second);
+  uint64_t total_accesses_1 = a.first*a.second;
+  uint64_t total_accesses_2 = b.first*b.second;
+
+  if (total_accesses_1 != total_accesses_2)
+    return total_accesses_1 > total_accesses_2;
+  return a.first < b.first;
 }
 
 // Convert a collection of tallies to a histogram, freeing the former
