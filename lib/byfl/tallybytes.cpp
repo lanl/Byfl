@@ -84,7 +84,6 @@ void initialize_tallybytes (void)
   function_unique_bytes = new func_to_page_t();
 }
 
-
 // Return the number of unique addresses in a given set of addresses.
 static uint64_t tally_unique_addresses (const page_to_counts_t& mapping)
 {
@@ -98,7 +97,6 @@ static uint64_t tally_unique_addresses (const page_to_counts_t& mapping)
   return unique_addrs;
 }
 
-
 // Return the number of unique addresses referenced by a given function.
 uint64_t bf_tally_unique_addresses_tb (const char* funcname)
 {
@@ -109,13 +107,11 @@ uint64_t bf_tally_unique_addresses_tb (const char* funcname)
     return tally_unique_addresses(*map_iter->second);
 }
 
-
 // Return the number of unique addresses referenced by the entire program.
 uint64_t bf_tally_unique_addresses_tb (void)
 {
   return tally_unique_addresses(*global_unique_bytes);
 }
-
 
 // Given a mapping of page numbers to bit vectors and a page number,
 // return a bit vector, creating it if not found.
@@ -131,7 +127,6 @@ static PageTableEntry* find_or_create_page (page_to_counts_t& mapping, uint64_t 
     // We've seen other counts on this page.
     return counts_iter->second;
 }
-
 
 // Mark every bit in a given range as having been accessed.
 static void flag_bytes_in_range (page_to_counts_t& mapping, uint64_t baseaddr, uint64_t numaddrs)
@@ -155,7 +150,6 @@ static void flag_bytes_in_range (page_to_counts_t& mapping, uint64_t baseaddr, u
     }
 }
 
-
 // Associate a set of memory locations with a given function.  Return
 // the page-to-bit-vector mapping for the given function.
 static page_to_counts_t* assoc_addresses_with_func (const char* funcname,
@@ -173,7 +167,6 @@ static page_to_counts_t* assoc_addresses_with_func (const char* funcname,
   flag_bytes_in_range(*unique_bytes, baseaddr, numaddrs);
   return unique_bytes;
 }
-
 
 // Associate a set of memory locations with a given function.  This
 // function basically wraps assoc_addresses_with_func() with a quick
@@ -212,7 +205,6 @@ void bf_assoc_addresses_with_func_tb (const char* funcname, uint64_t baseaddr, u
     }
 }
 
-
 // Associate a set of memory locations with the program as a whole.
 extern "C"
 void bf_assoc_addresses_with_prog_tb (uint64_t baseaddr, uint64_t numaddrs)
@@ -220,14 +212,12 @@ void bf_assoc_addresses_with_prog_tb (uint64_t baseaddr, uint64_t numaddrs)
   flag_bytes_in_range(*global_unique_bytes, baseaddr, numaddrs);
 }
 
-
 // Return true if one {count, multiplier} pair has a greater
-// multiplier than another.
-bool greater_multiplier_than (bf_addr_tally_t a, bf_addr_tally_t b)
+// count*multiplier product than another.
+bool more_accesses_than (bf_addr_tally_t a, bf_addr_tally_t b)
 {
-  return (a.second > b.second);
+  return (a.first*a.second > b.first*b.second);
 }
-
 
 // Convert a collection of tallies to a histogram, freeing the former
 // as we build the latter.
@@ -262,9 +252,8 @@ void get_address_tally_hist (page_to_counts_t& mapping, vector<bf_addr_tally_t>&
   }
 
   // Sort the resulting vector by decreasing multiplier.
-  sort(histogram.begin(), histogram.end(), greater_multiplier_than);
+  sort(histogram.begin(), histogram.end(), more_accesses_than);
 }
-
 
 // Convert a collection of global tallies to a histogram, freeing the
 // former as we build the latter.
