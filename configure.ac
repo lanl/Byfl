@@ -88,8 +88,8 @@ AM_CONDITIONAL([GETOPT_LONG_AVAILABLE], [test "x$ac_cv_func_getopt_long" != xno]
 
 dnl If SQLite3 is available we can build bfbin2sqlite3.
 BUILD_BFBIN2SQLITE3=no
-AC_SEARCH_LIBS([sqlite3_prepare_v2], [sqlite3])
-if test "x$ac_cv_search_sqlite3_prepare_v2" != xno ; then
+AC_SEARCH_LIBS([sqlite3_errstr], [sqlite3])
+if test "x$ac_cv_search_sqlite3_errstr" != xno ; then
   AC_CHECK_HEADER([sqlite3.h], [BUILD_BFBIN2SQLITE3=yes])
 fi
 AM_CONDITIONAL([SQLITE3_AVAILABLE], [test $BUILD_BFBIN2SQLITE3 = yes])
@@ -156,7 +156,7 @@ if test $BUILD_BFBIN2HDF5 = no ; then
   AC_MSG_WARN([Not building the bfbin2hdf5 postprocessor because it requires HDF5 with C++11 support])
 fi
 if test $BUILD_BFBIN2SQLITE3 = no ; then
-  AC_MSG_WARN([Not building the bfbin2sqlite3 postprocessor because it requires a v2 version of SQLite3])
+  AC_MSG_WARN([Not building the bfbin2sqlite3 postprocessor because it requires SQLite3 (v3.7.15+)])
 fi
 if test "x$enable_shared" = xno ; then
   AC_MSG_WARN([Byfl's LLVM plugin must be built as a shared object.  The build will override --disable-shared in the lib/bytesflops directory.])
