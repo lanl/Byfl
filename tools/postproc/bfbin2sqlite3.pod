@@ -10,7 +10,9 @@ B<bfbin2sqlite3> I<input_file.byfl> [I<output_file.db>]
 
 By default, applications instrumented with Byfl write measurement data
 to a binary F<.byfl> file.  B<bfbin2sqlite3> converts such files to
-SQLite3 database files.
+SQLite3 database files.  These can be loaded directly into the
+B<sqlite3> command-line database tool or converted into other
+spreadsheet formats.
 
 =head1 OPTIONS
 
@@ -41,7 +43,7 @@ B<bfbin2sqlite3> on that named pipe:
 
 =head1 SEE ALSO
 
-sqlite3(1), bfbin2text(1), bfbin2hdf5(1), bf-gcc(1), bf-g++(1),
+sqlite3(1), bfbin2csv(1), bfbin2hdf5(1), bf-gcc(1), bf-g++(1),
 bf-gfortran(1), bf-gccgo(1), L<the Byfl home
 page|https://github.com/losalamos/Byfl/>, L<the SQLite home
 page|http://www.sqlite.org/>

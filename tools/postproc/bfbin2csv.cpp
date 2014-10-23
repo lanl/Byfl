@@ -1,7 +1,7 @@
-/*******************************************************
- * Convert Byfl binary data to various textual formats *
- * By Scott Pakin <pakin@lanl.gov>                     *
- *******************************************************/
+/************************************************************
+ * Convert Byfl binary data to comma-separated value format *
+ * By Scott Pakin <pakin@lanl.gov>                          *
+ ************************************************************/
 
 #include <iostream>
 #include <fstream>
@@ -63,9 +63,9 @@ void LocalState::show_usage (ostream& os)
      << " [--colsep=<string>]"
      << " [--include=<table_name>]"
      << " [--exclude=<table_name>]"
-     << " [--no-data]"
-     << " [--no-column-names]"
      << " [--no-table-names]"
+     << " [--no-column-names]"
+     << " [--no-data]"
      << " <filename.byfl>\n";
 }
 
@@ -89,9 +89,9 @@ LocalState::LocalState (int argc, char* argv[])
     { "colsep",          required_argument, NULL, 'c' },
     { "include",         required_argument, NULL, 'i' },
     { "exclude",         required_argument, NULL, 'e' },
-    { "no-data",         no_argument,       NULL, 'D' },
-    { "no-column-names", no_argument,       NULL, 'C' },
     { "no-table-names",  no_argument,       NULL, 'T' },
+    { "no-column-names", no_argument,       NULL, 'C' },
+    { "no-data",         no_argument,       NULL, 'D' },
     { NULL,              0,                 NULL, 0 }
   };
   int opt_index = 0;
@@ -122,16 +122,16 @@ LocalState::LocalState (int argc, char* argv[])
         excluded_tables.emplace(optarg);
         break;
 
-      case 'D':
-        show.reset(SHOW_DATA);
+      case 'T':
+        show.reset(SHOW_TABLE_NAMES);
         break;
 
       case 'C':
         show.reset(SHOW_COLUMN_NAMES);
         break;
 
-      case 'T':
-        show.reset(SHOW_TABLE_NAMES);
+      case 'D':
+        show.reset(SHOW_DATA);
         break;
 
       case 0:

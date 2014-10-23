@@ -11,7 +11,7 @@ dist_bin_SCRIPTS = bf2cgrind bf2hpctk bf-parse-cache-dump
 bin_PROGRAMS =
 man1_MANS =
 CLEANFILES =
-EXTRA_DIST = bfbin2hdf5.pod bfbin2sqlite3.pod
+EXTRA_DIST = bfbin2hdf5.pod bfbin2csv.pod bfbin2sqlite3.pod
 
 lib_LTLIBRARIES = libbfbin.la
 libbfbin_la_SOURCES = parsebfbin.c bfbin.h
@@ -30,11 +30,13 @@ bfbin2hdf5_CXXFLAGS = $(H5CXXFLAGS)
 bfbin2hdf5_LDADD = libbfbin.la
 
 if GETOPT_LONG_AVAILABLE
-bin_PROGRAMS += bfbin2text
+bin_PROGRAMS += bfbin2csv
+man1_MANS += bfbin2csv.1
+CLEANFILES += bfbin2csv.1
 endif
-bfbin2text_SOURCES = bfbin2text.cpp
-bfbin2text_CPPFLAGS = -I$(top_srcdir)/include
-bfbin2text_LDADD = libbfbin.la
+bfbin2csv_SOURCES = bfbin2csv.cpp
+bfbin2csv_CPPFLAGS = -I$(top_srcdir)/include
+bfbin2csv_LDADD = libbfbin.la
 
 if SQLITE3_AVAILABLE
 bin_PROGRAMS += bfbin2sqlite3

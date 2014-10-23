@@ -10,7 +10,9 @@ B<bfbin2hdf5> I<input_file.byfl> [I<output_file.h5>]
 
 By default, applications instrumented with Byfl write measurement data
 to a binary F<.byfl> file.  B<bfbin2hdf5> converts such files to HDF5
-data files.
+data files.  These can be viewed with the
+L<HDFView|http://www.hdfgroup.org/products/java/hdfview/> GUI or
+processed with various command-line tools.
 
 =head1 OPTIONS
 
@@ -29,10 +31,10 @@ The simplest usage is just
 
 which produces F<myprog.h5>.
 
-If the F<.byfl> file is expected to be used only to produce the
-Hdf5 database and then deleted, one can save time and disk space by
-writing Byfl binary output to a named pipe and running
-B<bfbin2hdf5> on that named pipe:
+If the F<.byfl> file is expected to be used only to produce the HDF5
+data file and then deleted, one can save time and disk space by
+writing Byfl binary output to a named pipe and running B<bfbin2hdf5>
+on that named pipe:
 
     $ mkfifo myprog.pipe
     $ bfbin2hdf5 myprog.pipe myprog.h5 &
@@ -41,7 +43,7 @@ B<bfbin2hdf5> on that named pipe:
 
 =head1 SEE ALSO
 
-bfbin2text(1), bfbin2sqlite3(1), bf-gcc(1), bf-g++(1), bf-gfortran(1),
+bfbin2csv(1), bfbin2sqlite3(1), bf-gcc(1), bf-g++(1), bf-gfortran(1),
 bf-gccgo(1), L<the Byfl home page|https://github.com/losalamos/Byfl>,
 L<the HDF5 home page|http://www.hdfgroup.org/HDF5/>
 
