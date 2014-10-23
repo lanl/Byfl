@@ -294,9 +294,7 @@ static void convert_byfl_to_hdf5 (string byflfilename, string hdf5filename)
   state.hdf5file = hdf5file;
 
   // Convert a Byfl binary output file to an HDF5 file.
-  bf_process_byfl_file(byflfilename.c_str(),
-                       &callbacks, sizeof(bfbin_callback_t),
-                       &state);
+  bf_process_byfl_file(byflfilename.c_str(), &callbacks, &state);
 }
 
 int main (int argc, const char *argv[])

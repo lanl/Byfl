@@ -401,8 +401,6 @@ int main (int argc, char *argv[])
   callbacks.row_end_cb = end_row;
 
   // Process the input file.
-  bf_process_byfl_file(state.infilename.c_str(),
-                       &callbacks, sizeof(bfbin_callback_t),
-                       &state);
+  bf_process_byfl_file(state.infilename.c_str(), &callbacks, &state);
   return 0;
 }

@@ -8,7 +8,6 @@ bf_process_byfl_file - parse a Byfl binary output file
 
     void bf_process_byfl_file (const char *byfl_filename,
 			       bfbin_callback_t *callback_list,
-			       size_t callback_list_len,
 			       void *user_data);
 
 Link with I<-lbfbin>.
@@ -77,14 +76,9 @@ I<bfbin_callback_t>, which is declared as follows:
       void (*row_end_cb)(void *user_data);
     } bfbin_callback_t;
 
-The I<callback_list_len> argument specifies the caller's view of the
-number of bytes in a I<bfbin_callback_t> and is used as a crude form
-of version checking (i.e., to ensure that a client program was not
-built against one version of the F<bfbin> library and dynamically
-linked against a different version).  Finally, the I<user_data>
-argument is an arbitrary pointer that will be passed to each callback
-function.  Client programs will typically point I<user_data> to a
-structure of local state information.
+Finally, the I<user_data> argument is an arbitrary pointer that will
+be passed to each callback function.  Client programs will typically
+point I<user_data> to a structure of local state information.
 
 =head2 Callbacks
 

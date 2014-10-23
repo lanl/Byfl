@@ -332,8 +332,6 @@ int main (int argc, const char *argv[])
   callbacks.table_end_keyval_cb = end_any_table;
 
   // Process the input file.
-  bf_process_byfl_file(state.byflfilename.c_str(),
-                       &callbacks, sizeof(bfbin_callback_t),
-                       &state);
+  bf_process_byfl_file(state.byflfilename.c_str(), &callbacks, &state);
   return 0;
 }

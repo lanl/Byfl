@@ -453,18 +453,9 @@ static int process_byfl_table (parse_state_t *state)
  * point for the library. */
 void bf_process_byfl_file (const char *byfl_filename,
                            bfbin_callback_t *callback_list,
-                           size_t callback_list_len,
                            void *user_data)
 {
   parse_state_t local_state;  /* Local state information for parsing the input file */
-
-  /* Ensure the caller was built against the correct version of the
-   * header and library. */
-  if (sizeof(bfbin_callback_t) != callback_list_len) {
-    if (callback_list_len > sizeof(void *) && callback_list->error_cb != NULL)
-      callback_list->error_cb(user_data, "Mismatched bfbin header and library file");
-    return;
-  }
 
   /* Initialize our processing state. */
   memset(&local_state, 0, sizeof(parse_state_t));

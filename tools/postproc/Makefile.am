@@ -21,7 +21,7 @@ EXTRA_DIST = \
 lib_LTLIBRARIES = libbfbin.la
 libbfbin_la_SOURCES = parsebfbin.c bfbin.h
 libbfbin_la_CPPFLAGS = -I$(top_srcdir)/include -I$(srcdir)/../include
-libbfbin_la_LDFLAGS = -version-info 0:0:0
+libbfbin_la_LDFLAGS = -version-info 1:0:0
 pkginclude_HEADERS = bfbin.h
 
 if HDF5_AVAILABLE
