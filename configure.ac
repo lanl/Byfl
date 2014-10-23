@@ -10,11 +10,22 @@ AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign])
 LT_INIT
 
+dnl Specify various fixed strings to use in man pages.
+AC_MSG_CHECKING([the precise Byfl version])
+MAN_RELEASE="`git rev-parse --short HEAD 2>/dev/null`"
+if test "x$MAN_RELEASE" = x ; then
+   MAN_RELEASE="v$PACKAGE_VERSION"
+fi
+AC_MSG_RESULT([$MAN_RELEASE])
+AC_SUBST([MAN_RELEASE])
+AC_SUBST([MAN_CATEGORY], ["Byfl tools"])
+
 dnl Building Byfl's MPI wrappers requires Perl.
 AC_CHECK_PROGS([PERL], [perl], [no])
 if test "$PERL" = no ; then
    AC_MSG_ERROR([Byfl can't build without Perl])
 fi
+AC_CHECK_PROGS([POD2MAN], [pod2man], [pod2man])
 
 dnl We need grep, sed, and make within this script.
 AC_PROG_GREP

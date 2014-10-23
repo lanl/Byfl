@@ -61,7 +61,7 @@ blib: wrappers.mak
 	$(AM_V_at) touch wrappers.mak
 	$(AM_V_GEN) $(MAKE) $(SILENT_MAKE) -f wrappers.mak \
 	  MAN1EXT=1 \
-	  POD2MAN='$$(POD2MAN_EXE) --center=" " --release=v1.0' | uniq
+	  POD2MAN='$$(POD2MAN_EXE) --center="$(MAN_CATEGORY)" --release=$(MAN_RELEASE)' | uniq
 
 clean-local: wrappers.mak
 	-$(MAKE) -f wrappers.mak clean
@@ -76,7 +76,7 @@ clean-local: wrappers.mak
 install-exec-local: wrappers.mak
 	$(MAKE) $(SILENT_MAKE) -f wrappers.mak \
 	  MAN1EXT=1 \
-	  POD2MAN='$$(POD2MAN_EXE) --center=" " --release=v1.0' \
+	  POD2MAN='$$(POD2MAN_EXE) --center="$(MAN_CATEGORY)" --release=$(MAN_RELEASE)' \
 	  pure_install | uniq
 	$(AM_V_at) SITEMAN1DIR=`$(MAKE) -f wrappers.mak echo-INSTALLSITEMAN1DIR | $(GREP) "$(prefix)"` ; \
 	  export SITEMAN1DIR ; \

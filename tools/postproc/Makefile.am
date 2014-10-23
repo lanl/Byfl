@@ -9,6 +9,9 @@ CXX = $(H5CXX)
 
 dist_bin_SCRIPTS = bf2cgrind bf2hpctk bf-parse-cache-dump
 bin_PROGRAMS =
+man1_MANS =
+CLEANFILES =
+EXTRA_DIST = bfbin2sqlite3.pod
 
 lib_LTLIBRARIES = libbfbin.la
 libbfbin_la_SOURCES = parsebfbin.c bfbin.h
@@ -33,7 +36,12 @@ bfbin2text_LDADD = libbfbin.la
 
 if SQLITE3_AVAILABLE
 bin_PROGRAMS += bfbin2sqlite3
+man1_MANS += bfbin2sqlite3.1
+CLEANFILES += bfbin2sqlite3.1
 endif
 bfbin2sqlite3_SOURCES = bfbin2sqlite3.cpp
 bfbin2sqlite3_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2sqlite3_LDADD = libbfbin.la
+
+%.1: %.pod
+	$(POD2MAN) --section=1 --release="$(MAN_RELEASE)" --center="$(MAN_CATEGORY)" $< $@
