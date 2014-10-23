@@ -21,6 +21,10 @@ AC_PROG_GREP
 AC_PROG_SED
 AC_CHECK_PROGS([MAKE], [make gmake gnumake], [make])
 
+dnl If we have rst2man we can regenerate certain man pages.
+AC_CHECK_PROGS([RST2MAN], [rst2man], [no])
+AM_CONDITIONAL([RST2MAN_AVAILABLE], [test "x$ac_cv_prog_rst2man" != xno])
+
 dnl Use llvm-config to set our default compiler and linker flags.
 AC_CHECK_PROGS([LLVM_CONFIG], [llvm-config], [no])
 if test "$LLVM_CONFIG" = no ; then
