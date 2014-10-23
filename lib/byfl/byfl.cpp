@@ -835,17 +835,17 @@ void bf_report_bb_tallies (void)
              << bf_address_to_location_string(caller_addr);
 #endif
     }
-    *bfbin << counter_deltas.loads
-           << counter_deltas.stores
-           << counter_deltas.load_ins
+    *bfbin << counter_deltas.load_ins
            << counter_deltas.store_ins
            << counter_deltas.flops
-           << counter_deltas.fp_bits
-           << counter_deltas.ops
-           << counter_deltas.op_bits
+           << counter_deltas.ops - counter_deltas.flops - counter_deltas.load_ins - counter_deltas.store_ins - counter_deltas.terminators[BF_END_BB_ANY]
            << counter_deltas.terminators[BF_END_BB_STATIC]
            << counter_deltas.terminators[BF_END_BB_DYNAMIC]
            << counter_deltas.terminators[BF_END_BB_ANY] - (counter_deltas.terminators[BF_END_BB_STATIC] + counter_deltas.terminators[BF_END_BB_DYNAMIC])
+           << counter_deltas.fp_bits
+           << counter_deltas.op_bits
+           << counter_deltas.loads
+           << counter_deltas.stores
            << counter_deltas.mem_insts[BF_MEMSET_CALLS]
            << counter_deltas.mem_insts[BF_MEMSET_BYTES]
            << counter_deltas.mem_insts[BF_MEMXFER_CALLS]

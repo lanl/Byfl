@@ -1,0 +1,127 @@
+=head1 NAME
+
+bfbin2csv - convert Byfl output to a comma-separated value file
+
+=head1 SYNOPSIS
+
+B<bfbin2csv>
+[B<--output>=I<filename.csv>]
+[B<--colsep>=I<string>]
+[B<--include>=I<table_name>]
+[B<--exclude>=I<table_name>]
+[B<--no-table-names>]
+[B<--no-column-names>]
+[B<--no-data>]
+I<filename.byfl>
+
+B<bfbin2csv>
+B<--help>
+
+=head1 DESCRIPTION
+
+By default, applications instrumented with Byfl write measurement data
+to a binary F<.byfl> file.  B<bfbin2csv> converts such files to
+comma-separated value (F<.csv>) text files.  These can be processed
+programmatically using tools such as AWK and Perl or loaded into a
+spreadsheet program such as LibreOffice Calc or Microsoft Excel.
+
+=head1 OPTIONS
+
+B<bfbin2csv> accepts the following command-line options:
+
+=over 8
+
+=item B<-h>, B<--help>
+
+Output a brief usage message.
+
+=item B<-o> I<filename.csv>, B<--output>=I<filename.csv> 
+
+Specify the name of the output file.  By default, output is written to
+the standard output device.
+
+=item B<-c> I<string>, B<--colsep>=I<string>
+
+Replace the comma as the column separator with I<string>.
+
+=item B<-i> I<table_name>, B<--include>=I<table_name>
+
+Include only the table called I<table_name> in the output, ignoring
+all others.  This option can be specified repeatedly to list multiple
+tables to include.
+
+=item B<-e> I<table_name>, B<--exclude>=I<table_name>
+
+Exclude the table called I<table_name> in the output while including
+all others.  This option can be specified repeatedly to list multiple
+tables to exclude.
+
+=item B<-T>, B<--no-table-names>
+
+Suppress the output of the table name before the table contents.
+
+=item B<-C>, B<--no-column-names>
+
+Suppress the output of the column names in each table.
+
+=item B<-D>, B<--no-data>
+
+Suppress the output of each table's data.
+
+=back
+
+=head1 EXAMPLES
+
+The simplest usage is just
+
+    $ bfbin2csv myprog.byfl -o myprog.csv
+
+which produces F<myprog.csv>.
+
+B<bfbin2csv> can be used to list all of the tables in a F<.byfl> file:
+
+    $ bfbin2csv --no-column-names --no-data myprog.byfl
+    "Basic blocks"
+    "Functions"
+    "Called functions"
+    "Vector operations"
+    "Program"
+    "Memory accesses by data type"
+    "Instruction mix"
+    "Memory locality"
+    "Environment variables"
+    "Command line"
+    "Byfl options"
+
+Combining B<bfbin2csv> and B<awk> makes it easy to perform simple
+operations on the data:
+
+    $ bfbin2csv --include="Basic blocks" --no-table-name --no-data myprog.byfl
+    "Tag","Address","Symbolic location","Load operations","Store operations","Floating-point operations","Integer operations","Unconditional and direct branch operations","Conditional or indirect branch operations","Other branch operations","Floating-point operation bits","Integer operation bits","Bytes loaded","Bytes stored","Calls to memset","Bytes stored by memset","Calls to memcpy and memmove","Bytes loaded and stored by memcpy and memmove"
+    $ bfbin2csv --include="Basic blocks" --no-table-name --no-data myprog.byfl | awk -F, '{print $13, $14, $6}' 
+    "Bytes loaded" "Bytes stored" "Floating-point operations"
+    $ bfbin2csv --include="Basic blocks" --no-table-name --no-column-names myprog.byfl | awk -F, '$6>0 {print ($13+$14)/$6}' | sort -u
+    0.8
+    4
+    8
+    24
+
+If the F<.byfl> file is expected to be used only to produce the CSV
+file and then deleted, one can save time and disk space by writing
+Byfl binary output to a named pipe and running B<bfbin2csv> on that
+named pipe:
+
+    $ mkfifo myprog.pipe
+    $ bfbin2csv myprog.pipe -o myprog.csv &
+    $ env BF_BINOUT=myprog.pipe ./myprog
+    $ rm myprog.pipe
+
+=head1 SEE ALSO
+
+awk(1), perl(1), bfbin2hdf5(1), bfbin2sqlite3(1), bf-gcc(1),
+bf-g++(1), bf-gfortran(1), bf-gccgo(1), L<the Byfl home
+page|https://github.com/losalamos/Byfl/>
+
+=head1 AUTHOR
+
+Scott Pakin, I<pakin@lanl.gov>
