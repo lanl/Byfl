@@ -23,16 +23,16 @@ file name.)
 
 =head1 EXAMPLES
 
-The simplest usage is just the following::
+The simplest usage is just
 
     $ bfbin2sqlite3 myprog.byfl
 
-This produces F<myprog.db>.
+which produces F<myprog.db>.
 
 If the F<.byfl> file is expected to be used only to produce the
 SQLite3 database and then deleted, one can save time and disk space by
 writing Byfl binary output to a named pipe and running
-B<bfbin2sqlite3> on that named pipe::
+B<bfbin2sqlite3> on that named pipe:
 
     $ mkfifo myprog.pipe
     $ bfbin2sqlite3 myprog.pipe myprog.db &
@@ -41,8 +41,10 @@ B<bfbin2sqlite3> on that named pipe::
 
 =head1 SEE ALSO
 
-bfbin2text(1), bfbin2hdf5(1), bf-gcc(1), bf-g++(1), bf-gfortran(1),
-bf-gccgo(1), L<the Byfl home page|https://github.com/losalamos/Byfl>
+sqlite3(1), bfbin2text(1), bfbin2hdf5(1), bf-gcc(1), bf-g++(1),
+bf-gfortran(1), bf-gccgo(1), L<the Byfl home
+page|https://github.com/losalamos/Byfl/>, L<the SQLite home
+page|http://www.sqlite.org/>
 
 =head1 AUTHOR
 

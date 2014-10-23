@@ -11,7 +11,7 @@ dist_bin_SCRIPTS = bf2cgrind bf2hpctk bf-parse-cache-dump
 bin_PROGRAMS =
 man1_MANS =
 CLEANFILES =
-EXTRA_DIST = bfbin2sqlite3.pod
+EXTRA_DIST = bfbin2hdf5.pod bfbin2sqlite3.pod
 
 lib_LTLIBRARIES = libbfbin.la
 libbfbin_la_SOURCES = parsebfbin.c bfbin.h
@@ -21,6 +21,8 @@ pkginclude_HEADERS = bfbin.h
 
 if HDF5_AVAILABLE
 bin_PROGRAMS += bfbin2hdf5
+man1_MANS += bfbin2hdf5.1
+CLEANFILES += bfbin2hdf5.1
 endif
 bfbin2hdf5_SOURCES = bfbin2hdf5.cpp
 bfbin2hdf5_CPPFLAGS = -I$(top_srcdir)/include

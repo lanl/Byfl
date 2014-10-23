@@ -1,0 +1,50 @@
+=head1 NAME
+
+bfbin2hdf5 - convert Byfl output to an HDF5 data file
+
+=head1 SYNOPSIS
+
+B<bfbin2hdf5> I<input_file.byfl> [I<output_file.h5>]
+
+=head1 DESCRIPTION
+
+By default, applications instrumented with Byfl write measurement data
+to a binary F<.byfl> file.  B<bfbin2hdf5> converts such files to HDF5
+data files.
+
+=head1 OPTIONS
+
+B<bfbin2hdf5> has no command-line options.  The program accepts the
+name of a F<.byfl> file to read and a HDF5 data file to create.  If
+not specified, the name of the data file will be the same as that of
+the input file but with F<.byfl> replaced with F<.h5>.  (If the file
+name does not end in F<.byfl> then F<.h5> will be appended to the file
+name.)
+
+=head1 EXAMPLES
+
+The simplest usage is just
+
+    $ bfbin2hdf5 myprog.byfl
+
+which produces F<myprog.h5>.
+
+If the F<.byfl> file is expected to be used only to produce the
+Hdf5 database and then deleted, one can save time and disk space by
+writing Byfl binary output to a named pipe and running
+B<bfbin2hdf5> on that named pipe:
+
+    $ mkfifo myprog.pipe
+    $ bfbin2hdf5 myprog.pipe myprog.h5 &
+    $ env BF_BINOUT=myprog.pipe ./myprog
+    $ rm myprog.pipe
+
+=head1 SEE ALSO
+
+bfbin2text(1), bfbin2sqlite3(1), bf-gcc(1), bf-g++(1), bf-gfortran(1),
+bf-gccgo(1), L<the Byfl home page|https://github.com/losalamos/Byfl>,
+L<the HDF5 home page|http://www.hdfgroup.org/HDF5/>
+
+=head1 AUTHOR
+
+Scott Pakin, I<pakin@lanl.gov>
