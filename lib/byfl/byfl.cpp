@@ -964,7 +964,9 @@ private:
 
   // Report per-function counter totals.
   void report_by_function (void) {
+    // Aggregate and sort our function-call data.
     aggregate_call_tallies();
+    vector<KeyType_t>* all_funcs = per_func_totals().sorted_keys(compare_keys_to_names);
 
     // Output a textual header line.
     *bfout << bf_output_prefix
@@ -992,18 +994,24 @@ private:
 
     // Output a binary table header.
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Functions";
-    *bfbin << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"
+    *bfbin << uint8_t(BINOUT_COL_UINT64) << "Load operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Store operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Other branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Floating-point operation bits"
+           << uint8_t(BINOUT_COL_UINT64) << "Integer operation bits"
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"
            << uint8_t(BINOUT_COL_UINT64) << "Bytes stored"
-           << uint8_t(BINOUT_COL_UINT64) << "Load ops"
-           << uint8_t(BINOUT_COL_UINT64) << "Store ops"
-           << uint8_t(BINOUT_COL_UINT64) << "Flops"
-           << uint8_t(BINOUT_COL_UINT64) << "Flop bits"
-           << uint8_t(BINOUT_COL_UINT64) << "Integer ops"
-           << uint8_t(BINOUT_COL_UINT64) << "Integer op bits";
+           << uint8_t(BINOUT_COL_UINT64) << "Calls to memset"
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes stored by memset"
+           << uint8_t(BINOUT_COL_UINT64) << "Calls to memcpy and memmove"
+           << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded and stored by memcpy and memmove";
     if (bf_unique_bytes)
       *bfbin << uint8_t(BINOUT_COL_UINT64) << "Unique bytes";
-    *bfbin << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branches"
-           << uint8_t(BINOUT_COL_UINT64) << "Invocations";
+    *bfbin << uint8_t(BINOUT_COL_UINT64) << "Invocations";
     if (bf_call_stack)
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled call stack"
              << uint8_t(BINOUT_COL_STRING) << "Demangled call stack";
@@ -1014,13 +1022,19 @@ private:
 
     // Output the data by sorted function name in both textual and
     // binary formats.
-    vector<KeyType_t> * all_funcs = per_func_totals().sorted_keys(compare_keys_to_names);
     for (vector<KeyType_t>::iterator fn_iter = all_funcs->begin();
          fn_iter != all_funcs->end();
          fn_iter++) {
+      // Gather information for the current function or call stack.
       const string funcname = key_to_func()[*fn_iter];
       const char* funcname_c = bf_string_to_symbol(funcname.c_str());
       ByteFlopCounters* func_counters = per_func_totals()[*fn_iter];
+      uint64_t invocations = final_call_tallies()[funcname_c];
+      uint64_t num_uniq_bytes;
+      if (bf_unique_bytes)
+        num_uniq_bytes = bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c);
+
+      // Output textual function data.
       *bfout << bf_output_prefix
              << "BYFL_FUNC:        "
              << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
@@ -1029,29 +1043,35 @@ private:
              << setw(HDR_COL_WIDTH) << func_counters->store_ins << ' '
              << setw(HDR_COL_WIDTH) << func_counters->flops << ' '
              << setw(HDR_COL_WIDTH) << func_counters->fp_bits << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->ops << ' '
+             << setw(HDR_COL_WIDTH) << func_counters->ops - func_counters->flops - func_counters->load_ins - func_counters->store_ins - func_counters->terminators[BF_END_BB_ANY] << ' '
              << setw(HDR_COL_WIDTH) << func_counters->op_bits;
-      *bfbin << uint8_t(BINOUT_ROW_DATA)
-             << func_counters->loads
-             << func_counters->stores
-             << func_counters->load_ins
-             << func_counters->store_ins
-             << func_counters->flops
-             << func_counters->fp_bits
-             << func_counters->ops
-             << func_counters->op_bits;
-      if (bf_unique_bytes) {
-        uint64_t num_uniq_bytes = bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c);
+      if (bf_unique_bytes)
         *bfout << ' ' << setw(HDR_COL_WIDTH) << num_uniq_bytes;
-        *bfbin << num_uniq_bytes;
-      }
-      uint64_t invocations = final_call_tallies()[funcname_c];
       *bfout << ' '
              << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
              << setw(HDR_COL_WIDTH) << invocations << ' '
              << funcname_c << '\n';
-      *bfbin << func_counters->terminators[BF_END_BB_DYNAMIC]
-             << invocations
+
+      // Output binary function data.
+      *bfbin << uint8_t(BINOUT_ROW_DATA)
+             << func_counters->load_ins
+             << func_counters->store_ins
+             << func_counters->flops
+             << func_counters->ops - func_counters->flops - func_counters->load_ins - func_counters->store_ins - func_counters->terminators[BF_END_BB_ANY]
+             << func_counters->terminators[BF_END_BB_STATIC]
+             << func_counters->terminators[BF_END_BB_DYNAMIC]
+             << func_counters->terminators[BF_END_BB_ANY] - (func_counters->terminators[BF_END_BB_STATIC] + func_counters->terminators[BF_END_BB_DYNAMIC])
+             << func_counters->fp_bits
+             << func_counters->op_bits
+             << func_counters->loads
+             << func_counters->stores
+             << func_counters->mem_insts[BF_MEMSET_CALLS]
+             << func_counters->mem_insts[BF_MEMSET_BYTES]
+             << func_counters->mem_insts[BF_MEMXFER_CALLS]
+             << func_counters->mem_insts[BF_MEMXFER_BYTES];
+      if (bf_unique_bytes)
+        *bfbin << num_uniq_bytes;
+      *bfbin << invocations
              << funcname_c
              << demangle_func_name(funcname_c);
     }
