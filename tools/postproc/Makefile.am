@@ -10,8 +10,13 @@ CXX = $(H5CXX)
 dist_bin_SCRIPTS = bf2cgrind bf2hpctk bf-parse-cache-dump
 bin_PROGRAMS =
 man1_MANS =
-CLEANFILES =
-EXTRA_DIST = bfbin2hdf5.pod bfbin2csv.pod bfbin2sqlite3.pod
+man3_MANS = bf_process_byfl_file.3
+CLEANFILES = bf_process_byfl_file.3
+EXTRA_DIST = \
+	bfbin2hdf5.pod \
+	bfbin2csv.pod \
+	bfbin2sqlite3.pod \
+	bf_process_byfl_file.pod
 
 lib_LTLIBRARIES = libbfbin.la
 libbfbin_la_SOURCES = parsebfbin.c bfbin.h
@@ -48,4 +53,16 @@ bfbin2sqlite3_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2sqlite3_LDADD = libbfbin.la
 
 %.1: %.pod
-	$(POD2MAN) --section=1 --release="$(MAN_RELEASE)" --center="$(MAN_CATEGORY)" $< $@
+	$(POD2MAN) \
+	  --section=1 \
+	  --release="$(MAN_RELEASE)" \
+	  --center="$(MAN_CATEGORY)" \
+	  $< $@
+
+%.3: %.pod
+	$(POD2MAN) \
+	  --section=3 \
+	  --release="$(MAN_RELEASE)" \
+	  --center="$(MAN_CATEGORY)" \
+	  --name="`basename $< .pod | tr a-z A-Z`" \
+	  $< $@

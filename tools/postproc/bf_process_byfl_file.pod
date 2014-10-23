@@ -1,0 +1,189 @@
+=head1 NAME
+
+bf_process_byfl_file - parse a Byfl binary output file
+
+=head1 SYNOPSIS
+
+    #include <bfbin.h>
+
+    void bf_process_byfl_file (const char *byfl_filename,
+			       bfbin_callback_t *callback_list,
+			       size_t callback_list_len,
+			       void *user_data);
+
+Link with I<-lbfbin>.
+
+=head1 DESCRIPTION
+
+=head2 Overview
+
+Byfl-instrumented applications output detailed performance data to a
+binary file (by default with a F<.byfl> extension).  The
+B<bf_process_byfl_file()> function simplifies the parsing of such
+files for use in converting a F<.byfl> file to a different format
+(e.g., a database) or in processing the data directly (e.g., to
+compute statistics or visualize patterns).
+
+A F<.byfl> file consists of multiple tables.  Each table has a name
+and contains a number of rows and columns.  Each column has a name and
+a data type that applies to every value in the column.  Rows are
+anonymous.
+
+There are current only three supported data types: unsigned 64-bit
+integers, strings, and Booleans.
+
+The Byfl binary output file format internally represents two types of
+tables.  "Basic" tables store a complete column header (i.e., column 1
+name, column 1 data type, column 2 name, column 2 data type, ...)
+followed by zero or more rows of data.  "Key:value" tables alternate
+column headers and data values (i.e., column 1 name, column 1 data
+type, column 1 data, column 2 name, column 2 data type, column 2 data,
+...) and represent exactly one row of data.  The reason for supporting
+two types of data is for fast and easy generation of the F<.byfl> file
+by the Byfl run-time library.  B<bf_process_byfl_file()> hides this
+distinction from the client program by always invoking all of the
+column-header callback functions before any of the row-data callback
+functions.
+
+=head2 Function arguments
+
+B<bf_process_byfl_file()> presents a callback interface that invokes
+specified functions for each element of a F<.byfl> file (e.g., table,
+column header, data element).  The I<byfl_filename> argument specifies
+the name of the F<.byfl> file to parse.  The file will be read
+sequentially so, if desired, it can be a named pipe instead of a
+normal file.  I<callback_list> specifies the set of callback functions
+that B<bf_process_byfl_file()> can call.  It is of type
+I<bfbin_callback_t>, which is declared as follows:
+
+    typedef struct {
+      void (*error_cb)(void *user_data, const char *message);
+
+      void (*table_begin_basic_cb)(void *user_data, const char *name);
+      void (*table_end_basic_cb)(void *user_data);
+      void (*table_begin_keyval_cb)(void *user_data, const char *name);
+      void (*table_end_keyval_cb)(void *user_data);
+
+      void (*column_begin_cb)(void *user_data);
+      void (*column_uint64_cb)(void *user_data, const char *name);
+      void (*column_string_cb)(void *user_data, const char *name);
+      void (*column_bool_cb)(void *user_data, const char *name);
+      void (*column_end_cb)(void *user_data);
+
+      void (*row_begin_cb)(void *user_data);
+      void (*data_uint64_cb)(void *user_data, uint64_t data);
+      void (*data_string_cb)(void *user_data, const char *data);
+      void (*data_bool_cb)(void *user_data, uint8_t data);
+      void (*row_end_cb)(void *user_data);
+    } bfbin_callback_t;
+
+The I<callback_list_len> argument specifies the caller's view of the
+number of bytes in a I<bfbin_callback_t> and is used as a crude form
+of version checking (i.e., to ensure that a client program was not
+built against one version of the F<bfbin> library and dynamically
+linked against a different version).  Finally, the I<user_data>
+argument is an arbitrary pointer that will be passed to each callback
+function.  Client programs will typically point I<user_data> to a
+structure of local state information.
+
+=head2 Callbacks
+
+Any of the function pointers in B<bf_process_byfl_file()>'s
+I<callback_list> argument can be NULL.  In this case,
+B<bf_process_byfl_file()> will not invoke a callback function for the
+associated F<.byfl> file element.
+
+All callback functions receive as their first argument the pointer
+passed to B<bf_process_byfl_file()>.
+
+The following is a description of all of the callback functions in the
+order they are invoked by B<bf_process_byfl_file()>:
+
+=over 4
+
+=item I<table_begin_basic_cb>
+
+=item I<table_begin_keyval_cb>
+
+One of these two callbacks, based on the internal table representation
+in the Byfi binary output file ("basic" or "key:value"), is invoked at
+the start of each table.  These callbacks are provided the name of the
+table (e.g., I<Instruction mix> or I<Basic blocks>).  Typically,
+I<table_begin_basic_cb> and I<table_begin_keyval_cb> will point to the
+same callback function.  However, some client programs may wish to
+process the two tables differently.  For example, because a key:value
+table contains exactly one row, a client program might buffer the
+column header and data values and transpose these to output one "The
+value of I<key> is I<value>" string per line of output.
+
+=item I<column_begin_cb>
+
+This callback function is invoked at the start of the column-header
+definition.  It takes no arguments apart from I<user_data>.
+
+=item I<column_uint64_cb>
+
+=item I<column_string_cb>
+
+=item I<column_bool_cb>
+
+One of these callbacks, based on the column's data type, is invoked
+for each column of the table.  The callback is provided a column name
+(e.g., I<Floating-point operations> or I<Bytes stored>).
+
+=item I<column_end_cb>
+
+This callback function is invoked after all column headers in the
+current table have been processed.  It takes no arguments apart from
+I<user_data>.
+
+=item I<row_begin_cb>
+
+This callback function is invoked at the start of each row of data.
+It takes no arguments apart from I<user_data>.
+
+=item I<row_uint64_cb>
+
+=item I<row_string_cb>
+
+=item I<row_bool_cb>
+
+One of these callbacks, based on the column's data type, is invoked
+for each element of the current table row.  The callback is provided
+the value that appears in the corresponding table cell: an unsigned
+64-bit integer, a NULL-terminated string, or a Boolean expressed as an
+unsigned 8-bit integer (0 for I<false> and 1 for I<true>).
+
+=item I<row_end_cb>
+
+This callback function is invoked after each row of a table has been
+processed.  It takes no arguments apart from I<user_data>.
+
+=item I<table_end_basic_cb>
+
+=item I<table_end_keyval_cb>
+
+One of these two callbacks, based on the internal table representation
+in the Byfi binary output file ("basic" or "key:value"), is invoked at
+the end of each table.  They signify that no more rows of data will
+be written to the current table.
+
+=item I<error_cb>
+
+If B<bf_process_byfl_file()> encounters any type of error during
+processing, it invokes the I<error_cb> callback with an
+English-language string describing the error.
+B<bf_process_byfl_file()> then returns without processing the rest of
+the F<.byfl> file.
+
+=back
+
+=head1 SEE ALSO
+
+bfbin2hdf5(1), bfbin2csv(1), bfbin2sqlite3(1), bf-gcc(1), bf-g++(1),
+bf-gfortran(1), bf-gccgo(1), L<the Byfl home
+page|https://github.com/losalamos/Byfl>
+
+=head1 AUTHOR
+
+Scott Pakin, I<pakin@lanl.gov>
