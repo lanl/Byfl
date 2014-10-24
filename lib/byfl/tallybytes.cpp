@@ -213,15 +213,10 @@ void bf_assoc_addresses_with_prog_tb (uint64_t baseaddr, uint64_t numaddrs)
 }
 
 // Return true if one {count, multiplier} pair has a greater
-// count*multiplier product than another.
-bool more_accesses_than (bf_addr_tally_t a, bf_addr_tally_t b)
+// count than another.
+bool greater_count_than (bf_addr_tally_t a, bf_addr_tally_t b)
 {
-  uint64_t total_accesses_1 = a.first*a.second;
-  uint64_t total_accesses_2 = b.first*b.second;
-
-  if (total_accesses_1 != total_accesses_2)
-    return total_accesses_1 > total_accesses_2;
-  return a.first < b.first;
+  return a.first > b.first;
 }
 
 // Convert a collection of tallies to a histogram, freeing the former
@@ -256,8 +251,10 @@ void get_address_tally_hist (page_to_counts_t& mapping, vector<bf_addr_tally_t>&
     *total += c2m_iter->second;
   }
 
-  // Sort the resulting vector by decreasing multiplier.
-  sort(histogram.begin(), histogram.end(), more_accesses_than);
+  // Sort the resulting vector by decreasing access count.  That is x
+  // accesses to each of y unique bytes will appear before x-a
+  // accesses to each of z unique bytes, regardless of y and z.
+  sort(histogram.begin(), histogram.end(), greater_count_than);
 }
 
 // Convert a collection of global tallies to a histogram, freeing the
