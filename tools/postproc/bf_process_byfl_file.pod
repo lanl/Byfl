@@ -4,7 +4,7 @@ bf_process_byfl_file - parse a Byfl binary output file
 
 =head1 SYNOPSIS
 
-    #include <bfbin.h>
+    #include <byfl/bfbin.h>
 
     void bf_process_byfl_file (const char *byfl_filename,
 			       bfbin_callback_t *callback_list,
