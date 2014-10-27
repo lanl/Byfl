@@ -343,7 +343,8 @@ namespace bytesflops_pass {
     // Instrument Call instructions.
     void instrument_call(Module* module,
                          Instruction* inst,
-                         BasicBlock::iterator& insert_before);
+                         BasicBlock::iterator& insert_before,
+                         int& must_clear);
 
     // Instrument all instructions.
     void instrument_all(Instruction& iter,

@@ -261,8 +261,10 @@ namespace bytesflops_pass {
   // over calls to llvm.dbg.*.
   void BytesFlops::instrument_call(Module* module,
                                    Instruction* inst,
-                                   BasicBlock::iterator& insert_before) {
+                                   BasicBlock::iterator& insert_before,
+                                   int& must_clear) {
     increment_global_variable(insert_before, call_inst_var, one);
+    must_clear |= CLEAR_CALLS;
     Function* func = dyn_cast<CallInst>(inst)->getCalledFunction();
     if (!func)
       return;
@@ -510,7 +512,7 @@ namespace bytesflops_pass {
             break;
 
           case Instruction::Call:
-            instrument_call(module, &inst, terminator_inst);
+            instrument_call(module, &inst, terminator_inst, must_clear);
             break;
 
           default:
