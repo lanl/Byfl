@@ -18,7 +18,8 @@ namespace bytesflops_pass {
   const int BytesFlops::CLEAR_FP_BITS        =   8;
   const int BytesFlops::CLEAR_OPS            =  16;
   const int BytesFlops::CLEAR_OP_BITS        =  32;
-  const int BytesFlops::CLEAR_MEM_TYPES      =  64;
+  const int BytesFlops::CLEAR_CALLS          =  64;
+  const int BytesFlops::CLEAR_MEM_TYPES      = 128;
 
   /**
    * Create a constructor for the module in which we make a call to
@@ -261,6 +262,7 @@ namespace bytesflops_pass {
   void BytesFlops::instrument_call(Module* module,
                                    Instruction* inst,
                                    BasicBlock::iterator& insert_before) {
+    increment_global_variable(insert_before, call_inst_var, one);
     Function* func = dyn_cast<CallInst>(inst)->getCalledFunction();
     if (!func)
       return;
@@ -561,8 +563,6 @@ namespace bytesflops_pass {
 
     BranchInst::Create(&old_entry, new_entry);
   }
-
-
 
   bool BytesFlops::doFinalization(Module& module)
   {

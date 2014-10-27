@@ -40,6 +40,7 @@ public:
   uint64_t stores;                    // Number of bytes stored
   uint64_t load_ins;                  // Number of load instructions executed
   uint64_t store_ins;                 // Number of store instructions executed
+  uint64_t call_ins;                  // Number of function calls executed
   uint64_t flops;                     // Number of floating-point operations performed
   uint64_t fp_bits;                   // Number of bits consumed or produced by all FP operations
   uint64_t ops;                       // Number of operations of any type performed
@@ -54,6 +55,7 @@ public:
                     uint64_t initial_stores=0,
                     uint64_t initial_load_ins=0,
                     uint64_t initial_store_ins=0,
+                    uint64_t initial_call_ins=0,
                     uint64_t initial_flops=0,
                     uint64_t initial_fp_bits=0,
                     uint64_t initial_ops=0,
@@ -91,14 +93,15 @@ public:
     else
       for (size_t i = 0; i < BF_NUM_MEM_INTRIN; i++)
         mem_intrinsics[i] = initial_mem_intrinsics[i];
-    loads    = initial_loads;
-    stores   = initial_stores;
-    load_ins = initial_load_ins;
-    store_ins= initial_store_ins;
-    flops    = initial_flops;
-    fp_bits  = initial_fp_bits;
-    ops      = initial_ops;
-    op_bits  = initial_op_bits;
+    loads     = initial_loads;
+    stores    = initial_stores;
+    load_ins  = initial_load_ins;
+    store_ins = initial_store_ins;
+    call_ins  = initial_call_ins;
+    flops     = initial_flops;
+    fp_bits   = initial_fp_bits;
+    ops       = initial_ops;
+    op_bits   = initial_op_bits;
   }
 
   // Assign new values into our counters.
@@ -110,6 +113,7 @@ public:
                uint64_t new_stores,
                uint64_t new_load_ins,
                uint64_t new_store_ins,
+               uint64_t new_call_ins,
                uint64_t new_flops,
                uint64_t new_fp_bits,
                uint64_t new_ops,
@@ -133,6 +137,7 @@ public:
     stores    = new_stores;
     load_ins  = new_load_ins;
     store_ins = new_store_ins;
+    call_ins  = new_call_ins;
     flops     = new_flops;
     fp_bits   = new_fp_bits;
     ops       = new_ops;
@@ -148,6 +153,7 @@ public:
                    uint64_t more_stores,
                    uint64_t more_load_ins,
                    uint64_t more_store_ins,
+                   uint64_t more_call_ins,
                    uint64_t more_flops,
                    uint64_t more_fp_bits,
                    uint64_t more_ops,
@@ -171,6 +177,7 @@ public:
     stores    += more_stores;
     load_ins  += more_load_ins;
     store_ins += more_store_ins;
+    call_ins  += more_call_ins;
     flops     += more_flops;
     fp_bits   += more_fp_bits;
     ops       += more_ops;
@@ -198,6 +205,7 @@ public:
     stores    += other->stores;
     load_ins  += other->load_ins;
     store_ins += other->store_ins;
+    call_ins  += other->call_ins;
     flops     += other->flops;
     fp_bits   += other->fp_bits;
     ops       += other->ops;
@@ -234,6 +242,7 @@ public:
                                   stores - other->stores,
                                   load_ins - other->load_ins,
                                   store_ins - other->store_ins,
+                                  call_ins = other->call_ins,
                                   flops - other->flops,
                                   fp_bits - other->fp_bits,
                                   ops - other->ops,
@@ -247,6 +256,7 @@ public:
                      stores - other->stores,
                      load_ins - other->load_ins,
                      store_ins - other->store_ins,
+                     call_ins - other->call_ins,
                      flops - other->flops,
                      fp_bits - other->fp_bits,
                      ops - other->ops,
@@ -276,6 +286,7 @@ public:
     stores    = 0;
     load_ins  = 0;
     store_ins = 0;
+    call_ins  = 0;
     flops     = 0;
     fp_bits   = 0;
     ops       = 0;
@@ -292,6 +303,7 @@ uint64_t* bf_terminator_count = NULL; // Tally of terminators by type
 uint64_t* bf_mem_intrin_count = NULL; // Tally of memory intrinsic calls and data movement
 uint64_t  bf_load_ins_count   = 0;    // Tally of the number of load instructions performed
 uint64_t  bf_store_ins_count  = 0;    // Tally of the number of store instructions performed
+uint64_t  bf_call_ins_count   = 0;    // Tally of the number of function-call instructions performed
 uint64_t  bf_flop_count       = 0;    // Tally of the number of FP operations performed
 uint64_t  bf_fp_bits_count    = 0;    // Tally of the number of bits used by all FP operations
 uint64_t  bf_op_count         = 0;    // Tally of the number of operations performed
@@ -753,6 +765,7 @@ void bf_accumulate_bb_tallies (void)
                          bf_store_count,
                          bf_load_ins_count,
                          bf_store_ins_count,
+                         bf_call_ins_count,
                          bf_flop_count,
                          bf_fp_bits_count,
                          bf_op_count,
@@ -802,6 +815,7 @@ void bf_report_bb_tallies (void)
            << uint8_t(BINOUT_COL_UINT64) << "Store operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Function-call operations"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Other branch operations"
@@ -839,6 +853,7 @@ void bf_report_bb_tallies (void)
            << counter_deltas.store_ins
            << counter_deltas.flops
            << counter_deltas.ops - counter_deltas.flops - counter_deltas.load_ins - counter_deltas.store_ins - counter_deltas.terminators[BF_END_BB_ANY]
+           << counter_deltas.call_ins
            << counter_deltas.terminators[BF_END_BB_STATIC]
            << counter_deltas.terminators[BF_END_BB_DYNAMIC]
            << counter_deltas.terminators[BF_END_BB_ANY] - (counter_deltas.terminators[BF_END_BB_STATIC] + counter_deltas.terminators[BF_END_BB_DYNAMIC])
@@ -887,6 +902,7 @@ void bf_assoc_counters_with_func (KeyType_t funcID)
                            bf_store_count,
                            bf_load_ins_count,
                            bf_store_ins_count,
+                           bf_call_ins_count,
                            bf_flop_count,
                            bf_fp_bits_count,
                            bf_op_count,
@@ -903,6 +919,7 @@ void bf_assoc_counters_with_func (KeyType_t funcID)
                               bf_store_count,
                               bf_load_ins_count,
                               bf_store_ins_count,
+                              bf_call_ins_count,
                               bf_flop_count,
                               bf_fp_bits_count,
                               bf_op_count,
@@ -998,6 +1015,7 @@ private:
            << uint8_t(BINOUT_COL_UINT64) << "Store operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Function-call operations"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Other branch operations"
@@ -1058,6 +1076,7 @@ private:
              << func_counters->store_ins
              << func_counters->flops
              << func_counters->ops - func_counters->flops - func_counters->load_ins - func_counters->store_ins - func_counters->terminators[BF_END_BB_ANY]
+             << func_counters->call_ins
              << func_counters->terminators[BF_END_BB_STATIC]
              << func_counters->terminators[BF_END_BB_DYNAMIC]
              << func_counters->terminators[BF_END_BB_ANY] - (func_counters->terminators[BF_END_BB_STATIC] + func_counters->terminators[BF_END_BB_DYNAMIC])
@@ -1169,15 +1188,16 @@ private:
     *bfout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
            << counter_totals.load_ins << " loads + "
            << counter_totals.store_ins << " stores)\n";
-    *bfout << tag << ": " << setw(25) << term_any << " branch ops ("
+    *bfout << tag << ": " << setw(25) << term_any + counter_totals.call_ins << " branch ops ("
            << term_static << " unconditional and direct + "
            << term_dynamic << " conditional or indirect + "
+           << counter_totals.call_ins << " function calls + "
            << term_any - term_static - term_dynamic << " other)\n";
-    *bfout << tag << ": " << setw(25) << counter_totals.ops << " TOTAL OPS\n";
+    *bfout << tag << ": " << setw(25) << counter_totals.ops + counter_totals.call_ins << " TOTAL OPS\n";
 
     // Do the same but in binary format.  Note that we include FP bits
-    // and op bits here rather than below, as with the text-format
-    // output.
+    // and op bits here rather than below, in contrast to the
+    // text-format output.
     *bfbin << uint8_t(BINOUT_TABLE_KEYVAL)
            << (partition ? string("User-defined tag ") + string(partition) : "Program");
     *bfbin << uint8_t(BINOUT_COL_UINT64)
@@ -1198,6 +1218,9 @@ private:
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Conditional or indirect branch operations"
            << term_dynamic;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Function-call operations"
+           << counter_totals.call_ins;
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Other branch operations"
            << term_any - term_static - term_dynamic;
@@ -1451,7 +1474,7 @@ private:
       *bfbin << uint8_t(BINOUT_ROW_NONE);
     }
 
-    // Report a bunch of derived measurements.
+    // Report a bunch of derived measurements (textually only).
     if (counter_totals.stores > 0) {
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
              << (double)counter_totals.loads / (double)counter_totals.stores
@@ -1695,6 +1718,7 @@ public:
                                bf_store_count,
                                bf_load_ins_count,
                                bf_store_ins_count,
+                               bf_call_ins_count,
                                bf_flop_count,
                                bf_fp_bits_count,
                                bf_op_count,

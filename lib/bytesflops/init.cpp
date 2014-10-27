@@ -160,6 +160,7 @@ namespace bytesflops_pass {
 
     op_var         = declare_global_var(module, i64type, "bf_op_count");
     op_bits_var    = declare_global_var(module, i64type, "bf_op_bits_count");
+    call_inst_var  = declare_global_var(module, i64type, "bf_call_ins_count");
 
     // Assign a few constant values.
     not_end_of_bb = ConstantInt::get(globctx, APInt(32, 0));

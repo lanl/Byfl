@@ -144,6 +144,7 @@ namespace bytesflops_pass {
     static const int CLEAR_OPS;
     static const int CLEAR_OP_BITS;
 
+    static const int CLEAR_CALLS;
     static const int CLEAR_MEM_TYPES;
 
     GlobalVariable* load_var;  // Global reference to bf_load_count, a 64-bit load counter
@@ -158,6 +159,7 @@ namespace bytesflops_pass {
     GlobalVariable* fp_bits_var;  // Global reference to bf_fp_bits_count, a 64-bit FP-bit counter
     GlobalVariable* op_var;    // Global reference to bf_op_count, a 64-bit operation counter
     GlobalVariable* op_bits_var;   // Global reference to bf_op_bits_count, a 64-bit operation-bit counter
+    GlobalVariable* call_inst_var;              // Global reference to bf_call_ins_count, a 64-bit call-instruction counter
     uint64_t static_loads;   // Number of static load instructions
     uint64_t static_stores;  // Number of static store instructions
     uint64_t static_flops;   // Number of static floating-point instructions

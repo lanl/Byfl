@@ -621,6 +621,8 @@ namespace bytesflops_pass {
         new StoreInst(zero, op_var, false, insert_before);
       if (must_clear & CLEAR_OP_BITS)
         new StoreInst(zero, op_bits_var, false, insert_before);
+      if (must_clear & CLEAR_CALLS)
+        new StoreInst(zero, call_inst_var, false, insert_before);
       if (must_clear & CLEAR_MEM_TYPES) {
         // Zero out the entire array.
         LoadInst* mem_insts_addr = new LoadInst(mem_insts_var, "mi", false, insert_before);
