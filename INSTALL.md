@@ -12,6 +12,10 @@ As long as LLVM's `llvm-config` program is in your path, the Free Software Found
     make
     make install
 
+`./configure` is included in Byfl releases but does not exist in the Git repository.  To create it, run
+
+    autoreconf -f -i
+
 Run `./configure --help` for usage information.  The [FSF's generic installation instructions](http://git.savannah.gnu.org/cgit/automake.git/tree/INSTALL) provide substantially more detail on customizing the configuration.
 
 Note that DragonEgg requires [GCC](http://gcc.gnu.org/) version 4.5 or newer.  (Plugin support was introduced with version 4.5.)  Technically, Byfl can build without DragonEgg support, but all of the Byfl wrapper scripts will fail to run; Byfl instrumentation will have to be applied manually, which is inconvenient.
