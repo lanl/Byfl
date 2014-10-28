@@ -32,8 +32,11 @@ download=yes
 configure=yes
 compile=yes
 llvm_revision=HEAD
+use_byfl=yes
+use_dragonegg=yes
+use_llvm=yes
 destdir=
-while getopts j:b:r:tdcCD: opt; do
+while getopts j:b:r:tdcCD:x: opt; do
     case $opt in
         j)
             # Parallelism
@@ -74,6 +77,11 @@ while getopts j:b:r:tdcCD: opt; do
             # installed programs.
             destdir="$OPTARG"
             ;;
+
+        x)
+            # Exclude a feature from download/compiling.
+            export "use_${OPTARG}"=no
+            ;;
     esac
 done
 shift $((OPTIND-1))
@@ -102,16 +110,18 @@ CC=${CC:-gcc}
 CXX=${CXX:-g++}
 
 # Ensure we have a version of GCC that works with DragonEgg.
-gcc_version=`$CC --version | awk 'NR==1 {sub(/\([^\)]*\)/, ""); print $2}'`
-if `echo $gcc_version | awk '!/^4\.[5-8]\./ {exit 1}'` ; then
-    :
-else
-    echo "${0}: DragonEgg requires GCC version 4.5, 4.6, 4.7, or 4.8; version $gcc_version almost certainly won't work" 1>&2
-    exit 1
-fi
-if [ `$CC -print-file-name=plugin` = plugin ] ; then
-    echo "${0}: DragonEgg requires the GCC plugin development files (e.g., auto-host.h) corresponding to `$CC --version | head -1`" 1>&2
-    exit 1
+if [ "$use_dragonegg" = yes ] ; then
+    gcc_version=`$CC --version | awk 'NR==1 {sub(/\([^\)]*\)/, ""); print $2}'`
+    if `echo $gcc_version | awk '!/^4\.[5-8]\./ {exit 1}'` ; then
+        :
+    else
+        echo "${0}: DragonEgg requires GCC version 4.5, 4.6, 4.7, or 4.8; version $gcc_version almost certainly won't work" 1>&2
+        exit 1
+    fi
+    if [ `$CC -print-file-name=plugin` = plugin ] ; then
+        echo "${0}: DragonEgg requires the GCC plugin development files (e.g., auto-host.h) corresponding to `$CC --version | head -1`" 1>&2
+        exit 1
+    fi
 fi
 
 # Prepare the GUI.
@@ -187,34 +197,58 @@ mkdir build-logs
 # Download LLVM, Clang, DragonEgg, and Byfl.
 if [ "$download" = yes ] ; then
     # Delete old files before downloading the new ones.
-    echo "# Removing old versions of LLVM, Clang, DragonEgg, and Byfl from $builddir" 1>&4
-    run_with_progress cleanup 62000 rm -rfv byfl dragonegg llvm
+    if [ "$use_byfl" = yes ] ; then
+        echo "# Removing old versions of Byfl from $builddir" 1>&4
+        run_with_progress cleanup-byfl 320 rm -rfv byfl
+    fi
+    if [ "$use_dragonegg" = yes ] ; then
+        echo "# Removing old versions of DragonEgg from $builddir" 1>&4
+        run_with_progress cleanup-dregg 980 rm -rfv dragonegg
+    fi
+    if [ "$use_llvm" = yes ] ; then
+        echo "# Removing old versions of LLVM and Clang from $builddir" 1>&4
+        run_with_progress cleanup-llvm 62000 rm -rfv llvm
+    fi
 
     # Download LLVM trunk.
-    echo "# Downloading LLVM into $builddir" 1>&4
-    run_with_progress llvm-dl 16000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/trunk llvm
+    if [ "$use_llvm" = yes ] ; then
+        echo "# Downloading LLVM into $builddir" 1>&4
+        run_with_progress llvm-dl 16000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/trunk llvm
+    fi
     cd llvm
     llvm_revision=`svn info | awk '/^Revision: / {print $2}'`
     cd ..
 
     # Download Clang.
-    echo "# Downloading Clang revision $llvm_revision into $builddir" 1>&4
-    run_with_progress clang-dl 13000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/trunk llvm/tools/clang
+    if [ "$use_llvm" = yes ] ; then
+        echo "# Downloading Clang revision $llvm_revision into $builddir" 1>&4
+        run_with_progress clang-dl 13000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/trunk llvm/tools/clang
+    fi
 
     # Download the Clang run-time system.
-    echo "# Downloading Clang RT revision $llvm_revision into $builddir" 1>&4
-    run_with_progress rts-dl 1800 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/compiler-rt/trunk llvm/projects/compiler-rt
+    if [ "$use_llvm" = yes ] ; then
+        echo "# Downloading Clang RT revision $llvm_revision into $builddir" 1>&4
+        run_with_progress rts-dl 1800 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/compiler-rt/trunk llvm/projects/compiler-rt
+    fi
 
     # Download DragonEgg.
-    echo "# Downloading DragonEgg revision $llvm_revision into $builddir" 1>&4
-    run_with_progress dregg-dl 400 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg
+    if [ "$use_dragonegg" = yes ] ; then
+        echo "# Downloading DragonEgg revision $llvm_revision into $builddir" 1>&4
+        run_with_progress dregg-dl 400 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg
+    fi
 
     # Download Byfl.
-    echo "# Downloading Byfl into $builddir" 1>&4
-    run_with_progress byfl-dl 2 git clone https://github.com/losalamos/Byfl.git byfl
+    if [ "$use_byfl" = yes ] ; then
+        echo "# Downloading Byfl into $builddir" 1>&4
+        run_with_progress byfl-dl 2 git clone https://github.com/losalamos/Byfl.git byfl
+    fi
 
     # Say what we did.
-    echo "Downloaded LLVM, Clang, DragonEgg, and Byfl into $builddir."
+    if [ "$use_llvm" = yes -a "$use_dragonegg" = yes -a "$use_byfl" = yes ] ; then
+        echo "Downloaded LLVM, Clang, DragonEgg, and Byfl into $builddir."
+    else
+        echo "Downloaded a subset of LLVM, Clang, DragonEgg, and Byfl into $builddir."
+    fi
     if [ "$gui" = yes -a "$compile" = no ] ; then
         kill $zenity_pid
         zenity --info --title="Finished downloading" --text="Downloaded LLVM, Clang, DragonEgg,\nand Byfl into $builddir."
@@ -223,50 +257,58 @@ fi
 
 # Compile and install everything we downloaded.
 if [ "$compile" = yes ] ; then
-    # Configure LLVM and Clang.
-    echo "# Configuring LLVM and Clang" 1>&4
-    cd llvm
-    if [ $configure = yes -o ! -e config.log ] ; then
-        run_with_progress llvm-config 270 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
+    if [ "$use_llvm" = yes ] ; then
+        # Configure LLVM and Clang.
+        echo "# Configuring LLVM and Clang" 1>&4
+        cd llvm
+        if [ $configure = yes -o ! -e config.log ] ; then
+            run_with_progress llvm-config 270 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
+        fi
+
+        # Build LLVM and Clang.
+        echo "# Compiling LLVM and Clang" 1>&4
+        run_with_progress llvm-build 3500 make -j$numprocs
+
+        # Install LLVM and Clang.
+        echo "# Installing LLVM and Clang into $destdir$installdir" 1>&4
+        run_with_progress llvm-inst 840 make DESTDIR="$destdir" install
+        cd ..
     fi
-
-    # Build LLVM and Clang.
-    echo "# Compiling LLVM and Clang" 1>&4
-    run_with_progress llvm-build 3600 make -j$numprocs
-
-    # Install LLVM and Clang.
-    echo "# Installing LLVM and Clang into $destdir$installdir" 1>&4
-    run_with_progress llvm-inst 820 make DESTDIR="$destdir" install
-
-    # Build DragonEgg.
     export PATH="$destdir$installdir/bin:$PATH"
-    cd ../dragonegg
-    echo "# Compiling DragonEgg" 1>&4
-    run_with_progress dregg-build 370 make -j$numprocs
 
-    # Install DragonEgg.
-    echo "# Installing DragonEgg into $destdir$installdir" 1>&4
-    run_with_progress dregg-inst 2 cp -v dragonegg.so "$destdir$installdir/lib/"
+    if [ "$use_dragonegg" = yes ] ; then
+        # Build DragonEgg.
+        cd dragonegg
+        echo "# Compiling DragonEgg" 1>&4
+        run_with_progress dregg-build 390 make -j$numprocs
 
-    # Configure Byfl.
-    echo "# Configuring Byfl" 1>&4
-    cd ../byfl
-    if [ $configure = yes -o ! -e config.log ] ; then
-        run_with_progress byfl-autogen 21 autoreconf -v -f -i
-    fi
-    test -e build || mkdir build
-    cd build
-    if [ $configure = yes -o ! -e config.log ] ; then
-        run_with_progress byfl-config 120 ../configure DRAGONEGG="$installdir/lib/dragonegg.so" --prefix="$installdir"
+        # Install DragonEgg.
+        echo "# Installing DragonEgg into $destdir$installdir" 1>&4
+        run_with_progress dregg-inst 2 cp -v dragonegg.so "$destdir$installdir/lib/"
+        cd ..
     fi
 
-    # Build Byfl.
-    echo "# Compiling Byfl" 1>&4
-    run_with_progress byfl-build 210 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" -j$numprocs
+    if [ "$use_byfl" = yes ] ; then
+        # Configure Byfl.
+        echo "# Configuring Byfl" 1>&4
+        cd byfl
+        if [ $configure = yes -o ! -e config.log ] ; then
+            run_with_progress byfl-autogen 21 autoreconf -v -f -i
+        fi
+        test -e build || mkdir build
+        cd build
+        if [ $configure = yes -o ! -e config.log ] ; then
+            run_with_progress byfl-config 130 ../configure DRAGONEGG="$installdir/lib/dragonegg.so" --prefix="$installdir"
+        fi
 
-    # Install Byfl.
-    echo "# Installing Byfl into $destdir$installdir" 1>&4
-    run_with_progress byfl-inst 180 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" DESTDIR="$destdir" install
+        # Build Byfl.
+        echo "# Compiling Byfl" 1>&4
+        run_with_progress byfl-build 260 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" -j$numprocs
+
+        # Install Byfl.
+        echo "# Installing Byfl into $destdir$installdir" 1>&4
+        run_with_progress byfl-inst 210 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" DESTDIR="$destdir" install
+    fi
 
     # Test the installation
     echo "# Testing the Byfl installation" 1>&4

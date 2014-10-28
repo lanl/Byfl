@@ -49,4 +49,8 @@ For convenience on systems that lack a LLVM/Clang/DragonEgg 3.5+ installation, B
   <dt><code>-t</code></dt>
   <dd>Display progress textually instead of with a GUI progress bar (<a href="https://help.gnome.org/users/zenity/stable/">Zenity</a>).<br/>
       <em>Default:</em> GUI display if available, textual display otherwise</dd>
+
+  <dt><code>-x</code> <code>llvm</code>|<code>dragonegg</code>|<code>byfl</code></dt>
+  <dd>Exclude one of LLVM+Clang, DragonEgg, or Byfl from downloading/compiling.  For example, specify <code>-x dragonegg</code> on platforms on which DragonEgg is known not to build.  Or specify something to exclude from compilation if it requires manual configuration to work on some platform.  This option may be specified multiple times.<br/>
+      <em>Default:</em> nothing is excluded</dd>
 </dl>
