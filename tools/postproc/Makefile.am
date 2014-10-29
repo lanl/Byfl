@@ -17,12 +17,21 @@ EXTRA_DIST = \
 	bfbin2csv.pod \
 	bfbin2sqlite3.pod \
 	bf_process_byfl_file.pod
+lib_LTLIBRARIES =
+pkginclude_HEADERS =
 
-lib_LTLIBRARIES = libbfbin.la
+lib_LTLIBRARIES += libbfbin.la
 libbfbin_la_SOURCES = parsebfbin.c bfbin.h
 libbfbin_la_CPPFLAGS = -I$(top_srcdir)/include -I$(srcdir)/../include
 libbfbin_la_LDFLAGS = -version-info 1:0:0
-pkginclude_HEADERS = bfbin.h
+pkginclude_HEADERS += bfbin.h
+
+lib_LTLIBRARIES += libbfbin-swig.la
+libbfbin_swig_la_SOURCES = parsebfbin-swig.c bfbin-swig.h bfbin.h
+libbfbin_swig_la_CPPFLAGS = -I$(top_srcdir)/include -I$(srcdir)/../include
+libbfbin_swig_la_LDFLAGS = -version-info 1:0:0
+libbfbin_swig_la_LIBADD = libbfbin.la -lpthread
+pkginclude_HEADERS += bfbin-swig.h
 
 if HDF5_AVAILABLE
 bin_PROGRAMS += bfbin2hdf5
@@ -50,7 +59,7 @@ CLEANFILES += bfbin2sqlite3.1
 endif
 bfbin2sqlite3_SOURCES = bfbin2sqlite3.cpp
 bfbin2sqlite3_CPPFLAGS = -I$(top_srcdir)/include
-bfbin2sqlite3_LDADD = libbfbin.la
+bfbin2sqlite3_LDADD = libbfbin.la -lsqlite3
 
 %.1: %.pod
 	$(POD2MAN) \
