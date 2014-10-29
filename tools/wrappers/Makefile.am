@@ -51,6 +51,7 @@ wrappers.mak: $(srcdir)/Makefile.PL bf-gcc $(srcdir)/lib/ParseGccOpts.pm bf-inst
 	  INSTALLSITEMAN1DIR=$(mandir)/man1 INSTALLSITEMAN3DIR=$(mandir)/man3
 	$(AM_V_at) /bin/echo -e 'echo-%:\n\t@echo "$$($$(subst echo-,,$$@))"' >> wrappers.mak
 
+AM_DEFAULT_VERBOSITY ?= 1
 SILENT_MAKE = $(SILENT_MAKE_$(V))
 SILENT_MAKE_ = $(SILENT_MAKE_$(AM_DEFAULT_VERBOSITY))
 SILENT_MAKE_0 = -s
