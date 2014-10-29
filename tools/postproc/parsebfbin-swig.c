@@ -209,6 +209,7 @@ parse_state_t *bf_open_byfl_file (const char *byfl_filename)
   state = (parse_state_t *) malloc(sizeof(parse_state_t));
   if (!state)
     return NULL;
+  memset((void *) state, 0, sizeof(parse_state_t));
 
   /* Initialize the state. */
   if (pthread_cond_init(&state->data_available, NULL) != 0)
@@ -222,7 +223,7 @@ parse_state_t *bf_open_byfl_file (const char *byfl_filename)
   state->filename = strdup(byfl_filename);
 
   /* Process the file in the background. */
-  if (pthread_create(&state->tid, NULL, parse_byfl_file, &state) != 0) {
+  if (pthread_create(&state->tid, NULL, parse_byfl_file, state) != 0) {
     free(state->filename);
     free(state);
     return NULL;
