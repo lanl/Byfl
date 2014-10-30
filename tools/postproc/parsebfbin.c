@@ -437,9 +437,9 @@ static int process_byfl_table (parse_state_t *state)
       break;
 
     case BINOUT_TABLE_KEYVAL:
-      INVOKE_CB_1(table_begin_basic_cb, state->last_value);
+      INVOKE_CB_1(table_begin_keyval_cb, state->last_value);
       process_byfl_keyval_table(state);
-      INVOKE_CB_0(table_end_basic_cb);
+      INVOKE_CB_0(table_end_keyval_cb);
       break;
 
     default:

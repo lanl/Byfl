@@ -44,6 +44,7 @@ After that, you ought to be able to run ``bfbin2py``.
 
 import bfbin
 import sys
+import pprint
 
 # Open the named Byfl binary-output file.
 progname = sys.argv[0]
@@ -53,14 +54,38 @@ if len(sys.argv) < 2:
 handle = bfbin.bf_open_byfl_file(sys.argv[1])
 
 # Iterate over all of the components.
+file_contents = []     # List of tables
 while True:
     item = bfbin.bf_read_byfl_item(handle)
-    print item.item_type
     if item.item_type == bfbin.ERROR:
         sys.stderr.write("%s: %s\n" % (progname, item.string))
         break
     elif item.item_type == bfbin.FILE_END:
         break
+    elif item.item_type in [bfbin.TABLE_BEGIN_BASIC, bfbin.TABLE_BEGIN_KEYVAL]:
+        tablename = item.string
+    elif item.item_type == bfbin.COLUMN_BEGIN:
+        columns = []
+    elif item.item_type in [bfbin.COLUMN_UINT64, bfbin.COLUMN_STRING, bfbin.COLUMN_BOOL]:
+        columns.append((item.string, []))
+    elif item.item_type == bfbin.ROW_BEGIN:
+        col = 0
+    elif item.item_type == bfbin.DATA_UINT64:
+        columns[col][1].append(item.integer)
+        col += 1
+    elif item.item_type == bfbin.DATA_STRING:
+        columns[col][1].append(item.string)
+        col += 1
+    elif item.item_type == bfbin.DATA_BOOL:
+        columns[col][1].append(item.boolean)
+        col += 1
+    elif item.item_type in [bfbin.TABLE_END_BASIC, bfbin.TABLE_END_KEYVAL]:
+        if item.item_type == bfbin.TABLE_END_KEYVAL:
+            columns = [(columns[c][0], columns[c][1][0]) for c in range(len(columns))]
+        file_contents.append((tablename, columns))
 
 # Close the Byfl file.
 bfbin.bf_close_byfl_file(handle)
+
+# Pretty-print the file contents.
+pprint.pprint(file_contents)

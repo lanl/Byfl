@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <bfbin.h>
 #include <bfbin-swig.h>
@@ -31,8 +32,6 @@ static void transfer_data (parse_state_t *lstate)
 /* Clear the previous data. */
 static void clear_data (table_item_t *data)
 {
-  if (data->string != NULL)
-    free((void *) data->string);
   memset((void *) data, 0, sizeof(table_item_t));
 }
 
@@ -58,7 +57,7 @@ static void return_integer_value (parse_state_t *lstate, int item_type, uint64_t
 {
   clear_data(&lstate->data);
   lstate->data.item_type = item_type;
-  lstate->data.integer = value;
+  lstate->data.integer = (unsigned long) value;
   transfer_data(lstate);
 }
 
@@ -67,7 +66,7 @@ static void return_boolean_value (parse_state_t *lstate, int item_type, uint8_t 
 {
   clear_data(&lstate->data);
   lstate->data.item_type = item_type;
-  lstate->data.boolean = value;
+  lstate->data.boolean = (int)value;
   transfer_data(lstate);
 }
 
@@ -228,7 +227,14 @@ parse_state_t *bf_open_byfl_file (const char *byfl_filename)
  * that to the caller. */
 table_item_t bf_read_byfl_item (parse_state_t *lstate)
 {
-  table_item_t result;   /* Copy of the data to return */
+  static table_item_t result = {0};   /* Copy of the data to return */
+
+  /* Free the *previous* string value, if any, now that we no longer
+   * need it. */
+  if (result.string != NULL) {
+    free((void *) result.string);
+    result.string = NULL;
+  }
 
   /* Wait for data from the library thread then return it. */
   if (read(lstate->channel[0], &result, sizeof(table_item_t)) != sizeof(table_item_t)) {

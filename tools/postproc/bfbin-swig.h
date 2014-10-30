@@ -47,9 +47,9 @@ enum {
 #endif
 typedef struct {
   int item_type;          /* One of the preceding constants */
-  uint64_t integer;       /* 64-bit unsigned integer value */
+  unsigned long integer;  /* 64-bit unsigned integer value (we hope) */
   const char *string;     /* Null-terminated string value */
-  uint8_t boolean;        /* Boolean value */
+  int boolean;            /* Boolean value */
 } table_item_t;
 #ifdef SWIG
 %mutable;
