@@ -16,7 +16,8 @@ EXTRA_DIST = \
 	bfbin2hdf5.pod \
 	bfbin2csv.pod \
 	bfbin2sqlite3.pod \
-	bf_process_byfl_file.pod
+	bf_process_byfl_file.pod \
+	bfbin2py.in
 lib_LTLIBRARIES =
 pkginclude_HEADERS =
 
@@ -60,6 +61,9 @@ endif
 bfbin2sqlite3_SOURCES = bfbin2sqlite3.cpp
 bfbin2sqlite3_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2sqlite3_LDADD = libbfbin.la -lsqlite3
+
+exampledir = $(docdir)/examples
+example_SCRIPTS = bfbin2py
 
 %.1: %.pod
 	$(POD2MAN) \
