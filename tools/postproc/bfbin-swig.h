@@ -60,11 +60,10 @@ typedef struct {
 #ifdef SWIG
   int opaque_stuff;
 #else
-  table_item_t data;                 /* Data from library */
-  pthread_barrier_t data_available;  /* Library -> SWIG: "Data is available" */
-  pthread_barrier_t data_consumed;   /* SWIG -> library: "I'm done with the data" */
-  char *filename;                    /* Byfl filename */
-  pthread_t tid;                     /* ID for library thread */
+  table_item_t data;      /* Data from library */
+  int channel[2];         /* Channel for interthread communication */
+  char *filename;         /* Byfl filename */
+  pthread_t tid;          /* ID for library thread */
 #endif
 } parse_state_t;
 

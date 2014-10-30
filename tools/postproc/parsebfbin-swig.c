@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <bfbin.h>
 #include <bfbin-swig.h>
@@ -19,22 +20,12 @@ static void abort_parsing_thread (parse_state_t *lstate, const char *message)
   (void) pthread_exit(NULL);
 }
 
-/* Invoke pthread_barrier_wait().  If it fails, invoke
- * abort_parsing_thread(). */
-static void await_barrier_or_abort (parse_state_t *lstate, pthread_barrier_t *barrier)
+/* Transmit data from the library to the SWIG-invoked thread.  Invoke
+ * abort_parsing_thread() on error. */
+static void transfer_data (parse_state_t *lstate)
 {
-  int retval = pthread_barrier_wait(barrier);
-  if (retval != 0 && retval != PTHREAD_BARRIER_SERIAL_THREAD)
-    abort_parsing_thread(lstate, "pthread_barrier_wait() failed");
-}
-
-/* Handshake with the SWIG-invoked thread to announce that new data are available. */
-static void announce_data_availability (parse_state_t *lstate)
-{
-  await_barrier_or_abort(lstate, &lstate->data_available);
-  if (pthread_barrier_init(&lstate->data_available, NULL, 2) != 0)
-    abort_parsing_thread(lstate, "pthread_barrier_init() failed");
-  await_barrier_or_abort(lstate, &lstate->data_consumed);
+  if (write(lstate->channel[1], &lstate->data, sizeof(table_item_t)) != sizeof(table_item_t))
+    abort_parsing_thread(lstate, "Failed to send data between threads");
 }
 
 /* Clear the previous data. */
@@ -50,7 +41,7 @@ static void return_null_value (parse_state_t *lstate, int item_type)
 {
   clear_data(&lstate->data);
   lstate->data.item_type = item_type;
-  announce_data_availability(lstate);
+  transfer_data(lstate);
 }
 
 /* Return a string value to the SWIG-invoked thread. */
@@ -59,7 +50,7 @@ static void return_string_value (parse_state_t *lstate, int item_type, const cha
   clear_data(&lstate->data);
   lstate->data.item_type = item_type;
   lstate->data.string = strdup(value);
-  announce_data_availability(lstate);
+  transfer_data(lstate);
 }
 
 /* Return an unsigned 64-bit integer value to the SWIG-invoked thread. */
@@ -68,7 +59,7 @@ static void return_integer_value (parse_state_t *lstate, int item_type, uint64_t
   clear_data(&lstate->data);
   lstate->data.item_type = item_type;
   lstate->data.integer = value;
-  announce_data_availability(lstate);
+  transfer_data(lstate);
 }
 
 /* Return a Boolean as an unsigned 8-bit integer value to the SWIG-invoked thread. */
@@ -77,7 +68,7 @@ static void return_boolean_value (parse_state_t *lstate, int item_type, uint8_t 
   clear_data(&lstate->data);
   lstate->data.item_type = item_type;
   lstate->data.boolean = value;
-  announce_data_availability(lstate);
+  transfer_data(lstate);
 }
 
 /* Callback for table_begin_basic_cb */
@@ -201,9 +192,8 @@ static void *parse_byfl_file (void *state)
   /* Invoke the Byfl library function to parse the entire file. */
   bf_process_byfl_file(lstate->filename, &callback_list, state);
 
-  /* Indicate that we're finished. */
-  lstate->data.item_type = FILE_END;
-  await_barrier_or_abort(lstate, &lstate->data_available);
+  /* Indicate that we've finished parsing. */
+  return_null_value(lstate, FILE_END);
   return NULL;
 }
 
@@ -220,9 +210,7 @@ parse_state_t *bf_open_byfl_file (const char *byfl_filename)
   memset((void *) state, 0, sizeof(parse_state_t));
 
   /* Initialize the state. */
-  if (pthread_barrier_init(&state->data_available, NULL, 2) != 0)
-    return NULL;
-  if (pthread_barrier_init(&state->data_consumed, NULL, 2) != 0)
+  if (pipe(state->channel) == -1)
     return NULL;
   state->filename = strdup(byfl_filename);
   state->data.item_type = FILE_BEGIN;    /* Must not be ERROR or FILE_END, or bf_read_byfl_item will lock onto that. */
@@ -241,38 +229,13 @@ parse_state_t *bf_open_byfl_file (const char *byfl_filename)
 table_item_t bf_read_byfl_item (parse_state_t *lstate)
 {
   table_item_t result;   /* Copy of the data to return */
-  int retval;
 
-  /* The failure and successful completion states are sticky.  Keep
-   * returning the same data. */
-  if (lstate->data.item_type == ERROR || lstate->data.item_type == FILE_END)
-    return lstate->data;
-
-  /* Wait for data from the library thread. */
-  retval = pthread_barrier_wait(&lstate->data_available);
-  if (retval != 0 && retval != PTHREAD_BARRIER_SERIAL_THREAD) {
-    clear_data(&lstate->data);
-    lstate->data.item_type = ERROR;
-    lstate->data.string = strdup("pthread_barrier_wait() failed");
-    return lstate->data;
+  /* Wait for data from the library thread then return it. */
+  if (read(lstate->channel[0], &result, sizeof(table_item_t)) != sizeof(table_item_t)) {
+    clear_data(&result);
+    result.item_type = ERROR;
+    result.string = strdup("pthread_barrier_wait() failed");
   }
-
-  /* Copy the resulting data so the library thread can overwrite it. */
-  result = lstate->data;
-
-  /* Tell the library thread we no longer need the (original) data. */
-  retval = pthread_barrier_wait(&lstate->data_consumed);
-  if (retval != 0 && retval != PTHREAD_BARRIER_SERIAL_THREAD) {
-    clear_data(&lstate->data);
-    lstate->data.item_type = ERROR;
-    lstate->data.string = strdup("pthread_cond_signal() failed");
-    return lstate->data;
-  }
-  if (pthread_barrier_init(&lstate->data_consumed, NULL, 2) != 0)
-    abort_parsing_thread(lstate, "pthread_barrier_init() failed");
-
-  /* Return the copy of the data (actually, because of call-by-value,
-   * a copy of the copy). */
   return result;
 }
 
@@ -280,7 +243,8 @@ table_item_t bf_read_byfl_item (parse_state_t *lstate)
 void bf_close_byfl_file (parse_state_t *lstate)
 {
   (void) pthread_cancel(lstate->tid);  /* It's not an error if the thread already exited. */
-  (void) pthread_barrier_destroy(&lstate->data_available);
+  (void) close(lstate->channel[0]);
+  (void) close(lstate->channel[1]);
   clear_data(&lstate->data);
   free((void *)lstate->filename);
   free((void *)lstate);
