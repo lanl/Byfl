@@ -1,0 +1,66 @@
+#! /usr/bin/env python
+
+###############################################################
+# Render a Byfl binary-output file as a Python data structure #
+# By Scott Pakin <pakin@lanl.gov>                             #
+###############################################################
+
+"""This program is really just a demonstration of how to use the SWIG
+interface to the bfbin library.  First, you'll need to create a Python
+module.  To do so, create a file called ``setup.py`` with the
+following contents::
+
+    #! /usr/bin/env python
+
+    "Install a bfbin module"
+
+    from distutils.core import setup, Extension
+
+    bfbin_module = Extension('_bfbin',
+                             sources              = ["bfbin-swig_wrap.c"],
+                             include_dirs         = ["@includedir@"],
+                             library_dirs         = ["@libdir@"],
+                             runtime_library_dirs = ["@libdir@"],
+                             libraries            = ["bfbin-swig"])
+
+    setup(name = 'bfbin',
+          version              = "@VERSION@",
+          author               = "Scott Pakin",
+          author_email         = "pakin@lanl.gpv",
+          description          = "Parse Byfl binary output files",
+          ext_modules          = [bfbin_module],
+          py_modules           = ["bfbin"])
+
+Then, follow the `SWIG documentation <http://www.swig.org/doc.html>`_
+guideliness on how to build a Python module.  The following command
+should work::
+
+    $ swig -python -o bfbin-swig_wrap.c @includedir@/byfl/bfbin-swig.h
+    $ python setup.py install
+
+After that, you ought to be able to run ``bfbin2py``.
+
+"""
+
+import bfbin
+import sys
+
+# Open the named Byfl binary-output file.
+progname = sys.argv[0]
+if len(sys.argv) < 2:
+    sys.stderr.write("Usage: %s <filename.byfl>\n" % progname)
+    sys.exit(1)
+handle = bfbin.bf_open_byfl_file(sys.argv[1])
+
+# Iterate over all of the components.
+while True:
+    item = bfbin.bf_read_byfl_item(handle)
+    print item.item_type
+    if item.item_type == bfbin.ERROR:
+        sys.stderr.write("%s: %s\n" % (progname, item.string))
+        break
+    elif item.item_type == bfbin.FILE_END:
+        break
+
+# Close the Byfl file.
+bfbin.bf_close_byfl_file(handle)

@@ -225,6 +225,7 @@ parse_state_t *bf_open_byfl_file (const char *byfl_filename)
   if (pthread_barrier_init(&state->data_consumed, NULL, 2) != 0)
     return NULL;
   state->filename = strdup(byfl_filename);
+  state->data.item_type = FILE_BEGIN;    /* Must not be ERROR or FILE_END, or bf_read_byfl_item will lock onto that. */
 
   /* Process the file in the background. */
   if (pthread_create(&state->tid, NULL, parse_byfl_file, state) != 0) {
@@ -248,7 +249,6 @@ table_item_t bf_read_byfl_item (parse_state_t *lstate)
     return lstate->data;
 
   /* Wait for data from the library thread. */
-
   retval = pthread_barrier_wait(&lstate->data_available);
   if (retval != 0 && retval != PTHREAD_BARRIER_SERIAL_THREAD) {
     clear_data(&lstate->data);
@@ -261,7 +261,8 @@ table_item_t bf_read_byfl_item (parse_state_t *lstate)
   result = lstate->data;
 
   /* Tell the library thread we no longer need the (original) data. */
-  if (pthread_barrier_wait(&lstate->data_consumed) != 0) {
+  retval = pthread_barrier_wait(&lstate->data_consumed);
+  if (retval != 0 && retval != PTHREAD_BARRIER_SERIAL_THREAD) {
     clear_data(&lstate->data);
     lstate->data.item_type = ERROR;
     lstate->data.string = strdup("pthread_cond_signal() failed");

@@ -141,6 +141,12 @@ AC_CONFIG_FILES([lib/byfl/Makefile])
 AC_CONFIG_FILES([lib/bytesflops/Makefile])
 AC_CONFIG_FILES([tools/Makefile])
 AC_CONFIG_FILES([tools/postproc/Makefile])
+AC_CONFIG_FILES([tools/postproc/bfbin2py], [
+    cat tools/postproc/bfbin2py | `$MAKE -s sed-command | $GREP sed` > tools/postproc/bfbin2py.tmp
+    mv tools/postproc/bfbin2py.tmp tools/postproc/bfbin2py
+  ],
+  [MAKE="$MAKE"
+   GREP="$GREP"])
 AC_CONFIG_FILES([tools/wrappers/Makefile])
 AC_CONFIG_FILES([tools/wrappers/bf-gcc], [
     cat tools/wrappers/bf-gcc | `$MAKE -s sed-command | $GREP sed` > tools/wrappers/bf-gcc.tmp
