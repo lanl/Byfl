@@ -19,13 +19,22 @@ static void abort_parsing_thread (parse_state_t *lstate, const char *message)
   (void) pthread_exit(NULL);
 }
 
+/* Invoke pthread_barrier_wait().  If it fails, invoke
+ * abort_parsing_thread(). */
+static void await_barrier_or_abort (parse_state_t *lstate, pthread_barrier_t *barrier)
+{
+  int retval = pthread_barrier_wait(barrier);
+  if (retval != 0 && retval != PTHREAD_BARRIER_SERIAL_THREAD)
+    abort_parsing_thread(lstate, "pthread_barrier_wait() failed");
+}
+
 /* Handshake with the SWIG-invoked thread to announce that new data are available. */
 static void announce_data_availability (parse_state_t *lstate)
 {
-  if (pthread_cond_signal(&lstate->data_available) != 0)
-    abort_parsing_thread(lstate, "pthread_cond_signal() failed");
-  if (pthread_cond_wait(&lstate->data_consumed, &lstate->data_consumed_lock) != 0)
-    abort_parsing_thread(lstate, "pthread_cond_wait() failed");
+  await_barrier_or_abort(lstate, &lstate->data_available);
+  if (pthread_barrier_init(&lstate->data_available, NULL, 2) != 0)
+    abort_parsing_thread(lstate, "pthread_barrier_init() failed");
+  await_barrier_or_abort(lstate, &lstate->data_consumed);
 }
 
 /* Clear the previous data. */
@@ -194,8 +203,7 @@ static void *parse_byfl_file (void *state)
 
   /* Indicate that we're finished. */
   lstate->data.item_type = FILE_END;
-  if (pthread_cond_signal(&lstate->data_available) != 0)
-    abort_parsing_thread(lstate, "pthread_cond_signal() failed");
+  await_barrier_or_abort(lstate, &lstate->data_available);
   return NULL;
 }
 
@@ -212,13 +220,9 @@ parse_state_t *bf_open_byfl_file (const char *byfl_filename)
   memset((void *) state, 0, sizeof(parse_state_t));
 
   /* Initialize the state. */
-  if (pthread_cond_init(&state->data_available, NULL) != 0)
+  if (pthread_barrier_init(&state->data_available, NULL, 2) != 0)
     return NULL;
-  if (pthread_cond_init(&state->data_consumed, NULL) != 0)
-    return NULL;
-  if (pthread_mutex_init(&state->data_available_lock, NULL) != 0)
-    return NULL;
-  if (pthread_mutex_init(&state->data_consumed_lock, NULL) != 0)
+  if (pthread_barrier_init(&state->data_consumed, NULL, 2) != 0)
     return NULL;
   state->filename = strdup(byfl_filename);
 
@@ -236,6 +240,7 @@ parse_state_t *bf_open_byfl_file (const char *byfl_filename)
 table_item_t bf_read_byfl_item (parse_state_t *lstate)
 {
   table_item_t result;   /* Copy of the data to return */
+  int retval;
 
   /* The failure and successful completion states are sticky.  Keep
    * returning the same data. */
@@ -243,10 +248,12 @@ table_item_t bf_read_byfl_item (parse_state_t *lstate)
     return lstate->data;
 
   /* Wait for data from the library thread. */
-  if (pthread_cond_wait(&lstate->data_available, &lstate->data_available_lock) != 0) {
+
+  retval = pthread_barrier_wait(&lstate->data_available);
+  if (retval != 0 && retval != PTHREAD_BARRIER_SERIAL_THREAD) {
     clear_data(&lstate->data);
     lstate->data.item_type = ERROR;
-    lstate->data.string = strdup("pthread_cond_wait() failed");
+    lstate->data.string = strdup("pthread_barrier_wait() failed");
     return lstate->data;
   }
 
@@ -254,12 +261,14 @@ table_item_t bf_read_byfl_item (parse_state_t *lstate)
   result = lstate->data;
 
   /* Tell the library thread we no longer need the (original) data. */
-  if (pthread_cond_signal(&lstate->data_consumed) != 0) {
+  if (pthread_barrier_wait(&lstate->data_consumed) != 0) {
     clear_data(&lstate->data);
     lstate->data.item_type = ERROR;
     lstate->data.string = strdup("pthread_cond_signal() failed");
     return lstate->data;
   }
+  if (pthread_barrier_init(&lstate->data_consumed, NULL, 2) != 0)
+    abort_parsing_thread(lstate, "pthread_barrier_init() failed");
 
   /* Return the copy of the data (actually, because of call-by-value,
    * a copy of the copy). */
@@ -270,6 +279,7 @@ table_item_t bf_read_byfl_item (parse_state_t *lstate)
 void bf_close_byfl_file (parse_state_t *lstate)
 {
   (void) pthread_cancel(lstate->tid);  /* It's not an error if the thread already exited. */
+  (void) pthread_barrier_destroy(&lstate->data_available);
   clear_data(&lstate->data);
   free((void *)lstate->filename);
   free((void *)lstate);
