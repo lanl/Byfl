@@ -100,7 +100,7 @@ AM_CONDITIONAL([GETOPT_LONG_AVAILABLE], [test "x$ac_cv_func_getopt_long" != xno]
 dnl If SQLite3 is available we can build bfbin2sqlite3.
 BUILD_BFBIN2SQLITE3=no
 AC_CHECK_LIB([sqlite3], [sqlite3_errstr], [true]) dnl Don't modify LIBS.
-if test "x$ac_cv_lib_sqlite3_errstr_sqlite3" != xno ; then
+if test "x$ac_cv_lib_sqlite3_sqlite3_errstr" != xno ; then
   AC_CHECK_HEADER([sqlite3.h], [BUILD_BFBIN2SQLITE3=yes])
 fi
 AM_CONDITIONAL([SQLITE3_AVAILABLE], [test $BUILD_BFBIN2SQLITE3 = yes])
