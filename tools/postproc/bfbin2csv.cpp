@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <functional>
 #include <bitset>
+#include <vector>
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
@@ -35,21 +36,25 @@ private:
 
 public:
   enum {
-    SHOW_TABLE_NAMES,     // Show table names
-    SHOW_COLUMN_NAMES,    // Show column names
-    SHOW_DATA,            // Show data values
-    SHOW_NUM              // Number of the above
+    SHOW_TABLE_NAMES,      // Show table names
+    SHOW_COLUMN_NAMES,     // Show column names
+    SHOW_DATA,             // Show data values
+    SHOW_NUM               // Number of the above
   };
-  string infilename;      // Name of the input file
-  string outfilename;     // Name of the output file
-  ostream* outfile;       // Output file stream
-  size_t tablenum;        // Current table number
-  string colsep;          // Column separator or empty for "smart" spaces
-  size_t colnum;          // Current column number (header or data row)
+  string infilename;       // Name of the input file
+  string outfilename;      // Name of the output file
+  ostream* outfile;        // Output file stream
+  size_t tablenum;         // Current table number (quoted for CSV)
+  string tablename;        // Current column name (quoted for CSV)
+  vector<string> colnames; // Name of each column in the current table
+  string colsep;           // Column separator
+  size_t colnum;           // Current column number (header or data row)
+  size_t rownum;           // Current row number
   unordered_set<string> included_tables;   // Set of tables to include
   unordered_set<string> excluded_tables;   // Set of tables to exclude
-  bool suppress_table;    // true=skip the current table; false=show it
-  bitset<SHOW_NUM> show;  // Table elements to output
+  bool suppress_table;     // true=skip the current table; false=show it
+  bitset<SHOW_NUM> show;   // Table elements to output
+  bool one_val_per_line;   // true=machine-parseable output (one value per output line); false=human-readable output
 
   LocalState (int argc, char* argv[]);
   ~LocalState();
@@ -66,6 +71,7 @@ void LocalState::show_usage (ostream& os)
      << " [--no-table-names]"
      << " [--no-column-names]"
      << " [--no-data]"
+     << " [--flat-output]"
      << " <filename.byfl>\n";
 }
 
@@ -79,8 +85,10 @@ LocalState::LocalState (int argc, char* argv[])
   tablenum = 0;
   colsep = ",";
   colnum = 0;
+  rownum = 0;
   suppress_table = false;
   show.set();
+  one_val_per_line = false;
 
   // Walk the command line and process each option we encounter.
   static struct option cmd_line_options[] = {
@@ -92,11 +100,12 @@ LocalState::LocalState (int argc, char* argv[])
     { "no-table-names",  no_argument,       NULL, 'T' },
     { "no-column-names", no_argument,       NULL, 'C' },
     { "no-data",         no_argument,       NULL, 'D' },
+    { "flat-output",     no_argument,       NULL, 'f' },
     { NULL,              0,                 NULL, 0 }
   };
   int opt_index = 0;
   while (true) {
-    int c = getopt_long(argc, argv, "ho:c:i:e:DCT", cmd_line_options, &opt_index);
+    int c = getopt_long(argc, argv, "ho:c:i:e:TCDf", cmd_line_options, &opt_index);
     if (c == -1)
       break;
     switch (c) {
@@ -134,12 +143,17 @@ LocalState::LocalState (int argc, char* argv[])
         show.reset(SHOW_DATA);
         break;
 
+      case 'f':
+        one_val_per_line = true;
+        break;
+
       case 0:
         cerr << progname << ": Internal error in " << __FILE__
              << ", line " << __LINE__ << '\n' << die;
         break;
 
       default:
+        show_usage(cout);
         exit(1);
         break;
     }
@@ -167,6 +181,11 @@ LocalState::LocalState (int argc, char* argv[])
   if (excluded_tables.size() > 0 && included_tables.size() > 0)
     cerr << progname << ": Only one of --include (-i) and --exclude (-e)"
          << " may be specified\n" << die;
+
+  // Flat output implies that table names, column names, and data are
+  // all shown.
+  if (one_val_per_line)
+    show.set();
 
   // Open the output file if specified.
   if (outfilename != "") {
@@ -283,6 +302,12 @@ static void begin_any_table (void* state, const char* tablename)
   if (lstate->suppress_table)
     return;
 
+  // Store the name of the current table.
+  lstate->rownum = 0;
+  lstate->tablename = quote_for_csv(name);
+  if (lstate->one_val_per_line)
+    return;
+
   // Output a blank line if we're outputting multiple table components.
   if (lstate->show.count() > 1)
     if (lstate->tablenum > 0)
@@ -291,16 +316,27 @@ static void begin_any_table (void* state, const char* tablename)
 
   // Output the name of the current table.
   if (lstate->show[LocalState::SHOW_TABLE_NAMES])
-    *lstate->outfile << quote_for_csv(name) << '\n';
+    *lstate->outfile << lstate->tablename << '\n';
 }
 
-// Begin outputting a column header or a row of data.
-static void begin_row (void* state)
+// Begin outputting a column header.
+static void begin_column_header (void* state)
 {
   LocalState* lstate = (LocalState*) state;
   if (lstate->suppress_table)
     return;
   lstate->colnum = 0;
+  lstate->colnames.clear();
+}
+
+// Begin outputting a row of data.
+static void begin_data_row (void* state)
+{
+  LocalState* lstate = (LocalState*) state;
+  if (lstate->suppress_table)
+    return;
+  lstate->colnum = 0;
+  lstate->rownum++;
 }
 
 // Output the name of any column type.
@@ -309,10 +345,14 @@ static void any_column_header (void* state, const char* colname)
   LocalState* lstate = (LocalState*) state;
   if (lstate->suppress_table || !lstate->show[LocalState::SHOW_COLUMN_NAMES])
     return;
+  string name = quote_for_csv(colname);
+  lstate->colnames.push_back(name);
+  lstate->colnum++;
+  if (lstate->one_val_per_line)
+    return;
   if (lstate->colnum > 0)
     *lstate->outfile << lstate->colsep;
-  *lstate->outfile << quote_for_csv(colname);
-  lstate->colnum++;
+  *lstate->outfile << name;
 }
 
 // Finish outputting a column header.
@@ -320,6 +360,8 @@ static void end_column_header (void* state)
 {
   LocalState* lstate = (LocalState*) state;
   if (lstate->suppress_table || !lstate->show[LocalState::SHOW_COLUMN_NAMES])
+    return;
+  if (lstate->one_val_per_line)
     return;
   *lstate->outfile << '\n';
 }
@@ -330,9 +372,18 @@ static void write_uint64_value (void* state, uint64_t value)
   LocalState* lstate = (LocalState*) state;
   if (lstate->suppress_table || !lstate->show[LocalState::SHOW_DATA])
     return;
-  if (lstate->colnum > 0)
-    *lstate->outfile << lstate->colsep;
-  *lstate->outfile << value;
+  if (lstate->one_val_per_line)
+    // Special three-column output format
+    *lstate->outfile << lstate->tablename << lstate->colsep
+                     << lstate->rownum << lstate->colsep
+                     << lstate->colnames[lstate->colnum] << lstate->colsep
+                     << value << '\n';
+  else {
+    // Ordinary tabular output format
+    if (lstate->colnum > 0)
+      *lstate->outfile << lstate->colsep;
+    *lstate->outfile << value;
+  }
   lstate->colnum++;
 }
 
@@ -342,9 +393,18 @@ static void write_string_value (void* state, const char* value)
   LocalState* lstate = (LocalState*) state;
   if (lstate->suppress_table || !lstate->show[LocalState::SHOW_DATA])
     return;
-  if (lstate->colnum > 0)
-    *lstate->outfile << lstate->colsep;
-  *lstate->outfile << quote_for_csv(value);
+  if (lstate->one_val_per_line)
+    // Special three-column output format
+    *lstate->outfile << lstate->tablename << lstate->colsep
+                     << lstate->rownum << lstate->colsep
+                     << lstate->colnames[lstate->colnum] << lstate->colsep
+                     << quote_for_csv(value) << '\n';
+  else {
+    // Ordinary tabular output format
+    if (lstate->colnum > 0)
+      *lstate->outfile << lstate->colsep;
+    *lstate->outfile << quote_for_csv(value);
+  }
   lstate->colnum++;
 }
 
@@ -354,9 +414,18 @@ static void write_bool_value (void* state, uint8_t value)
   LocalState* lstate = (LocalState*) state;
   if (lstate->suppress_table || !lstate->show[LocalState::SHOW_DATA])
     return;
-  if (lstate->colnum > 0)
-    *lstate->outfile << lstate->colsep;
-  *lstate->outfile << (value == 0 ? "FALSE" : "TRUE");
+  if (lstate->one_val_per_line)
+    // Special three-column output format
+    *lstate->outfile << lstate->tablename << lstate->colsep
+                     << lstate->rownum << lstate->colsep
+                     << lstate->colnames[lstate->colnum] << lstate->colsep
+                     << (value == 0 ? "FALSE" : "TRUE") << '\n';
+  else {
+    // Ordinary tabular output format
+    if (lstate->colnum > 0)
+      *lstate->outfile << lstate->colsep;
+    *lstate->outfile << (value == 0 ? "FALSE" : "TRUE");
+  }
   lstate->colnum++;
 }
 
@@ -365,6 +434,8 @@ static void end_row (void* state)
 {
   LocalState* lstate = (LocalState*) state;
   if (lstate->suppress_table || !lstate->show[LocalState::SHOW_DATA])
+    return;
+  if (lstate->one_val_per_line)
     return;
   *lstate->outfile << '\n';
 }
@@ -389,12 +460,12 @@ int main (int argc, char *argv[])
   callbacks.error_cb = error_callback;
   callbacks.table_begin_basic_cb = begin_any_table;
   callbacks.table_begin_keyval_cb = begin_any_table;
-  callbacks.column_begin_cb = begin_row;
+  callbacks.column_begin_cb = begin_column_header;
   callbacks.column_uint64_cb = any_column_header;
   callbacks.column_string_cb = any_column_header;
   callbacks.column_bool_cb = any_column_header;
   callbacks.column_end_cb = end_column_header;
-  callbacks.row_begin_cb = begin_row;
+  callbacks.row_begin_cb = begin_data_row;
   callbacks.data_uint64_cb = write_uint64_value;
   callbacks.data_string_cb = write_string_value;
   callbacks.data_bool_cb = write_bool_value;
