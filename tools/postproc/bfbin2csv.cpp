@@ -347,12 +347,12 @@ static void any_column_header (void* state, const char* colname)
     return;
   string name = quote_for_csv(colname);
   lstate->colnames.push_back(name);
+  if (!lstate->one_val_per_line) {
+    if (lstate->colnum > 0)
+      *lstate->outfile << lstate->colsep;
+    *lstate->outfile << name;
+  }
   lstate->colnum++;
-  if (lstate->one_val_per_line)
-    return;
-  if (lstate->colnum > 0)
-    *lstate->outfile << lstate->colsep;
-  *lstate->outfile << name;
 }
 
 // Finish outputting a column header.
