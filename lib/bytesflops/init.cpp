@@ -464,6 +464,12 @@ namespace bytesflops_pass {
       // bf_categorize_counters().
       return false;
 
+    if (function_name == "_Znwm" || function_name == "_ZdlPv" || function_name == "_ZdaPv")
+      // Avoid the endless recursion that would be caused if we were
+      // to instrument operator new, operator delete, or operator
+      // delete[], all of which we invoke from the run-time library.
+      return false;
+
     if ("bf_initialize_func_map" == function_name || function.empty())
       return false;
 
