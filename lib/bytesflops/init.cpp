@@ -87,42 +87,33 @@ namespace bytesflops_pass {
 
         GlobalVariable* llvm_global_ctors;
 
-        /**
-         * Add our constructor to the list of global constructors for the
-         * module.  It's possible that a module already contains a ctor.
-         */
+        // Add our constructor to the list of global constructors for the
+        // module.  It's possible that a module already contains a ctor.
         GlobalVariable*
         current_ctors = module.getGlobalVariable("llvm.global_ctors");
-        if ( !current_ctors )
-        {
-            ArrayTy_0 = ArrayType::get(StructTy_1, 1);
-        }
-        else
-        {
-            // there are existing ctors, and the initializer points to them.
-            // add ours to the initializer list (actually, we create a new
-            // initializer list and add the existing ones to it).
-            Constant * initializer = current_ctors->getInitializer();
-
-            ConstantArray *
-            ar = llvm::dyn_cast<ConstantArray>(initializer);
-            assert( ar );
-
-            int cnt = 0;
-            Constant *
-            elt = ar->getAggregateElement(cnt);
-
-            // add existing ctors to new initializer list, and get rid
-            // of the old one.
-            while ( elt )
-            {
-                assert( llvm::dyn_cast<ConstantStruct>(elt) );
-                ctor_elems.push_back(elt);
-                cnt++;
-                elt = ar->getAggregateElement(cnt);
+        if (!current_ctors)
+          ArrayTy_0 = ArrayType::get(StructTy_1, 1);
+        else {
+          // There are existing ctors, and the initializer points to them.
+          // Add ours to the initializer list.  (Actually, we create a new
+          // initializer list and add the existing ones to it).  We
+          // consider two cases: regular arrays and zero-initialized
+          // arrays.
+          Constant* initializer = current_ctors->getInitializer();
+          if (isa<ConstantArray>(initializer) || isa<ConstantAggregateZero>(initializer)) {
+            unsigned int numelts = initializer->getNumOperands();
+            for (unsigned int e = 0; e < numelts; e++) {
+              Constant* elt = initializer->getAggregateElement(e);
+              assert(isa<ConstantStruct>(elt));
+              ctor_elems.push_back(elt);
             }
-            ArrayTy_0 = ArrayType::get(StructTy_1, ctor_elems.size());
-            current_ctors->eraseFromParent();
+          }
+          else
+            report_fatal_error("Encountered unexpected type of constructor list");
+
+          // Remove the old constructor list.
+          ArrayTy_0 = ArrayType::get(StructTy_1, ctor_elems.size());
+          current_ctors->eraseFromParent();
         }
 
         llvm_global_ctors = new GlobalVariable(/*Module=*/module,
