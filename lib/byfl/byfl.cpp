@@ -1172,6 +1172,29 @@ private:
     const uint64_t term_dynamic = counter_totals.terminators[BF_END_BB_DYNAMIC];
     const uint64_t term_any = counter_totals.terminators[BF_END_BB_ANY];
 
+    // Produce a histogram that tallies each byte-access count.
+    // Identify the number of bytes needed to cover 50% of all dynamic
+    // byte accesses.
+    vector<bf_addr_tally_t> access_counts;
+    uint64_t total_bytes_accessed = 0;
+    uint64_t bytes_for_50pct_hits = 0;
+    if (bf_mem_footprint && !partition) {
+      bf_get_address_tally_hist(access_counts, &total_bytes_accessed);
+      uint64_t running_total_bytes = 0;     // Running total of tally (# of addresses)
+      uint64_t running_total_accesses = 0;  // Running total of byte-access count times tally.
+      for (auto counts_iter = access_counts.cbegin();
+           counts_iter != access_counts.cend();
+           counts_iter++) {
+        running_total_bytes += counts_iter->second;
+        running_total_accesses += uint64_t(counts_iter->first) * uint64_t(counts_iter->second);
+        double hit_rate = double(running_total_accesses) / double(global_bytes);
+        if (running_total_accesses*2 >= global_bytes) {
+          bytes_for_50pct_hits = running_total_bytes;
+          break;
+        }
+      }
+    }
+
     // Compute the number of integer operations performed by
     // subtracting flops, memory ops, and branch ops from total ops.
     const uint64_t global_int_ops = counter_totals.ops - counter_totals.flops - global_mem_ops - term_any;
@@ -1183,6 +1206,9 @@ private:
            << counter_totals.stores << " stored)\n";
     if (bf_unique_bytes && !partition)
       *bfout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
+    if (bf_mem_footprint && !partition)
+      *bfout << tag << ": " << setw(25) << bytes_for_50pct_hits
+             << " addresses cover 50% of all dynamic loads and stores\n";
     *bfout << tag << ": " << setw(25) << counter_totals.flops << " flops\n";
     *bfout << tag << ": " << setw(25) << global_int_ops << " integer ops\n";
     *bfout << tag << ": " << setw(25) << global_mem_ops << " memory ops ("
@@ -1240,6 +1266,10 @@ private:
       *bfbin << uint8_t(BINOUT_COL_UINT64)
              << "Unique addresses loaded or stored"
              << global_unique_bytes;
+    if (bf_mem_footprint && !partition)
+      *bfbin << uint8_t(BINOUT_COL_UINT64)
+             << "Bytes needed to cover half of all dynamic loads and stores"
+             << bytes_for_50pct_hits;
 
     // Output reuse distance (if measured) in both text and binary formats.
     if (reuse_unique > 0) {
@@ -1403,8 +1433,8 @@ private:
       if (partition)
         inst_mix_table_name += string(" for tag ") + string(partition);
       *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << inst_mix_table_name;
-      for (vector<name_tally>::iterator ntiter = sorted_inst_mix.begin();
-           ntiter != sorted_inst_mix.end();
+      for (auto ntiter = sorted_inst_mix.cbegin();
+           ntiter != sorted_inst_mix.cend();
            ntiter++) {
         total_insts += ntiter->second;
         *bfout << tag << ": " << setw(25) << ntiter->second << ' '
@@ -1424,18 +1454,13 @@ private:
 
     // Output quantiles of working-set sizes.
     if (bf_mem_footprint && !partition) {
-      // Produce a histogram that tallies each byte-access count.
-      vector<bf_addr_tally_t> access_counts;
-      uint64_t total_bytes = 0;
-      bf_get_address_tally_hist(access_counts, &total_bytes);
-
       // Output every nth quantile textually.
       const double pct_change_text = 0.05;   // Minimum percentage-point change to output textually
       uint64_t running_total_bytes = 0;     // Running total of tally (# of addresses)
       uint64_t running_total_accesses = 0;  // Running total of byte-access count times tally.
       double hit_rate = 0.0;            // Quotient of the preceding two values
-      for (vector<bf_addr_tally_t>::iterator counts_iter = access_counts.begin();
-           counts_iter != access_counts.end();
+      for (auto counts_iter = access_counts.cbegin();
+           counts_iter != access_counts.cend();
            counts_iter++) {
         running_total_bytes += counts_iter->second;
         running_total_accesses += uint64_t(counts_iter->first) * uint64_t(counts_iter->second);
@@ -1458,8 +1483,8 @@ private:
       running_total_bytes = 0;
       running_total_accesses = 0;
       hit_rate = 0.0;
-      for (vector<bf_addr_tally_t>::iterator counts_iter = access_counts.begin();
-           counts_iter != access_counts.end();
+      for (auto counts_iter = access_counts.cbegin();
+           counts_iter != access_counts.cend();
            counts_iter++) {
         running_total_bytes += counts_iter->second;
         running_total_accesses += uint64_t(counts_iter->first) * uint64_t(counts_iter->second);
@@ -1659,7 +1684,7 @@ private:
     *bfbin << uint8_t(BINOUT_COL_STRING) << "Argument"
            << uint8_t(BINOUT_COL_NONE);
     vector<string> command_line = parse_command_line();   // All command-line arguments
-    for (auto iter = command_line.cbegin(); iter != command_line.end(); iter++)
+    for (auto iter = command_line.cbegin(); iter != command_line.cend(); iter++)
       *bfbin << uint8_t(BINOUT_ROW_DATA) << *iter;
     *bfbin << uint8_t(BINOUT_ROW_NONE);
 
@@ -1736,8 +1761,8 @@ public:
 
     // Report user-defined counter totals, if any.
     vector<const char*>* all_tag_names = user_defined_totals().sorted_keys(compare_char_stars);
-    for (vector<const char*>::const_iterator tag_iter = all_tag_names->begin();
-         tag_iter != all_tag_names->end();
+    for (vector<const char*>::const_iterator tag_iter = all_tag_names->cbegin();
+         tag_iter != all_tag_names->cend();
          tag_iter++) {
       const char* tag_name = *tag_iter;
       report_totals(tag_name, *user_defined_totals()[tag_name]);
