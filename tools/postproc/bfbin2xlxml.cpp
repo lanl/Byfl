@@ -38,6 +38,11 @@ public:
   string outfilename;      // Name of the output file
   ostream* outfile;        // Output file stream
   vector<string> colnames; // Name of each column in the current table
+  size_t colnum;           // Current column number (maintained while outputting data)
+  enum {
+    XML_BASIC_TABLE,
+    XML_KEYVAL_TABLE
+  } tabletype;             // Type of table (basic or key:value)
 
   LocalState (int argc, char* argv[]);
   ~LocalState();
@@ -102,24 +107,24 @@ static string quote_for_xml (const string& in_str)
   for (auto iter = in_str.cbegin(); iter != in_str.cend(); iter++) {
     switch (*iter) {
       case '<':
-	out_str += "&lt;";
-	break;
+        out_str += "&lt;";
+        break;
 
       case '>':
-	out_str += "&gt;";
-	break;
+        out_str += "&gt;";
+        break;
 
       case '&':
-	out_str += "&amp;";
-	break;
+        out_str += "&amp;";
+        break;
 
       case '"':
-	out_str += "&quot;";
-	break;
+        out_str += "&quot;";
+        break;
 
       default:
-	out_str += *iter;
-	break;
+        out_str += *iter;
+        break;
     }
   }
   return out_str;
@@ -142,71 +147,94 @@ static void error_callback (void* state, const char* message)
 static void write_xml_header (LocalState* lstate)
 {
   *lstate->outfile << "<?xml version=\"1.0\"?>\n"
-		   << "<?mso-application progid=\"Excel.Sheet\"?>\n"
-		   << "<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\"\n"
-		   << "          xmlns:o=\"urn:schemas-microsoft-com:office:office\"\n"
-		   << "          xmlns:x=\"urn:schemas-microsoft-com:office:excel\"\n"
-		   << "          xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\"\n"
-		   << "          xmlns:html=\"http://www.w3.org/TR/REC-html40\">\n"
-		   << "  <Styles>\n"
-		   << "    <Style ss:ID=\"sty-col-header\">\n"
-		   << "      <Alignment ss:Horizontal=\"Center\" />\n"
-		   << "      <Font ss:Bold=\"1\" />\n"
-		   << "    </Style>\n"
-		   << "    <Style ss:ID=\"sty-uint64\">\n"
-		   << "      <NumberFormat ss:Format=\"#,##0\" />\n"
-		   << "    </Style>\n"
-		   << "    <Style ss:ID=\"sty-string\">\n"
-		   << "    </Style>\n"
-		   << "    <Style ss:ID=\"sty-bool\">\n"
-		   << "    </Style>\n"
-		   << "  </Styles>\n";
+                   << "<?mso-application progid=\"Excel.Sheet\"?>\n"
+                   << "<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\"\n"
+                   << "          xmlns:o=\"urn:schemas-microsoft-com:office:office\"\n"
+                   << "          xmlns:x=\"urn:schemas-microsoft-com:office:excel\"\n"
+                   << "          xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\"\n"
+                   << "          xmlns:html=\"http://www.w3.org/TR/REC-html40\">\n"
+                   << "  <Styles>\n"
+                   << "    <Style ss:ID=\"sty-col-header\">\n"
+                   << "      <Alignment ss:Horizontal=\"Center\" />\n"
+                   << "      <Font ss:Bold=\"1\" />\n"
+                   << "    </Style>\n"
+                   << "    <Style ss:ID=\"sty-uint64\">\n"
+                   << "      <NumberFormat ss:Format=\"#,##0\" />\n"
+                   << "    </Style>\n"
+                   << "    <Style ss:ID=\"sty-string\">\n"
+                   << "    </Style>\n"
+                   << "    <Style ss:ID=\"sty-bool\">\n"
+                   << "    </Style>\n"
+                   << "  </Styles>\n";
 }
 
-// Begin outputting a table (either type).
-static void begin_any_table (void* state, const char* tablename)
+// Begin outputting a basic table.
+static void begin_basic_table (void* state, const char* tablename)
 {
   LocalState* lstate = (LocalState*) state;
   string name(tablename);
 
   // Begin a new worksheet for the current table.
+  lstate->tabletype = LocalState::XML_BASIC_TABLE;
   *lstate->outfile << "  <Worksheet ss:Name=\""
-		   << quote_for_xml(name) << "\">\n"
-		   << "    <Table>\n";
+                   << quote_for_xml(name) << "\">\n"
+                   << "    <Table>\n";
 }
 
-// Begin outputting a column header.
+// Begin outputting a key:value table.
+static void begin_keyval_table (void* state, const char* tablename)
+{
+  LocalState* lstate = (LocalState*) state;
+  string name(tablename);
+
+  // Begin a new worksheet for the current table.
+  lstate->tabletype = LocalState::XML_KEYVAL_TABLE;
+  *lstate->outfile << "  <Worksheet ss:Name=\""
+                   << quote_for_xml(name) << "\">\n"
+                   << "    <Table>\n";
+}
+
+// Prepare to output a column header.
 static void begin_column_header (void* state)
 {
   LocalState* lstate = (LocalState*) state;
   lstate->colnames.clear();
+  if (lstate->tabletype == LocalState::XML_KEYVAL_TABLE)
+    // Key:value tables define exactly two columns, a string column
+    // called "Key" and a column of possibly variable type called
+    // "Value".
+    *lstate->outfile << "      <Column ss:AutoFitWidth=\"1\" ss:StyleID=\"sty-string\" />\n"
+                     << "      <Column ss:AutoFitWidth=\"1\" />\n";
 }
 
-// Prepare to output a column of 64-bit unsigned integers.
+// Define a column of 64-bit unsigned integers.
 static void write_uint64_header (void* state, const char* colname)
 {
   LocalState* lstate = (LocalState*) state;
   string name(colname);
   lstate->colnames.push_back(quote_for_xml(name));
-  *lstate->outfile << "      <Column ss:AutoFitWidth=\"1\" ss:StyleID=\"sty-uint64\" />\n";
+  if (lstate->tabletype == LocalState::XML_BASIC_TABLE)
+    *lstate->outfile << "      <Column ss:AutoFitWidth=\"1\" ss:StyleID=\"sty-uint64\" />\n";
 }
 
-// Prepare to output a column of strings.
+// Define a column of strings.
 static void write_string_header (void* state, const char* colname)
 {
   LocalState* lstate = (LocalState*) state;
   string name(colname);
   lstate->colnames.push_back(quote_for_xml(name));
-  *lstate->outfile << "      <Column ss:AutoFitWidth=\"1\" ss:StyleID=\"sty-string\" />\n";
+  if (lstate->tabletype == LocalState::XML_BASIC_TABLE)
+    *lstate->outfile << "      <Column ss:AutoFitWidth=\"1\" ss:StyleID=\"sty-string\" />\n";
 }
 
-// Prepare to output a column of Booleans.
+// Define a column of Booleans.
 static void write_boolean_header (void* state, const char* colname)
 {
   LocalState* lstate = (LocalState*) state;
   string name(colname);
   lstate->colnames.push_back(quote_for_xml(name));
-  *lstate->outfile << "      <Column ss:AutoFitWidth=\"1\" ss:StyleID=\"sty-bool\" />\n";
+  if (lstate->tabletype == LocalState::XML_BASIC_TABLE)
+    *lstate->outfile << "      <Column ss:AutoFitWidth=\"1\" ss:StyleID=\"sty-bool\" />\n";
 }
 
 // Finish outputting a column header.
@@ -214,10 +242,16 @@ static void end_column_header (void* state)
 {
   LocalState* lstate = (LocalState*) state;
   *lstate->outfile << "      <Row ss:StyleID=\"sty-col-header\">\n";
-  for (auto iter = lstate->colnames.cbegin(); iter != lstate->colnames.cend(); iter++)
-    *lstate->outfile << "        <Cell><Data ss:Type=\"String\">"
-		     << *iter
-		     << "</Data></Cell>\n";
+  if (lstate->tabletype == LocalState::XML_BASIC_TABLE)
+    // Basic table -- output each stored column name.
+    for (auto iter = lstate->colnames.cbegin(); iter != lstate->colnames.cend(); iter++)
+      *lstate->outfile << "        <Cell><Data ss:Type=\"String\">"
+                       << *iter
+                       << "</Data></Cell>\n";
+  else
+    // Key:value table -- output a "Key" column and a "Value" column.
+    *lstate->outfile << "        <Cell><Data ss:Type=\"String\">Key</Data></Cell>\n"
+                     << "        <Cell><Data ss:Type=\"String\">Value</Data></Cell>\n";
   *lstate->outfile << "      </Row>\n";
 }
 
@@ -225,41 +259,80 @@ static void end_column_header (void* state)
 static void begin_data_row (void* state)
 {
   LocalState* lstate = (LocalState*) state;
-  *lstate->outfile << "      <Row>\n";
+  if (lstate->tabletype == LocalState::XML_BASIC_TABLE)
+    *lstate->outfile << "      <Row>\n";
+  lstate->colnum = 0;
 }
 
 // Write a 64-bit unsigned integer value.
 static void write_uint64_value (void* state, uint64_t value)
 {
   LocalState* lstate = (LocalState*) state;
-  *lstate->outfile << "        <Cell><Data ss:Type=\"Number\">"
-		   << value
-		   << "</Data></Cell>\n";
+  if (lstate->tabletype == LocalState::XML_KEYVAL_TABLE)
+    // Key:value table -- output a complete two-column row
+    *lstate->outfile << "      <Row>\n"
+                     << "        <Cell><Data ss:Type=\"String\">"
+                     << lstate->colnames[lstate->colnum++]
+                     << "</Data></Cell>\n"
+                     << "        <Cell ss:StyleID=\"sty-uint64\"><Data ss:Type=\"Number\">"
+                     << value
+                     << "</Data></Cell>\n"
+                     << "      </Row>\n";
+  else
+    // Basic table -- output a single cell within the existing row
+    *lstate->outfile << "        <Cell><Data ss:Type=\"Number\">"
+                     << value
+                     << "</Data></Cell>\n";
 }
 
 // Write a string value.
 static void write_string_value (void* state, const char* value)
 {
   LocalState* lstate = (LocalState*) state;
-  *lstate->outfile << "        <Cell><Data ss:Type=\"String\">"
-		   << quote_for_xml(value)
-		   << "</Data></Cell>\n";
+  if (lstate->tabletype == LocalState::XML_KEYVAL_TABLE)
+    // Key:value table -- output a complete two-column row
+    *lstate->outfile << "      <Row>\n"
+                     << "        <Cell><Data ss:Type=\"String\">"
+                     << lstate->colnames[lstate->colnum++]
+                     << "</Data></Cell>\n"
+                     << "        <Cell ss:StyleID=\"sty-string\"><Data ss:Type=\"Number\">"
+                     << quote_for_xml(value)
+                     << "</Data></Cell>\n"
+                     << "      </Row>\n";
+  else
+    // Basic table -- output a single cell within the existing row
+    *lstate->outfile << "        <Cell><Data ss:Type=\"String\">"
+                     << quote_for_xml(value)
+                     << "</Data></Cell>\n";
 }
 
 // Write a boolean value.
 static void write_bool_value (void* state, uint8_t value)
 {
   LocalState* lstate = (LocalState*) state;
-  *lstate->outfile << "        <Cell><Data ss:Type=\"Boolean\">"
-		   << int(value)
-		   << "</Data></Cell>\n";
+  if (lstate->tabletype == LocalState::XML_KEYVAL_TABLE)
+    // Key:value table -- output a complete two-column row
+    *lstate->outfile << "      <Row>\n"
+                     << "        <Cell><Data ss:Type=\"String\">"
+                     << lstate->colnames[lstate->colnum++]
+                     << "</Data></Cell>\n"
+                     << "        <Cell ss:StyleID=\"sty-bool\"><Data ss:Type=\"Number\">"
+                     << int(value)
+                     << "</Data></Cell>\n"
+                     << "      </Row>\n";
+  else
+    // Basic table -- output a single cell within the existing row
+    *lstate->outfile << "        <Cell><Data ss:Type=\"Boolean\">"
+                     << int(value)
+                     << "</Data></Cell>\n";
 }
 
 // Finish outputting a row of data.
 static void end_row (void* state)
 {
   LocalState* lstate = (LocalState*) state;
-  *lstate->outfile << "      </Row>\n";
+  if (lstate->tabletype == LocalState::XML_BASIC_TABLE)
+    *lstate->outfile << "      </Row>\n";
 }
 
 // Finish outputting a table (either type).
@@ -267,7 +340,7 @@ static void end_any_table (void* state)
 {
   LocalState* lstate = (LocalState*) state;
   *lstate->outfile << "    </Table>\n"
-		   << "  </Worksheet>\n";
+                   << "  </Worksheet>\n";
 }
 
 // Output XML trailer boilerplate.
@@ -294,9 +367,9 @@ int main (int argc, char *argv[])
   bfbin_callback_t callbacks;
   memset(&callbacks, 0, sizeof(bfbin_callback_t));
   callbacks.error_cb = error_callback;
-  callbacks.table_begin_basic_cb = begin_any_table;
+  callbacks.table_begin_basic_cb = begin_basic_table;
   callbacks.table_end_basic_cb = end_any_table;
-  callbacks.table_begin_keyval_cb = begin_any_table;
+  callbacks.table_begin_keyval_cb = begin_keyval_table;
   callbacks.table_end_keyval_cb = end_any_table;
   callbacks.column_begin_cb = begin_column_header;
   callbacks.column_uint64_cb = write_uint64_header;
