@@ -19,19 +19,18 @@ and Microsoft Excel 2003+ can read XML Spreadsheet files directly.
 =head1 OPTIONS
 
 B<bfbin2xmlss> has no command-line options.  The program accepts the
-name of a F<.byfl> file to read and an XML Spreadsheet file to create.
-If not specified, the name of the data file will be the same as that
-of the input file but with F<.byfl> replaced with F<.xml>.  (If the
-file name does not end in F<.byfl> then F<.xml> will be appended to
-the file name.)
+name of a F<.byfl> file to read and, optionally, an XML Spreadsheet
+file to create.  If the latter is not specified, B<bfbin2xmlss> will
+write to the standard output device.
 
 =head1 EXAMPLES
 
 The simplest usage is just
 
-    $ bfbin2xmlss myprog.byfl
+    $ bfbin2xmlss myprog.byfl myprog.xml
 
-which produces F<myprog.xml>.
+which produces F<myprog.xml>.  This can then be loaded into various
+spreadsheet programs.
 
 If the F<.byfl> file is expected to be used only to produce an XML
 Spreadsheet file and then deleted, one can save time and disk space by

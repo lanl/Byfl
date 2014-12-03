@@ -29,10 +29,6 @@ static ostream& die (ostream& os)
 
 // Define a type for our local parsing state.
 class LocalState {
-private:
-  string replace_extension (const string oldfilename, const string newext);
-  void show_usage (ostream& os);
-
 public:
   string infilename;       // Name of the input file
   string outfilename;      // Name of the output file
@@ -74,7 +70,7 @@ LocalState::LocalState (int argc, char* argv[])
       // Exactly two arguments: Store the first as the input file name
       // and the second as the output file name.
       infilename = string(argv[1]);
-      outfilename = replace_extension(infilename, ".xml");
+      outfilename = string(argv[2]);
       break;
 
     default:
@@ -100,16 +96,6 @@ LocalState::~LocalState()
     delete outfile;
   else
     outfile->flush();
-}
-
-// Replace a file extension.
-string LocalState::replace_extension (const string oldfilename, const string newext)
-{
-  size_t dot_ofs = oldfilename.rfind('.');
-  if (dot_ofs == string::npos)
-    return oldfilename + newext;
-  string newfilename(oldfilename);
-  return newfilename.replace(dot_ofs, string::npos, newext);
 }
 
 // Quote a string for XML output.
