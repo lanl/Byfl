@@ -30,7 +30,7 @@ static ostream& die (ostream& os)
 // Define a type for our local parsing state.
 class LocalState {
 private:
-  string expand_escapes (string& in_str);
+  string replace_extension (const string oldfilename, const string newext);
   void show_usage (ostream& os);
 
 public:
@@ -46,6 +46,8 @@ public:
 
   LocalState (int argc, char* argv[]);
   ~LocalState();
+  string quote_for_xml (const string& in_str);
+  string quote_for_xml (const string&& in_str);
 };
 
 // Parse the command line into a LocalState.
@@ -72,7 +74,7 @@ LocalState::LocalState (int argc, char* argv[])
       // Exactly two arguments: Store the first as the input file name
       // and the second as the output file name.
       infilename = string(argv[1]);
-      outfilename = string(argv[2]);
+      outfilename = replace_extension(infilename, ".xml");
       break;
 
     default:
@@ -100,8 +102,18 @@ LocalState::~LocalState()
     outfile->flush();
 }
 
+// Replace a file extension.
+string LocalState::replace_extension (const string oldfilename, const string newext)
+{
+  size_t dot_ofs = oldfilename.rfind('.');
+  if (dot_ofs == string::npos)
+    return oldfilename + newext;
+  string newfilename(oldfilename);
+  return newfilename.replace(dot_ofs, string::npos, newext);
+}
+
 // Quote a string for XML output.
-static string quote_for_xml (const string& in_str)
+string LocalState::quote_for_xml (const string& in_str)
 {
   string out_str;
   for (auto iter = in_str.cbegin(); iter != in_str.cend(); iter++) {
@@ -131,7 +143,7 @@ static string quote_for_xml (const string& in_str)
 }
 
 // Do the same as the above but accept an rvalue.
-static string quote_for_xml (const string&& in_str)
+string LocalState::quote_for_xml (const string&& in_str)
 {
   return quote_for_xml(ref(in_str));
 }
@@ -177,7 +189,7 @@ static void begin_basic_table (void* state, const char* tablename)
   // Begin a new worksheet for the current table.
   lstate->tabletype = LocalState::XML_BASIC_TABLE;
   *lstate->outfile << "  <Worksheet ss:Name=\""
-                   << quote_for_xml(name) << "\">\n"
+                   << lstate->quote_for_xml(name) << "\">\n"
                    << "    <Table>\n";
 }
 
@@ -190,7 +202,7 @@ static void begin_keyval_table (void* state, const char* tablename)
   // Begin a new worksheet for the current table.
   lstate->tabletype = LocalState::XML_KEYVAL_TABLE;
   *lstate->outfile << "  <Worksheet ss:Name=\""
-                   << quote_for_xml(name) << "\">\n"
+                   << lstate->quote_for_xml(name) << "\">\n"
                    << "    <Table>\n";
 }
 
@@ -212,7 +224,7 @@ static void write_uint64_header (void* state, const char* colname)
 {
   LocalState* lstate = (LocalState*) state;
   string name(colname);
-  lstate->colnames.push_back(quote_for_xml(name));
+  lstate->colnames.push_back(lstate->quote_for_xml(name));
   if (lstate->tabletype == LocalState::XML_BASIC_TABLE)
     *lstate->outfile << "      <Column ss:AutoFitWidth=\"1\" ss:StyleID=\"sty-uint64\" />\n";
 }
@@ -222,7 +234,7 @@ static void write_string_header (void* state, const char* colname)
 {
   LocalState* lstate = (LocalState*) state;
   string name(colname);
-  lstate->colnames.push_back(quote_for_xml(name));
+  lstate->colnames.push_back(lstate->quote_for_xml(name));
   if (lstate->tabletype == LocalState::XML_BASIC_TABLE)
     *lstate->outfile << "      <Column ss:AutoFitWidth=\"1\" ss:StyleID=\"sty-string\" />\n";
 }
@@ -232,7 +244,7 @@ static void write_boolean_header (void* state, const char* colname)
 {
   LocalState* lstate = (LocalState*) state;
   string name(colname);
-  lstate->colnames.push_back(quote_for_xml(name));
+  lstate->colnames.push_back(lstate->quote_for_xml(name));
   if (lstate->tabletype == LocalState::XML_BASIC_TABLE)
     *lstate->outfile << "      <Column ss:AutoFitWidth=\"1\" ss:StyleID=\"sty-bool\" />\n";
 }
@@ -296,13 +308,13 @@ static void write_string_value (void* state, const char* value)
                      << lstate->colnames[lstate->colnum++]
                      << "</Data></Cell>\n"
                      << "        <Cell ss:StyleID=\"sty-string\"><Data ss:Type=\"Number\">"
-                     << quote_for_xml(value)
+                     << lstate->quote_for_xml(value)
                      << "</Data></Cell>\n"
                      << "      </Row>\n";
   else
     // Basic table -- output a single cell within the existing row
     *lstate->outfile << "        <Cell><Data ss:Type=\"String\">"
-                     << quote_for_xml(value)
+                     << lstate->quote_for_xml(value)
                      << "</Data></Cell>\n";
 }
 

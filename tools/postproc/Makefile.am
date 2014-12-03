@@ -13,10 +13,11 @@ man1_MANS =
 man3_MANS = bf_process_byfl_file.3
 CLEANFILES = bf_process_byfl_file.3
 EXTRA_DIST = \
-	bfbin2hdf5.pod \
-	bfbin2csv.pod \
-	bfbin2sqlite3.pod \
 	bf_process_byfl_file.pod \
+	bfbin2csv.pod \
+	bfbin2hdf5.pod \
+	bfbin2sqlite3.pod \
+	bfbin2xlxml.pod \
 	bfbin2py.in
 lib_LTLIBRARIES =
 pkginclude_HEADERS =
@@ -54,6 +55,8 @@ bfbin2csv_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2csv_LDADD = libbfbin.la
 
 bin_PROGRAMS += bfbin2xlxml
+man1_MANS += bfbin2xlxml.1
+CLEANFILES += bfbin2xlxml.1
 bfbin2xlxml_SOURCES = bfbin2xlxml.cpp
 bfbin2xlxml_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2xlxml_LDADD = libbfbin.la
