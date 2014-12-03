@@ -53,6 +53,11 @@ bfbin2csv_SOURCES = bfbin2csv.cpp
 bfbin2csv_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2csv_LDADD = libbfbin.la
 
+bin_PROGRAMS += bfbin2xlxml
+bfbin2xlxml_SOURCES = bfbin2xlxml.cpp
+bfbin2xlxml_CPPFLAGS = -I$(top_srcdir)/include
+bfbin2xlxml_LDADD = libbfbin.la
+
 if SQLITE3_AVAILABLE
 bin_PROGRAMS += bfbin2sqlite3
 man1_MANS += bfbin2sqlite3.1
