@@ -1,15 +1,15 @@
 =head1 NAME
 
-bfbin2xlxml - convert Byfl output to XML Spreadsheet format
+bfbin2xmlss - convert Byfl output to XML Spreadsheet format
 
 =head1 SYNOPSIS
 
-B<bfbin2xlxml> I<input_file.byfl> [I<output_file.xml>]
+B<bfbin2xmlss> I<input_file.byfl> [I<output_file.xml>]
 
 =head1 DESCRIPTION
 
 By default, applications instrumented with Byfl write measurement data
-to a binary F<.byfl> file.  B<bfbin2xlxml> converts such files to
+to a binary F<.byfl> file.  B<bfbin2xmlss> converts such files to
 Microsoft Excel XML Spreadsheet 2003 format (henceforth, "XML
 Spreadsheet").  XML Spreadsheet has been superseded by Office Open XML
 (ECMA-376) but is represented by a simple, single, XML file, which is
@@ -18,7 +18,7 @@ and Microsoft Excel 2003+ can read XML Spreadsheet files directly.
 
 =head1 OPTIONS
 
-B<bfbin2xlxml> has no command-line options.  The program accepts the
+B<bfbin2xmlss> has no command-line options.  The program accepts the
 name of a F<.byfl> file to read and an XML Spreadsheet file to create.
 If not specified, the name of the data file will be the same as that
 of the input file but with F<.byfl> replaced with F<.xml>.  (If the
@@ -29,17 +29,17 @@ the file name.)
 
 The simplest usage is just
 
-    $ bfbin2xlxml myprog.byfl
+    $ bfbin2xmlss myprog.byfl
 
 which produces F<myprog.xml>.
 
 If the F<.byfl> file is expected to be used only to produce an XML
 Spreadsheet file and then deleted, one can save time and disk space by
-writing Byfl binary output to a named pipe and running B<bfbin2xlxml>
+writing Byfl binary output to a named pipe and running B<bfbin2xmlss>
 on that named pipe:
 
     $ mkfifo myprog.pipe
-    $ bfbin2xlxml myprog.pipe myprog.xml &
+    $ bfbin2xmlss myprog.pipe myprog.xml &
     $ env BF_BINOUT=myprog.pipe ./myprog
     $ rm myprog.pipe
 

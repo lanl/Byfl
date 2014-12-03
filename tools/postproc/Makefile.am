@@ -17,7 +17,7 @@ EXTRA_DIST = \
 	bfbin2csv.pod \
 	bfbin2hdf5.pod \
 	bfbin2sqlite3.pod \
-	bfbin2xlxml.pod \
+	bfbin2xmlss.pod \
 	bfbin2py.in
 lib_LTLIBRARIES =
 pkginclude_HEADERS =
@@ -54,12 +54,12 @@ bfbin2csv_SOURCES = bfbin2csv.cpp
 bfbin2csv_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2csv_LDADD = libbfbin.la
 
-bin_PROGRAMS += bfbin2xlxml
-man1_MANS += bfbin2xlxml.1
-CLEANFILES += bfbin2xlxml.1
-bfbin2xlxml_SOURCES = bfbin2xlxml.cpp
-bfbin2xlxml_CPPFLAGS = -I$(top_srcdir)/include
-bfbin2xlxml_LDADD = libbfbin.la
+bin_PROGRAMS += bfbin2xmlss
+man1_MANS += bfbin2xmlss.1
+CLEANFILES += bfbin2xmlss.1
+bfbin2xmlss_SOURCES = bfbin2xmlss.cpp
+bfbin2xmlss_CPPFLAGS = -I$(top_srcdir)/include
+bfbin2xmlss_LDADD = libbfbin.la
 
 if SQLITE3_AVAILABLE
 bin_PROGRAMS += bfbin2sqlite3
