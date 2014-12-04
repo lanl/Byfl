@@ -13,8 +13,9 @@ to a binary F<.byfl> file.  B<bfbin2xmlss> converts such files to
 Microsoft Excel XML Spreadsheet 2003 format (henceforth, "XML
 Spreadsheet").  XML Spreadsheet has been superseded by Office Open XML
 (ECMA-376) but is represented by a simple, single, XML file, which is
-more convenient to process (e.g., with XSLT).  Both LibreOffice Calc
-and Microsoft Excel 2003+ can read XML Spreadsheet files directly.
+more convenient to process (e.g., with XSLT).  LibreOffice Calc,
+Microsoft Excel 2003+, and Numbers for Mac (and perhaps a few other
+spreadsheet programs) can read XML Spreadsheet files directly.
 
 =head1 OPTIONS
 
