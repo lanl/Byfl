@@ -60,11 +60,12 @@ enum {
 #define NUM_MEM_INSTS (BF_OP_NUM*BF_REF_NUM*BF_AGG_NUM*BF_TYPE_NUM*BF_WIDTH_NUM)
 
 enum {
-  BF_END_BB_ANY,       // Any terminator (i.e., total number of basic blocks)
-  BF_END_BB_UNCOND,    // Unconditional, direct branch
-  BF_END_BB_COND,      // Conditional branch
-  BF_END_BB_INDIRECT,  // Unconditional, indirect branch
-  BF_END_BB_SWITCH,    // Switch instruction
+  BF_END_BB_ANY,          // Any terminator (i.e., total number of basic blocks)
+  BF_END_BB_UNCOND_REAL,  // Unconditional, direct branch (probably required)
+  BF_END_BB_UNCOND_FAKE,  // Unconditional, direct branch (needed only for SSA)
+  BF_END_BB_COND,         // Conditional branch
+  BF_END_BB_INDIRECT,     // Unconditional, indirect branch
+  BF_END_BB_SWITCH,       // Switch instruction
   BF_END_BB_NUM
 };
 

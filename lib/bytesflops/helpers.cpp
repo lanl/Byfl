@@ -244,7 +244,7 @@ namespace bytesflops_pass {
         LLVMContext& globctx = module.getContext();
         ConstantInt *
         zero = ConstantInt::get(globctx, APInt(64, 0));
-        
+
         ArrayType* array_type = ArrayType::get(IntegerType::get(globctx, 64), value.size());
 
         Constant *local_array = ConstantDataArray::get(globctx, value);
@@ -252,7 +252,7 @@ namespace bytesflops_pass {
         new GlobalVariable(module, array_type, true, GlobalValue::PrivateLinkage,
                            local_array, string(name)+string(".data"));
         array_contents->setAlignment(16);
-        
+
         // Next, create a global pointer to the local array of characters.
         std::vector<Constant*> getelementptr_indexes;
         getelementptr_indexes.push_back(zero);
@@ -266,7 +266,7 @@ namespace bytesflops_pass {
         mark_as_used(module, new_constant);
         return new_constant;
     }
-    
+
 
   // Create and initialize a global uint64_t constant in the
   // instrumented code.
@@ -312,7 +312,7 @@ namespace bytesflops_pass {
         new GlobalVariable(module, array_type, true, GlobalValue::PrivateLinkage,
                            local_string, string(name)+string(".data"));
         string_contents->setAlignment(8);
-        
+
         // Next, create a global pointer to the local array of characters.
         std::vector<Constant*> getelementptr_indexes;
         getelementptr_indexes.push_back(zero);
@@ -326,7 +326,7 @@ namespace bytesflops_pass {
         mark_as_used(module, new_constant);
         return new_constant;
     }
-    
+
   // Return the number of elements in a given vector.
   ConstantInt* BytesFlops::get_vector_length(LLVMContext& bbctx, const Type* dataType, ConstantInt* scalarValue) {
     if (dataType->isVectorTy()) {
@@ -574,15 +574,23 @@ namespace bytesflops_pass {
         break;
 
       case Instruction::Br:
-        if (dyn_cast<BranchInst>(&inst)->isConditional()) {
-          bb_end_type = BF_END_BB_COND;
-          static_cond_brs++;
+        {
+          BranchInst* br_inst = dyn_cast<BranchInst>(&inst);
+          if (br_inst->isConditional()) {
+            bb_end_type = BF_END_BB_COND;
+            static_cond_brs++;
+          }
+          else {
+            // Determine whether the unconditional branch is there only to
+            // support SSA semantics or if it may really be needed.
+            BasicBlock* succ_bb = br_inst->getSuccessor(0);  // Assume there is exactly one successor.
+            BasicBlock* pred_succ_bb = succ_bb->getUniquePredecessor();
+            bb_end_type = pred_succ_bb == NULL ? BF_END_BB_UNCOND_REAL : BF_END_BB_UNCOND_FAKE;
+          }
+          increment_global_array(insert_before, terminator_var,
+                                 ConstantInt::get(globctx, APInt(64, bb_end_type)),
+                                 one);
         }
-        else
-          bb_end_type = BF_END_BB_UNCOND;
-        increment_global_array(insert_before, terminator_var,
-                               ConstantInt::get(globctx, APInt(64, bb_end_type)),
-                               one);
         break;
 
       default:
