@@ -821,6 +821,7 @@ void bf_report_bb_tallies (void)
            << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional but indirect branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Multi-target (switch) branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Function-return operations"
            << uint8_t(BINOUT_COL_UINT64) << "Other branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operation bits"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operation bits"
@@ -866,6 +867,7 @@ void bf_report_bb_tallies (void)
            << counter_deltas.terminators[BF_END_BB_COND]
            << counter_deltas.terminators[BF_END_BB_INDIRECT]
            << counter_deltas.terminators[BF_END_BB_SWITCH]
+           << counter_deltas.terminators[BF_END_BB_RETURN]
            << other_branches
            << counter_deltas.fp_bits
            << counter_deltas.op_bits
@@ -1031,6 +1033,7 @@ private:
            << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional but indirect branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Multi-target (switch) branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Function-return operations"
            << uint8_t(BINOUT_COL_UINT64) << "Other branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operation bits"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operation bits"
@@ -1105,6 +1108,7 @@ private:
              << func_counters->terminators[BF_END_BB_COND]
              << func_counters->terminators[BF_END_BB_INDIRECT]
              << func_counters->terminators[BF_END_BB_SWITCH]
+             << func_counters->terminators[BF_END_BB_RETURN]
              << other_branches
              << func_counters->fp_bits
              << func_counters->op_bits
@@ -1194,13 +1198,14 @@ private:
     bfout->imbue(locale(""));
 
     // For convenience, assign names to each of our terminator tallies.
-    const uint64_t term_static = 
+    const uint64_t term_static =
       counter_totals.terminators[BF_END_BB_UNCOND_FAKE] +
       counter_totals.terminators[BF_END_BB_UNCOND_REAL];
     const uint64_t term_dynamic =
       counter_totals.terminators[BF_END_BB_COND] +
       counter_totals.terminators[BF_END_BB_INDIRECT] +
       counter_totals.terminators[BF_END_BB_SWITCH];
+    const uint64_t term_returns = counter_totals.terminators[BF_END_BB_RETURN];
     const uint64_t term_any = counter_totals.terminators[BF_END_BB_ANY];
     uint64_t term_other = term_any;
     for (int i = 0; i < BF_END_BB_NUM; i++)
@@ -1253,7 +1258,8 @@ private:
            << term_static << " unconditional and direct + "
            << term_dynamic << " conditional or indirect + "
            << counter_totals.call_ins << " function calls + "
-           << term_any - term_static - term_dynamic << " other)\n";
+           << term_returns << " function returns + "
+           << term_any - term_static - term_dynamic - term_returns << " other)\n";
     *bfout << tag << ": " << setw(25) << counter_totals.ops + counter_totals.call_ins << " TOTAL OPS\n";
 
     // Do the same but in binary format.  Note that we include FP bits
@@ -1274,6 +1280,9 @@ private:
            << "Integer operations"
            << global_int_ops;
     *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Function-call operations"
+           << counter_totals.call_ins;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Unconditional and direct branch operations (removable)"
            << counter_totals.terminators[BF_END_BB_UNCOND_FAKE];
     *bfbin << uint8_t(BINOUT_COL_UINT64)
@@ -1289,11 +1298,11 @@ private:
            << "Multi-target (switch) branch operations"
            << counter_totals.terminators[BF_END_BB_SWITCH];
     *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Function-return operations"
+           << counter_totals.terminators[BF_END_BB_RETURN];
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Other branch operations"
            << term_other;
-    *bfbin << uint8_t(BINOUT_COL_UINT64)
-           << "Function-call operations"
-           << counter_totals.call_ins;
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Floating-point operation bits"
            << counter_totals.fp_bits;

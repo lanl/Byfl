@@ -605,6 +605,13 @@ namespace bytesflops_pass {
                                one);
         break;
 
+      case Instruction::Ret:
+        bb_end_type = BF_END_BB_RETURN;
+        increment_global_array(insert_before, terminator_var,
+                               ConstantInt::get(globctx, APInt(64, bb_end_type)),
+                               one);
+        break;
+
       case Instruction::Br:
         {
           BranchInst* br_inst = dyn_cast<BranchInst>(&inst);

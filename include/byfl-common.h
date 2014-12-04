@@ -66,6 +66,7 @@ enum {
   BF_END_BB_COND,         // Conditional branch
   BF_END_BB_INDIRECT,     // Unconditional, indirect branch
   BF_END_BB_SWITCH,       // Switch instruction
+  BF_END_BB_RETURN,       // Function-return instruction
   BF_END_BB_NUM
 };
 
