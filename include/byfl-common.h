@@ -61,8 +61,10 @@ enum {
 
 enum {
   BF_END_BB_ANY,       // Any terminator (i.e., total number of basic blocks)
-  BF_END_BB_STATIC,    // Unconditional BranchInst
-  BF_END_BB_DYNAMIC,   // IndirectBrinst, SwitchInst, or conditional BranchInst
+  BF_END_BB_UNCOND,    // Unconditional, direct branch
+  BF_END_BB_COND,      // Conditional branch
+  BF_END_BB_INDIRECT,  // Unconditional, indirect branch
+  BF_END_BB_SWITCH,    // Switch instruction
   BF_END_BB_NUM
 };
 

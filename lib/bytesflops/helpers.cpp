@@ -560,8 +560,14 @@ namespace bytesflops_pass {
     int bb_end_type;
     switch (opcode) {
       case Instruction::IndirectBr:
+        bb_end_type = BF_END_BB_INDIRECT;
+        increment_global_array(insert_before, terminator_var,
+                               ConstantInt::get(globctx, APInt(64, bb_end_type)),
+                               one);
+        break;
+
       case Instruction::Switch:
-        bb_end_type = BF_END_BB_DYNAMIC;
+        bb_end_type = BF_END_BB_SWITCH;
         increment_global_array(insert_before, terminator_var,
                                ConstantInt::get(globctx, APInt(64, bb_end_type)),
                                one);
@@ -569,11 +575,11 @@ namespace bytesflops_pass {
 
       case Instruction::Br:
         if (dyn_cast<BranchInst>(&inst)->isConditional()) {
-          bb_end_type = BF_END_BB_DYNAMIC;
+          bb_end_type = BF_END_BB_COND;
           static_cond_brs++;
         }
         else
-          bb_end_type = BF_END_BB_STATIC;
+          bb_end_type = BF_END_BB_UNCOND;
         increment_global_array(insert_before, terminator_var,
                                ConstantInt::get(globctx, APInt(64, bb_end_type)),
                                one);

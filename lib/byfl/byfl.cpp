@@ -817,7 +817,9 @@ void bf_report_bb_tallies (void)
            << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
            << uint8_t(BINOUT_COL_UINT64) << "Function-call operations"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations"
-           << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Unconditional but indirect branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Multi-target (switch) branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Other branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operation bits"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operation bits"
@@ -849,14 +851,20 @@ void bf_report_bb_tallies (void)
              << bf_address_to_location_string(caller_addr);
 #endif
     }
+    uint64_t other_branches = counter_deltas.terminators[BF_END_BB_ANY];
+    for (int i = 0; i < BF_END_BB_NUM; i++)
+      if (i != BF_END_BB_ANY)
+        other_branches -= counter_deltas.terminators[i];
     *bfbin << counter_deltas.load_ins
            << counter_deltas.store_ins
            << counter_deltas.flops
            << counter_deltas.ops - counter_deltas.flops - counter_deltas.load_ins - counter_deltas.store_ins - counter_deltas.terminators[BF_END_BB_ANY]
            << counter_deltas.call_ins
-           << counter_deltas.terminators[BF_END_BB_STATIC]
-           << counter_deltas.terminators[BF_END_BB_DYNAMIC]
-           << counter_deltas.terminators[BF_END_BB_ANY] - (counter_deltas.terminators[BF_END_BB_STATIC] + counter_deltas.terminators[BF_END_BB_DYNAMIC])
+           << counter_deltas.terminators[BF_END_BB_UNCOND]
+           << counter_deltas.terminators[BF_END_BB_COND]
+           << counter_deltas.terminators[BF_END_BB_INDIRECT]
+           << counter_deltas.terminators[BF_END_BB_SWITCH]
+           << other_branches
            << counter_deltas.fp_bits
            << counter_deltas.op_bits
            << counter_deltas.loads
@@ -1017,7 +1025,9 @@ private:
            << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
            << uint8_t(BINOUT_COL_UINT64) << "Function-call operations"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations"
-           << uint8_t(BINOUT_COL_UINT64) << "Conditional or indirect branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Unconditional but indirect branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Multi-target (switch) branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Other branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operation bits"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operation bits"
@@ -1052,6 +1062,16 @@ private:
       if (bf_unique_bytes)
         num_uniq_bytes = bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c);
 
+      // Group branches into various categories.
+      uint64_t other_branches = func_counters->terminators[BF_END_BB_ANY];
+      for (int i = 0; i < BF_END_BB_NUM; i++)
+        if (i != BF_END_BB_ANY)
+          other_branches -= func_counters->terminators[i];
+      uint64_t unpred_branches =
+        func_counters->terminators[BF_END_BB_UNCOND] +
+        func_counters->terminators[BF_END_BB_INDIRECT] +
+        func_counters->terminators[BF_END_BB_SWITCH];
+
       // Output textual function data.
       *bfout << bf_output_prefix
              << "BYFL_FUNC:        "
@@ -1066,7 +1086,7 @@ private:
       if (bf_unique_bytes)
         *bfout << ' ' << setw(HDR_COL_WIDTH) << num_uniq_bytes;
       *bfout << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->terminators[BF_END_BB_DYNAMIC] << ' '
+             << setw(HDR_COL_WIDTH) << unpred_branches << ' '
              << setw(HDR_COL_WIDTH) << invocations << ' '
              << funcname_c << '\n';
 
@@ -1077,9 +1097,11 @@ private:
              << func_counters->flops
              << func_counters->ops - func_counters->flops - func_counters->load_ins - func_counters->store_ins - func_counters->terminators[BF_END_BB_ANY]
              << func_counters->call_ins
-             << func_counters->terminators[BF_END_BB_STATIC]
-             << func_counters->terminators[BF_END_BB_DYNAMIC]
-             << func_counters->terminators[BF_END_BB_ANY] - (func_counters->terminators[BF_END_BB_STATIC] + func_counters->terminators[BF_END_BB_DYNAMIC])
+             << func_counters->terminators[BF_END_BB_UNCOND]
+             << func_counters->terminators[BF_END_BB_COND]
+             << func_counters->terminators[BF_END_BB_INDIRECT]
+             << func_counters->terminators[BF_END_BB_SWITCH]
+             << other_branches
              << func_counters->fp_bits
              << func_counters->op_bits
              << func_counters->loads
@@ -1168,9 +1190,16 @@ private:
     bfout->imbue(locale(""));
 
     // For convenience, assign names to each of our terminator tallies.
-    const uint64_t term_static = counter_totals.terminators[BF_END_BB_STATIC];
-    const uint64_t term_dynamic = counter_totals.terminators[BF_END_BB_DYNAMIC];
+    const uint64_t term_static = counter_totals.terminators[BF_END_BB_UNCOND];
+    const uint64_t term_dynamic =
+      counter_totals.terminators[BF_END_BB_COND] +
+      counter_totals.terminators[BF_END_BB_INDIRECT] +
+      counter_totals.terminators[BF_END_BB_SWITCH];
     const uint64_t term_any = counter_totals.terminators[BF_END_BB_ANY];
+    uint64_t term_other = term_any;
+    for (int i = 0; i < BF_END_BB_NUM; i++)
+      if (i != BF_END_BB_ANY)
+        term_other -= counter_totals.terminators[i];
 
     // Produce a histogram that tallies each byte-access count.
     // Identify the number of bytes needed to cover 50% of all dynamic
@@ -1240,16 +1269,22 @@ private:
            << global_int_ops;
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Unconditional and direct branch operations"
-           << term_static;
+           << counter_totals.terminators[BF_END_BB_UNCOND];
     *bfbin << uint8_t(BINOUT_COL_UINT64)
-           << "Conditional or indirect branch operations"
-           << term_dynamic;
+           << "Conditional branch operations"
+           << counter_totals.terminators[BF_END_BB_COND];
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Unconditional but indirect branch operations"
+           << counter_totals.terminators[BF_END_BB_INDIRECT];
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Multi-target (switch) branch operations"
+           << counter_totals.terminators[BF_END_BB_SWITCH];
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Other branch operations"
+           << term_other;
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Function-call operations"
            << counter_totals.call_ins;
-    *bfbin << uint8_t(BINOUT_COL_UINT64)
-           << "Other branch operations"
-           << term_any - term_static - term_dynamic;
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Floating-point operation bits"
            << counter_totals.fp_bits;
