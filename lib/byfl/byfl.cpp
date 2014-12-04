@@ -816,8 +816,8 @@ void bf_report_bb_tallies (void)
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
            << uint8_t(BINOUT_COL_UINT64) << "Function-call operations"
-           << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (pseudo)"
-           << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (real)"
+           << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (removable)"
+           << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (mandatory)"
            << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional but indirect branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Multi-target (switch) branch operations"
@@ -1026,8 +1026,8 @@ private:
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
            << uint8_t(BINOUT_COL_UINT64) << "Function-call operations"
-           << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (pseudo)"
-           << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (real)"
+           << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (removable)"
+           << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (mandatory)"
            << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional but indirect branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Multi-target (switch) branch operations"
@@ -1274,10 +1274,10 @@ private:
            << "Integer operations"
            << global_int_ops;
     *bfbin << uint8_t(BINOUT_COL_UINT64)
-           << "Unconditional and direct branch operations (pseudo)"
+           << "Unconditional and direct branch operations (removable)"
            << counter_totals.terminators[BF_END_BB_UNCOND_FAKE];
     *bfbin << uint8_t(BINOUT_COL_UINT64)
-           << "Unconditional and direct branch operations (real)"
+           << "Unconditional and direct branch operations (mandatory)"
            << counter_totals.terminators[BF_END_BB_UNCOND_REAL];
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Conditional branch operations"

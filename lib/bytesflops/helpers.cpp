@@ -37,6 +37,38 @@ namespace bytesflops_pass {
     infile.close();
   }
 
+  // Report whether an unconditional branch is mandatory or if it can
+  // feasibly be removed at code-generation time.
+  static bool uncond_branch_is_mandatory (BranchInst* br_inst) {
+    // An unconditional branch is defined as removable if and only if
+    // it is the only unconditional branch to its successor.  To
+    // determine this, we iterate over all basic blocks that branch to
+    // the same basic block that br_inst (in basic block bb) branches
+    // to.  If there exists a basic block other than bb that
+    // unconditionally branches to bb's target we return true,
+    // otherwise false.
+    const BasicBlock* bb = br_inst->getParent();
+    BasicBlock* succ_bb = br_inst->getSuccessor(0);  // Assume there is exactly one successor.
+    for (pred_iterator iter = pred_begin(succ_bb), last_iter = pred_end(succ_bb);
+         iter != last_iter;
+         iter++) {
+      const BasicBlock* pred_bb = *iter;
+      if (pred_bb == bb)
+        // Branches from bb to succ_bb don't affect our decision.
+        continue;
+      const TerminatorInst* pred_bb_term = pred_bb->getTerminator();
+      const BranchInst* pred_bb_br = dyn_cast<BranchInst>(pred_bb_term);
+      if (pred_bb_br == NULL)
+        // Instructions other than branches don't affect our decision.
+        continue;
+      if (pred_bb_br->isConditional())
+        // Conditional branch instructions don't affect our decision.
+        continue;
+      return true;   // A basic block other than bb also unconditionally branches to succ_bb --> branch is mandatory.
+    }
+    return false;   // Branch is not mandatory.
+  }
+
   // Destructively remove all instances of a given character from a string.
   void remove_all_instances(string& some_string, char some_char) {
     some_string.erase(remove(some_string.begin(), some_string.end(), some_char),
@@ -580,13 +612,8 @@ namespace bytesflops_pass {
             bb_end_type = BF_END_BB_COND;
             static_cond_brs++;
           }
-          else {
-            // Determine whether the unconditional branch is there only to
-            // support SSA semantics or if it may really be needed.
-            BasicBlock* succ_bb = br_inst->getSuccessor(0);  // Assume there is exactly one successor.
-            BasicBlock* pred_succ_bb = succ_bb->getUniquePredecessor();
-            bb_end_type = pred_succ_bb == NULL ? BF_END_BB_UNCOND_REAL : BF_END_BB_UNCOND_FAKE;
-          }
+          else
+            bb_end_type = uncond_branch_is_mandatory(br_inst) ? BF_END_BB_UNCOND_REAL : BF_END_BB_UNCOND_FAKE;
           increment_global_array(insert_before, terminator_var,
                                  ConstantInt::get(globctx, APInt(64, bb_end_type)),
                                  one);
