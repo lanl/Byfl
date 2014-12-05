@@ -1291,8 +1291,8 @@ private:
     *bfout << tag << ": " << setw(25) << term_any + counter_totals.call_ins << " branch ops ("
            << term_static << " unconditional and direct + "
            << term_dynamic << " conditional or indirect + "
-           << counter_totals.call_ins << " function calls + "
-           << term_returns << " function returns + "
+           << counter_totals.call_ins + term_returns
+           << " function calls or returns + "
            << term_any - term_static - term_dynamic - term_returns << " other)\n";
     *bfout << tag << ": " << setw(25) << counter_totals.ops + counter_totals.call_ins << " TOTAL OPS\n";
 
