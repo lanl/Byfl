@@ -54,22 +54,26 @@ Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc
 
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                     1,280 bytes (512 loaded + 768 stored)
-    BYFL_SUMMARY:                        32 flops
-    BYFL_SUMMARY:                       576 integer ops
+    BYFL_SUMMARY:                        96 flops
+    BYFL_SUMMARY:                       549 integer ops
     BYFL_SUMMARY:                        67 memory ops (2 loads + 65 stores)
+    BYFL_SUMMARY:                        35 branch ops (1 unconditional and direct + 32 conditional or indirect + 1 function calls + 1 function returns + 0 other)
+    BYFL_SUMMARY:                       747 TOTAL OPS
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                    10,240 bits (4,096 loaded + 6,144 stored)
-    BYFL_SUMMARY:                     6,144 flop bits
-    BYFL_SUMMARY:                    85,024 integer op bits
+    BYFL_SUMMARY:                    12,288 flop bits
+    BYFL_SUMMARY:                    94,880 op bits (excluding memory ops)
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                    0.6667 bytes loaded per byte stored
-    BYFL_SUMMARY:                  288.0000 integer ops per load instruction
+    BYFL_SUMMARY:                  373.0000 ops per load instruction
     BYFL_SUMMARY:                  152.8358 bits loaded/stored per memory op
+    BYFL_SUMMARY:                    3.0000 flops per conditional/indirect branch
+    BYFL_SUMMARY:                   23.3125 ops per conditional/indirect branch
     BYFL_SUMMARY: -----------------------------------------------------------------
-    BYFL_SUMMARY:                   40.0000 bytes per flop
-    BYFL_SUMMARY:                    1.6667 bits per flop bit
-    BYFL_SUMMARY:                    2.2222 bytes per integer op
-    BYFL_SUMMARY:                    0.1204 bits per integer op bit
+    BYFL_SUMMARY:                   13.3333 bytes per flop
+    BYFL_SUMMARY:                    0.8333 bits per flop bit
+    BYFL_SUMMARY:                    1.7158 bytes per op
+    BYFL_SUMMARY:                    0.1079 bits per (non-memory) op bit
     BYFL_SUMMARY: -----------------------------------------------------------------
 
 "Bits" are simply bytes*8.  "Flop bits" are the total number of bits in all inputs and outputs to each floating-point function.  As motivation, consider the operation `A = B + C`, where `A`, `B`, and `C` reside in memory.  This operation consumes 12 bytes per flop if the arguments are all single-precision but 24 bytes per flop if the arguments are all double-precision.  Similarly, `A = -B` consumes either 8 or 16 bytes per flop based on the argument type.  However, all of these examples consume one bit per flop bit regardless of numerical precision: every bit loaded or stored either enters or exits the floating-point unit.  Bit:flop-bit ratios above 1.0 imply that more memory is moved than fed into the floating-point unit; Bit:flop-bit ratios below 1.0 imply register reuse.
@@ -79,9 +83,8 @@ The Byfl wrapper scripts accept a number of options to provide more information 
 The following represents some sample output from a code instrumented with Byfl and most of the available options:
 
     BYFL_INFO: Byfl command line: -bf-unique-bytes -bf-vectors -bf-every-bb -bf-mem-footprint -bf-types -bf-inst-mix -bf-by-func -bf-call-stack
-    600
     BYFL_FUNC_HEADER:             LD_bytes             ST_bytes               LD_ops               ST_ops                Flops              FP_bits              Int_ops          Int_op_bits           Uniq_bytes             Cond_brs          Invocations Function
-    BYFL_FUNC:                         512                  768                    2                   65                   96                12288                  746                94880                  768                   32                    1 main
+    BYFL_FUNC:                         512                  768                    2                   65                   96                12288                  549                94880                  768                   32                    1 main
     BYFL_CALLEE_HEADER:   Invocations Byfl Function
     BYFL_CALLEE:                    1 No   __printf_chk
     BYFL_VECTOR_HEADER:             Elements             Elt_bits Type                Tally Function
@@ -89,11 +92,12 @@ The following represents some sample output from a code instrumented with Byfl a
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                     1,280 bytes (512 loaded + 768 stored)
     BYFL_SUMMARY:                       768 unique bytes
+    BYFL_SUMMARY:                       512 addresses cover 50% of all dynamic loads and stores
     BYFL_SUMMARY:                        96 flops
     BYFL_SUMMARY:                       549 integer ops
     BYFL_SUMMARY:                        67 memory ops (2 loads + 65 stores)
-    BYFL_SUMMARY:                        34 branch ops (1 unconditional and direct + 32 conditional or indirect + 1 other)
-    BYFL_SUMMARY:                       746 TOTAL OPS
+    BYFL_SUMMARY:                        35 branch ops (1 unconditional and direct + 32 conditional or indirect + 1 function calls + 1 function returns + 0 other)
+    BYFL_SUMMARY:                       747 TOTAL OPS
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                    10,240 bits (4,096 loaded + 6,144 stored)
     BYFL_SUMMARY:                     6,144 unique bits
@@ -183,8 +187,14 @@ This basic approach can be useful for instrumenting code in languages other than
 Byfl provides a set of programs for converting Byfl binary output (`*.byfl` files) into various other formats.  Currently, these include the following:
 
 <dl>
-  <dt><code>bfbin2text</code></dt>
-  <dd>Output Byfl data in comma-separated value (CSV) format, suitable for processing with a spreadsheet program, an AWK script, etc.</dd>
+  <dt><code>bfbin2csv</code></dt>
+  <dd>Output Byfl data in comma-separated value (CSV) format, suitable for processing with a scripting language (e.g., <a href="http://en.wikipedia.org/wiki/AWK">AWK</a> or <a href="https://www.perl.org/">Perl</a>)</dd>
+
+  <dt><code>bfbin2xmlss</code></dt>
+  <dd>Output Byfl data in XML Spreadsheet format, suitable for processing with many spreadsheet programs, including <a href="http://www.libreoffice.org/">LibreOffice</a>, <a href="http://products.office.com/en-us/excel">Microsoft Excel</a>, and <a href="https://www.apple.com/mac/numbers/">Numbers for Mac</a></dd>
+
+  <dt><code>bfbin2sqlite3</code></dt>
+  <dd>Output Byfl data as a <a href="http://www.sqlite.org/">SQLite3</a> database, suitable for processing with SQLite command-line tools or importing into other database management systems</dd>
 
   <dt><code>bfbin2hdf5</code></dt>
   <dd>Output Byfl data as a Hierarchical Data Format (<a href="http://www.hdfgroup.org/HDF5/">HDF5</a>) file for longer-term storage and processing (e.g.,&nbsp;with <a href="http://www.hdfgroup.org/products/java/hdfview/">HDFView</a>)</dd>
