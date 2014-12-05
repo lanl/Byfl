@@ -616,14 +616,25 @@ namespace bytesflops_pass {
         {
           BranchInst* br_inst = dyn_cast<BranchInst>(&inst);
           if (br_inst->isConditional()) {
-            bb_end_type = BF_END_BB_COND;
+            // Conditional branch -- dynamically choose to increment
+            // either "not taken" or "taken".
             static_cond_brs++;
+            SelectInst* array_offset =
+              SelectInst::Create(br_inst->getCondition(),
+                                 ConstantInt::get(globctx, APInt(64, BF_END_BB_COND_NT)),
+                                 ConstantInt::get(globctx, APInt(64, BF_END_BB_COND_T)),
+                                 "bf_cond",
+                                 insert_before);
+            increment_global_array(insert_before, terminator_var, array_offset, one);
           }
-          else
+          else {
+            // Unconditional branch -- statically choose to increment
+            // either "mandatory" or "removable".
             bb_end_type = uncond_branch_is_mandatory(br_inst) ? BF_END_BB_UNCOND_REAL : BF_END_BB_UNCOND_FAKE;
-          increment_global_array(insert_before, terminator_var,
-                                 ConstantInt::get(globctx, APInt(64, bb_end_type)),
-                                 one);
+            increment_global_array(insert_before, terminator_var,
+                                   ConstantInt::get(globctx, APInt(64, bb_end_type)),
+                                   one);
+          }
         }
         break;
 

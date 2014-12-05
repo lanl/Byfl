@@ -63,7 +63,8 @@ enum {
   BF_END_BB_ANY,          // Any terminator (i.e., total number of basic blocks)
   BF_END_BB_UNCOND_REAL,  // Unconditional, direct branch (probably required)
   BF_END_BB_UNCOND_FAKE,  // Unconditional, direct branch (needed only for SSA)
-  BF_END_BB_COND,         // Conditional branch
+  BF_END_BB_COND_NT,      // Conditional branch (not taken)
+  BF_END_BB_COND_T,       // Conditional branch (taken)
   BF_END_BB_INDIRECT,     // Unconditional, indirect branch
   BF_END_BB_SWITCH,       // Switch instruction
   BF_END_BB_RETURN,       // Function-return instruction

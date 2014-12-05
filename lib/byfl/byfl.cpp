@@ -818,7 +818,8 @@ void bf_report_bb_tallies (void)
            << uint8_t(BINOUT_COL_UINT64) << "Function-call operations"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (removable)"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (mandatory)"
-           << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations (not taken)"
+           << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations (taken)"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional but indirect branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Multi-target (switch) branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Function-return operations"
@@ -864,7 +865,8 @@ void bf_report_bb_tallies (void)
            << counter_deltas.call_ins
            << counter_deltas.terminators[BF_END_BB_UNCOND_FAKE]
            << counter_deltas.terminators[BF_END_BB_UNCOND_REAL]
-           << counter_deltas.terminators[BF_END_BB_COND]
+           << counter_deltas.terminators[BF_END_BB_COND_NT]
+           << counter_deltas.terminators[BF_END_BB_COND_T]
            << counter_deltas.terminators[BF_END_BB_INDIRECT]
            << counter_deltas.terminators[BF_END_BB_SWITCH]
            << counter_deltas.terminators[BF_END_BB_RETURN]
@@ -1030,7 +1032,8 @@ private:
            << uint8_t(BINOUT_COL_UINT64) << "Function-call operations"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (removable)"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (mandatory)"
-           << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations (not taken)"
+           << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations (taken)"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional but indirect branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Multi-target (switch) branch operations"
            << uint8_t(BINOUT_COL_UINT64) << "Function-return operations"
@@ -1074,7 +1077,8 @@ private:
         if (i != BF_END_BB_ANY)
           other_branches -= func_counters->terminators[i];
       uint64_t unpred_branches =
-        func_counters->terminators[BF_END_BB_COND] +
+        func_counters->terminators[BF_END_BB_COND_NT] +
+        func_counters->terminators[BF_END_BB_COND_T] +
         func_counters->terminators[BF_END_BB_INDIRECT] +
         func_counters->terminators[BF_END_BB_SWITCH];
 
@@ -1105,7 +1109,8 @@ private:
              << func_counters->call_ins
              << func_counters->terminators[BF_END_BB_UNCOND_FAKE]
              << func_counters->terminators[BF_END_BB_UNCOND_REAL]
-             << func_counters->terminators[BF_END_BB_COND]
+             << func_counters->terminators[BF_END_BB_COND_NT]
+             << func_counters->terminators[BF_END_BB_COND_T]
              << func_counters->terminators[BF_END_BB_INDIRECT]
              << func_counters->terminators[BF_END_BB_SWITCH]
              << func_counters->terminators[BF_END_BB_RETURN]
@@ -1202,7 +1207,8 @@ private:
       counter_totals.terminators[BF_END_BB_UNCOND_FAKE] +
       counter_totals.terminators[BF_END_BB_UNCOND_REAL];
     const uint64_t term_dynamic =
-      counter_totals.terminators[BF_END_BB_COND] +
+      counter_totals.terminators[BF_END_BB_COND_NT] +
+      counter_totals.terminators[BF_END_BB_COND_T] +
       counter_totals.terminators[BF_END_BB_INDIRECT] +
       counter_totals.terminators[BF_END_BB_SWITCH];
     const uint64_t term_returns = counter_totals.terminators[BF_END_BB_RETURN];
@@ -1289,8 +1295,11 @@ private:
            << "Unconditional and direct branch operations (mandatory)"
            << counter_totals.terminators[BF_END_BB_UNCOND_REAL];
     *bfbin << uint8_t(BINOUT_COL_UINT64)
-           << "Conditional branch operations"
-           << counter_totals.terminators[BF_END_BB_COND];
+           << "Conditional branch operations (not taken)"
+           << counter_totals.terminators[BF_END_BB_COND_NT];
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Conditional branch operations (taken)"
+           << counter_totals.terminators[BF_END_BB_COND_T];
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Unconditional but indirect branch operations"
            << counter_totals.terminators[BF_END_BB_INDIRECT];
