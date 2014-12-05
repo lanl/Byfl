@@ -52,12 +52,13 @@ Usage
 
 Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc`, `bf-g++`, `bf-gfortran`, and `bf-gccgo` wrap, respectively, the GNU C, C++, Fortran, and Go compilers.  `bf-mpicc`, `bf-mpicxx`, `bf-mpif90`, and `bf-mpif77` further wrap the similarly named [Open MPI](http://www.open-mpi.org/) and [MPICH](http://www.mpich.org/) wrapper scripts to use the Byfl compiler scripts instead of the default C, C++, and Fortran compilers.  Use any of these scripts as you would the underlying compiler.  When you run your code, Byfl will output a sequence of `BYFL`-prefixed lines to the standard output device and a superset of the data to a binary file (called *filename*`.byfl` by default):
 
+    BYFL_INFO: Byfl command line:
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                     1,280 bytes (512 loaded + 768 stored)
     BYFL_SUMMARY:                        96 flops
     BYFL_SUMMARY:                       549 integer ops
     BYFL_SUMMARY:                        67 memory ops (2 loads + 65 stores)
-    BYFL_SUMMARY:                        35 branch ops (1 unconditional and direct + 32 conditional or indirect + 1 function calls + 1 function returns + 0 other)
+    BYFL_SUMMARY:                        35 branch ops (1 unconditional and direct + 32 conditional or indirect + 2 function calls or returns + 0 other)
     BYFL_SUMMARY:                       747 TOTAL OPS
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                    10,240 bits (4,096 loaded + 6,144 stored)
@@ -81,7 +82,6 @@ Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc
 The Byfl wrapper scripts accept a number of options to provide more information about your program at a cost of increased execution times.  These can be specified either on the command line or within the `BF_OPTS` environment variable.  (The former takes precedence.)  See the `bf-gcc`, `bf-g++`, `bf-gfortran`, or `bf-gccgo` man page for a description of all of the information Byfl can report.
 
 The following represents some sample output from a code instrumented with Byfl and most of the available options:
-
     BYFL_INFO: Byfl command line: -bf-unique-bytes -bf-vectors -bf-every-bb -bf-mem-footprint -bf-types -bf-inst-mix -bf-by-func -bf-call-stack
     BYFL_FUNC_HEADER:             LD_bytes             ST_bytes               LD_ops               ST_ops                Flops              FP_bits              Int_ops          Int_op_bits           Uniq_bytes             Cond_brs          Invocations Function
     BYFL_FUNC:                         512                  768                    2                   65                   96                12288                  549                94880                  768                   32                    1 main
@@ -96,7 +96,7 @@ The following represents some sample output from a code instrumented with Byfl a
     BYFL_SUMMARY:                        96 flops
     BYFL_SUMMARY:                       549 integer ops
     BYFL_SUMMARY:                        67 memory ops (2 loads + 65 stores)
-    BYFL_SUMMARY:                        35 branch ops (1 unconditional and direct + 32 conditional or indirect + 1 function calls + 1 function returns + 0 other)
+    BYFL_SUMMARY:                        35 branch ops (1 unconditional and direct + 32 conditional or indirect + 2 function calls or returns + 0 other)
     BYFL_SUMMARY:                       747 TOTAL OPS
     BYFL_SUMMARY: -----------------------------------------------------------------
     BYFL_SUMMARY:                    10,240 bits (4,096 loaded + 6,144 stored)
