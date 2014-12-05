@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <inttypes.h>
 #include <iomanip>
@@ -18,8 +20,8 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string>
 #include <string.h>
+#include <string>
 #include <unordered_map>
 #include <vector>
 #include <wordexp.h>

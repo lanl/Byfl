@@ -12,6 +12,9 @@
 #include "callstack.h"
 #ifdef HAVE_BACKTRACE
 # include <execinfo.h>
+# ifdef USE_BFD
+#  include "findsrc.h"
+# endif
 #endif
 
 namespace bytesflops {}
@@ -313,6 +316,9 @@ uint64_t  bf_op_bits_count    = 0;    // Tally of the number of bits used by all
 static uint64_t num_merged = 0;    // Number of basic blocks merged so far
 static ByteFlopCounters global_totals;  // Global tallies of all of our counters
 static ByteFlopCounters prev_global_totals;  // Previously reported global tallies of all of our counters
+#ifdef USE_BFD
+static ProcessSymbolTable* procsymtab;  // The calling process's symbol table
+#endif
 
 // Keep track of counters on a per-function basis, being careful to
 // work around the "C++ static initialization order fiasco" (cf. the
@@ -484,6 +490,10 @@ void initialize_byfl (void) {
   const char* partition = bf_categorize_counters();
   if (partition != NULL)
     bf_record_key(partition, bf_categorize_counters_id);
+
+#ifdef USE_BFD
+  procsymtab = new ProcessSymbolTable();
+#endif
 }
 
 
@@ -807,8 +817,15 @@ void bf_report_bb_tallies (void)
     if (bf_bb_merge == 1) {
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Tag";
 #ifdef HAVE_BACKTRACE
-      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Address"
-             << uint8_t(BINOUT_COL_STRING) << "Symbolic location";
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Address";
+# ifdef USE_BFD
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "File name"
+             << uint8_t(BINOUT_COL_STRING) << "Function name"
+             << uint8_t(BINOUT_COL_UINT64) << "Line number"
+             << uint8_t(BINOUT_COL_UINT64) << "Line-number discriminator";
+# else
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Symbolic location";
+# endif
 #endif
     }
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Load operations"
@@ -850,8 +867,19 @@ void bf_report_bb_tallies (void)
       *bfbin << (partition == NULL ? "" : partition);
 #ifdef HAVE_BACKTRACE
       void* caller_addr = bf_find_caller_address();
-      *bfbin << (uint64_t) (uintptr_t) caller_addr
-             << bf_address_to_location_string(caller_addr);
+      *bfbin << (uint64_t) (uintptr_t) caller_addr;
+# ifdef USE_BFD
+      SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t)caller_addr);
+      if (srcloc == nullptr)
+        *bfbin << "" << "" << UINT64_C(0) << UINT64_C(0);
+      else
+        *bfbin << srcloc->file_name
+               << srcloc->function_name
+               << srcloc->line_number
+               << srcloc->discriminator;
+# else
+      *bfbin << bf_address_to_location_string(caller_addr);
+# endif
 #endif
     }
     uint64_t other_branches = counter_deltas.terminators[BF_END_BB_ANY];
