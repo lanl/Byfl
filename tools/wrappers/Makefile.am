@@ -82,13 +82,13 @@ install-exec-local: wrappers.mak
 	$(AM_V_at) SITEMAN1DIR=`$(MAKE) -f wrappers.mak echo-INSTALLSITEMAN1DIR | $(GREP) "$(prefix)"` ; \
 	  export SITEMAN1DIR ; \
 	  cat "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gcc.1" | \
-	    $(PERL) -ne 's/gcc/g++/g; s/\bC (compiler|code)/C++ $$1/g; s/myprog\.c/myprog.cpp/g; print' > \
+	    $(PERL) -ne 's/gcc/g++/g; s/\bC (compiler|code)/C++ $$1/g; s/myprog\.c/myprog.cpp/g; s/BF_GCC/BF_GXX/g; print' > \
 	      "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-g++.1" ; \
 	  cat "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gcc.1" | \
-	    $(PERL) -ne 's/gcc/gfortran/g; s/\bC (compiler|code)/Fortran $$1/g; s/myprog\.c/myprog.f90/g; print' > \
+	    $(PERL) -ne 's/gcc/gfortran/g; s/\bC (compiler|code)/Fortran $$1/g; s/myprog\.c/myprog.f90/g; s/BF_GCC/BF_GFORTRAN/g; print' > \
 	      "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gfortran.1" ; \
 	  cat "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gcc.1" | \
-	    $(PERL) -ne 's/gcc/gccgo/g; s/\bC (compiler|code)/Go $$1/g; s/myprog\.c/myprog.go/g; print' > \
+	    $(PERL) -ne 's/gcc/gccgo/g; s/\bC (compiler|code)/Go $$1/g; s/myprog\.c/myprog.go/g; s/BF_GCC/BF_GCCGO/g; print' > \
 	      "$(DESTDIR)$$SITEMAN3DIR$$SITEMAN1DIR/bf-gccgo.1"
 
 uninstall-local: wrappers.mak

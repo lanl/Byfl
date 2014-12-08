@@ -27,6 +27,9 @@ my $llvm_libdir = '@llvm_libdir@';
 # Store the name of this script and the name of the underlying compiler.
 my $progname = basename $0;
 my $compiler = substr($progname, 3);
+my $compiler_env_var = "BF_" . uc($compiler);
+$compiler_env_var =~ s/\W/X/g;   # "G++" --> "GXX", e.g.
+$compiler = $ENV{$compiler_env_var} if defined $ENV{$compiler_env_var};
 
 # Let the user increase this script's verbosity.
 my $verbosity = 0;
@@ -712,6 +715,10 @@ environment variable.
 
 Specify the name of a C<.byfl> file to which to write detailed Byfl
 output in binary format.
+
+=item C<BF_GCC>
+
+Wrap the specified compiler instead of B<gcc>.
 
 =back
 

@@ -112,10 +112,10 @@ CXX=${CXX:-g++}
 # Ensure we have a version of GCC that works with DragonEgg.
 if [ "$use_dragonegg" = yes ] ; then
     gcc_version=`$CC --version | awk 'NR==1 {sub(/\([^\)]*\)/, ""); print $2}'`
-    if `echo $gcc_version | awk '!/^4\.[5-9]\./ {exit 1}'` ; then
+    if `echo $gcc_version | awk '!/^4\.[5-8]\./ {exit 1}'` ; then
         :
     else
-        echo "${0}: DragonEgg requires GCC version 4.5, 4.6, 4.7, 4.8, or 4.9; version $gcc_version almost certainly won't work" 1>&2
+        echo "${0}: DragonEgg requires GCC version 4.5, 4.6, 4.7, or 4.8; version $gcc_version almost certainly won't work" 1>&2
         exit 1
     fi
     if [ `$CC -print-file-name=plugin` = plugin ] ; then
