@@ -408,43 +408,7 @@ ostream* bfout;                  // Stream to which to send textual output
 BinaryOStream* bfbin;            // Stream to which to send binary output
 ofstream *bfbin_file;            // Underlying file for the above
 bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
-
-// Define a stack of tallies of all of our counters across <=
-// num_merged basic blocks.  This *ought* to be a top-level variable
-// defintion, but because of the "C++ static initialization order
-// fiasco" (cf. the C++ FAQ) we have to use the following roundabout
-// approach.
-typedef vector<ByteFlopCounters*> counter_vector_t;
-static counter_vector_t& bb_totals (void)
-{
-  static counter_vector_t* bfc = new counter_vector_t();
-  return *bfc;
-}
-
-// Define a memory pool for ByteFlopCounters.
-class CounterMemoryPool {
-private:
-  vector<ByteFlopCounters*> freelist;
-public:
-  // Allocate a new ByteFlopCounters -- from the free list if possible.
-  ByteFlopCounters* allocate(void) {
-    ByteFlopCounters* newBFC;
-    if (freelist.size() > 0) {
-      newBFC = freelist.back();
-      newBFC->reset();
-      freelist.pop_back();
-    }
-    else
-      newBFC = new ByteFlopCounters();
-    return newBFC;
-  }
-
-  // Return a ByteFlopCounters to the free list.
-  void deallocate(ByteFlopCounters* oldBFC) {
-    freelist.push_back(oldBFC);
-  }
-};
-static CounterMemoryPool* counter_memory_pool = NULL;
+ByteFlopCounters bb_totals;      // Tallies of all of our counters across <= num_merged basic blocks
 
 static CallStack* call_stack = NULL;
 
@@ -468,7 +432,6 @@ void initialize_byfl (void) {
   bf_func_and_parents_id = KeyType_t(0);
   bf_current_func_key = KeyType_t(0);
   call_stack = new CallStack();
-  counter_memory_pool = new CounterMemoryPool();
   if (bf_types) {
     bf_mem_insts_count = new uint64_t[NUM_MEM_INSTS];
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
@@ -485,7 +448,6 @@ void initialize_byfl (void) {
   bf_mem_intrin_count = new uint64_t[BF_NUM_MEM_INTRIN];
   for (unsigned int i = 0; i < BF_NUM_MEM_INTRIN; i++)
     bf_mem_intrin_count[i] = 0;
-  bf_push_basic_block();
 
   const char* partition = bf_categorize_counters();
   if (partition != NULL)
@@ -495,7 +457,6 @@ void initialize_byfl (void) {
   procsymtab = new ProcessSymbolTable();
 #endif
 }
-
 
 // Initialize on first use all top-level variables in all files.  This
 // is a kludge to work around the "C++ static initialization order
@@ -525,22 +486,6 @@ void bf_abend (void)
   std::exit(1);
 }
 
-// Push a new basic block onto the stack (before a function call).
-extern "C"
-void bf_push_basic_block (void)
-{
-  bb_totals().push_back(counter_memory_pool->allocate());
-}
-
-// Pop and discard the top basic block off the stack (after a function
-// returns).
-extern "C"
-void bf_pop_basic_block (void)
-{
-  counter_memory_pool->deallocate(bb_totals().back());
-  bb_totals().pop_back();
-}
-
 // Tally the number of calls to each function.
 extern "C"
 void bf_incr_func_tally (KeyType_t keyID)
@@ -557,8 +502,8 @@ void bf_record_funcs2keys(uint32_t cnt, const uint64_t* keys,
 }
 
 // Push a function name onto the call stack.  Increment the invocation
-// count the call stack as a whole, and ensure the individual function
-// name also exists in the hash table.
+// count of the call stack as a whole, and ensure the individual
+// function name also exists in the hash table.
 extern "C"
 void bf_push_function (const char* funcname, KeyType_t key)
 {
@@ -766,28 +711,27 @@ extern "C"
 void bf_accumulate_bb_tallies (void)
 {
   // Add the current values to the per-BB totals.
-  ByteFlopCounters* current_bb = bb_totals().back();
-  current_bb->accumulate(bf_mem_insts_count,
-                         bf_inst_mix_histo,
-                         bf_terminator_count,
-                         bf_mem_intrin_count,
-                         bf_load_count,
-                         bf_store_count,
-                         bf_load_ins_count,
-                         bf_store_ins_count,
-                         bf_call_ins_count,
-                         bf_flop_count,
-                         bf_fp_bits_count,
-                         bf_op_count,
-                         bf_op_bits_count);
-  global_totals.accumulate(current_bb);
+  bb_totals.accumulate(bf_mem_insts_count,
+                       bf_inst_mix_histo,
+                       bf_terminator_count,
+                       bf_mem_intrin_count,
+                       bf_load_count,
+                       bf_store_count,
+                       bf_load_ins_count,
+                       bf_store_ins_count,
+                       bf_call_ins_count,
+                       bf_flop_count,
+                       bf_fp_bits_count,
+                       bf_op_count,
+                       bf_op_bits_count);
+  global_totals.accumulate(&bb_totals);
   const char* partition = bf_string_to_symbol(bf_categorize_counters());
   if (partition != NULL) {
     auto sm_iter = user_defined_totals().find(partition);
     if (sm_iter == user_defined_totals().end())
-      user_defined_totals()[partition] = new ByteFlopCounters(*current_bb);
+      user_defined_totals()[partition] = new ByteFlopCounters(bb_totals);
     else
-      user_defined_totals()[partition]->accumulate(current_bb);
+      user_defined_totals()[partition]->accumulate(&bb_totals);
   }
 }
 
@@ -796,7 +740,7 @@ void bf_accumulate_bb_tallies (void)
 extern "C"
 void bf_reset_bb_tallies (void)
 {
-  bb_totals().back()->reset();
+  bb_totals.reset();
 }
 
 // Report what we've measured for the current basic block.

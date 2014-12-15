@@ -531,27 +531,6 @@ namespace bytesflops_pass {
                                 var_name, 0, GlobalVariable::NotThreadLocal);
   }
 
-  // Create an external variable.
-//  GlobalVariable* BytesFlops::create_global_var(Module& module,
-//                                                 Type* var_type,
-//                                                 StringRef var_name,
-//                                                 size_t nelts) {
-//    // Don't declare the same variable twice in a single module.
-//    GlobalVariable* oldvar = module.getGlobalVariable(var_name);
-//    if (oldvar)
-//    {
-//      return oldvar;
-//    }
-//    else
-//    {
-//        oldvar = new GlobalVariable(module, var_type, is_const,
-//                                    GlobalVariable::ExternalLinkage, 0,
-//                                    var_name, 0, GlobalVariable::NotThreadLocal);
-//
-//    }
-//
-//  }
-
   // Insert code to set every element of a given array to zero.
   void BytesFlops::insert_zero_array_code(Module* module,
                                           GlobalVariable* array_to_zero,

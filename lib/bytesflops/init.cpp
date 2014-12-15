@@ -242,12 +242,8 @@ namespace bytesflops_pass {
                    "bf_record_funcs2keys",
                    &module);
 
-    // Inject external declarations for
-    // bf_initialize_if_necessary(), bf_push_basic_block(), and
-    // bf_pop_basic_block().
+    // Inject an external declarations for bf_initialize_if_necessary().
     init_if_necessary = declare_thunk(&module, "bf_initialize_if_necessary");
-    push_bb = declare_thunk(&module, "bf_push_basic_block");
-    pop_bb = declare_thunk(&module, "bf_pop_basic_block");
 
     // Inject external declarations for bf_accumulate_bb_tallies(),
     // bf_reset_bb_tallies(), and bf_report_bb_tallies().

@@ -295,18 +295,17 @@ namespace bytesflops_pass {
     // name) in order to keep track of calls to uninstrumented
     // functions.
     if (TallyByFunction) {
-
-      // generate key if needed
+      // Generate a key if needed.
       FunctionKeyGen::KeyID keyval;
       string augmented_callee_name(string("+") + callee_name.str());
       keyval = record_func(augmented_callee_name);
+      ConstantInt* key = ConstantInt::get(IntegerType::get(module->getContext(),
+                                                           8*sizeof(FunctionKeyGen::KeyID)),
+                                          keyval);
 
-      ConstantInt * key = ConstantInt::get(IntegerType::get(module->getContext(),
-                                       8*sizeof(FunctionKeyGen::KeyID)),
-                                       keyval);
-
+      // Tally the function with the given key.
       callinst_create(tally_function, key, insert_before);
-    } // end if (TallyByFunction)
+    }
   }
 
   // Instrument all instructions except no-ops.
@@ -454,7 +453,7 @@ namespace bytesflops_pass {
     // Tally the number of basic blocks that the function contains.
     static_bblocks += function.size();
 
-    // generate a unique key for the function and insert call to record it
+    // Generate a unique key for the function and insert call to record it.
     FunctionKeyGen::KeyID keyval = record_func(function_name.str());
 
     // Iterate over each basic block in turn.
@@ -552,15 +551,10 @@ namespace bytesflops_pass {
       key_args.push_back(argument);
       key_args.push_back(key);
 
-      if ( TrackCallStack )
-      {
-          callinst_create(push_function, key_args, new_entry);
-      }
+      if (TrackCallStack)
+        callinst_create(push_function, key_args, new_entry);
       else
-      {
-          callinst_create(tally_function, key, new_entry);
-      }
-
+        callinst_create(tally_function, key, new_entry);
     }
 
     BranchInst::Create(&old_entry, new_entry);

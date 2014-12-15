@@ -177,8 +177,6 @@ namespace bytesflops_pass {
     Function* push_function;     // Pointer to bf_push_function()
     Function* pop_function;      // Pointer to bf_pop_function()
     Function* tally_function;    // Pointer to bf_incr_func_tally()
-    Function* push_bb;           // Pointer to bf_push_basic_block()
-    Function* pop_bb;            // Pointer to bf_pop_basic_block()
     Function* take_mega_lock;    // Pointer to bf_acquire_mega_lock()
     Function* release_mega_lock; // Pointer to bf_release_mega_lock()
     Function* tally_vector;      // Pointer to bf_tally_vector_operation()
