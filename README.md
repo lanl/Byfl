@@ -82,6 +82,7 @@ Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc
 The Byfl wrapper scripts accept a number of options to provide more information about your program at a cost of increased execution times.  These can be specified either on the command line or within the `BF_OPTS` environment variable.  (The former takes precedence.)  See the `bf-gcc`, `bf-g++`, `bf-gfortran`, or `bf-gccgo` man page for a description of all of the information Byfl can report.
 
 The following represents some sample output from a code instrumented with Byfl and most of the available options:
+
     BYFL_INFO: Byfl command line: -bf-unique-bytes -bf-vectors -bf-every-bb -bf-mem-footprint -bf-types -bf-inst-mix -bf-by-func -bf-call-stack
     BYFL_FUNC_HEADER:             LD_bytes             ST_bytes               LD_ops               ST_ops                Flops              FP_bits              Int_ops          Int_op_bits           Uniq_bytes             Cond_brs          Invocations Function
     BYFL_FUNC:                         512                  768                    2                   65                   96                12288                  549                94880                  768                   32                    1 main

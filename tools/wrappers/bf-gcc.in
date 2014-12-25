@@ -570,6 +570,7 @@ bf-gcc - Inject Byfl instrumentation while compiling a program
 bf-gcc
 [B<-bf-by-func>]
 [B<-bf-call-stack>]
+[B<-bf-data-structs>]
 [B<-bf-types>]
 [B<-bf-inst-mix>]
 [B<-bf-vectors>]
@@ -613,6 +614,10 @@ Report performance counters for each function individually.
 =item B<-bf-call-stack>
 
 Report performance counters for each unique call stack.
+
+=item B<-bf-data-structs>
+
+Report loads and stores on a per-data-structure basis.
 
 =item B<-bf-types>
 
@@ -763,6 +768,13 @@ empty string, no binary output file will be produced.
 When B<-bf-call-stack> is specified, a function I<F> is reported
 separately when called from function I<A> and when called from
 function I<B>).  B<-bf-call-stack> overrides B<-bf-by-func>.
+
+For the purposes of B<-bf-data-structs>, Byfl defines a data structure
+as either a statically allocated block of memory (which has a name in
+the executable's symbol table) or a collection of data blocks
+dynamically allocated from the same program call point (i.e.,
+instruction address).  Byfl assigns the latter a name based on a
+textual description of the call point.
 
 The B<-bf-types> option tallies, for example, the number of loads of
 64-bit floating-point values as distinct from loads of 64-bit unsigned
