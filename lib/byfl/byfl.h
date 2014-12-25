@@ -24,6 +24,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <tuple>
 #include <wordexp.h>
 
 #include "byfl-common.h"
@@ -47,6 +48,7 @@ extern uint8_t  bf_types;            // 1=count loads/stores per type
 extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
 extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
 extern uint8_t  bf_cache_model;      // 1=use the simple cache model
+extern uint8_t  bf_data_structs;     // 1=tally and output counters by data structure
 extern uint64_t bf_line_size;        // cache line size in bytes
 extern uint64_t bf_max_set_bits;     // log base 2 of max number of sets to model
 
@@ -73,6 +75,7 @@ namespace bytesflops {
   extern void bf_get_vector_statistics(uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
   extern void bf_abend(void) __attribute__ ((noreturn));
   extern void bf_report_vector_operations(size_t call_stack_depth);
+  extern void bf_report_data_struct_counts(void);
   extern uint64_t bf_tally_unique_addresses(const char* funcname);
   extern uint64_t bf_tally_unique_addresses_tb(const char* funcname);
   extern uint64_t bf_tally_unique_addresses_tb(void);
@@ -85,6 +88,7 @@ namespace bytesflops {
   extern void initialize_threading(void);
   extern void initialize_ubytes(void);
   extern void initialize_vectors(void);
+  extern void initialize_data_structures(void);
   extern void initialize_cache(void);
   extern uint64_t bf_get_private_cache_accesses(void);
   extern vector<unordered_map<uint64_t,uint64_t> > bf_get_private_cache_hits(void);

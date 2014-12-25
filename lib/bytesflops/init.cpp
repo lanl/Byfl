@@ -142,16 +142,16 @@ namespace bytesflops_pass {
     inst_mix_histo_var = declare_global_var(module, i64ptrtype, "bf_inst_mix_histo", true);
     terminator_var     = declare_global_var(module, i64ptrtype, "bf_terminator_count", true);
     mem_intrinsics_var = declare_global_var(module, i64ptrtype, "bf_mem_intrin_count", true);
-    load_var       = declare_global_var(module, i64type, "bf_load_count");
-    store_var      = declare_global_var(module, i64type, "bf_store_count");
-    load_inst_var  = declare_global_var(module, i64type, "bf_load_ins_count");
-    store_inst_var = declare_global_var(module, i64type, "bf_store_ins_count");
-    flop_var       = declare_global_var(module, i64type, "bf_flop_count");
-    fp_bits_var    = declare_global_var(module, i64type, "bf_fp_bits_count");
+    load_var        = declare_global_var(module, i64type, "bf_load_count");
+    store_var       = declare_global_var(module, i64type, "bf_store_count");
+    load_inst_var   = declare_global_var(module, i64type, "bf_load_ins_count");
+    store_inst_var  = declare_global_var(module, i64type, "bf_store_ins_count");
+    flop_var        = declare_global_var(module, i64type, "bf_flop_count");
+    fp_bits_var     = declare_global_var(module, i64type, "bf_fp_bits_count");
 
-    op_var         = declare_global_var(module, i64type, "bf_op_count");
-    op_bits_var    = declare_global_var(module, i64type, "bf_op_bits_count");
-    call_inst_var  = declare_global_var(module, i64type, "bf_call_ins_count");
+    op_var          = declare_global_var(module, i64type, "bf_op_count");
+    op_bits_var     = declare_global_var(module, i64type, "bf_op_bits_count");
+    call_inst_var   = declare_global_var(module, i64type, "bf_call_ins_count");
 
     // Assign a few constant values.
     not_end_of_bb = ConstantInt::get(globctx, APInt(32, 0));
@@ -159,6 +159,11 @@ namespace bytesflops_pass {
     cond_end_bb = ConstantInt::get(globctx, APInt(32, 2));
     zero = ConstantInt::get(globctx, APInt(64, 0));
     one = ConstantInt::get(globctx, APInt(64, 1));
+    null_pointer = ConstantPointerNull::get(PointerType::get(IntegerType::get(globctx, 8), 0));
+
+    // Declare a few argument types we intend to use in multiple declarations.
+    IntegerType* uint64_arg = IntegerType::get(globctx, 64);
+    PointerType* ptr_to_char_arg = PointerType::get(IntegerType::get(globctx, 8), 0);
 
     // Construct a set of functions to instrument and a set of
     // functions not to instrument.
@@ -195,6 +200,9 @@ namespace bytesflops_pass {
 
     // Assign a value to bf_vectors.
     create_global_constant(module, "bf_vectors", bool(TallyVectors));
+
+    // Assign a value to bf_data_structs.
+    create_global_constant(module, "bf_data_structs", bool(TallyByDataStruct));
 
     // Assign a value to bf_max_reuse_dist.
     create_global_constant(module, "bf_max_reuse_distance", uint64_t(MaxReuseDist));
@@ -273,7 +281,7 @@ namespace bytesflops_pass {
                            &module);
 
         vector<Type*> taly_func_arg;
-        taly_func_arg.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
+        taly_func_arg.push_back(ptr_to_char_arg);
         // add 2nd arg for function key
         taly_func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
         FunctionType* void_str_int_func_result =
@@ -302,9 +310,9 @@ namespace bytesflops_pass {
     // to track vector operations.
     if (TallyVectors) {
       vector<Type*> all_function_args;
-      all_function_args.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
-      all_function_args.push_back(IntegerType::get(globctx, 64));
-      all_function_args.push_back(IntegerType::get(globctx, 64));
+      all_function_args.push_back(ptr_to_char_arg);
+      all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(uint64_arg);
       all_function_args.push_back(IntegerType::get(globctx, 8));
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
@@ -320,8 +328,8 @@ namespace bytesflops_pass {
       // Declare bf_assoc_addresses_with_prog() any time we need to
       // track unique bytes.
       vector<Type*> all_function_args;
-      all_function_args.push_back(IntegerType::get(globctx, 64));
-      all_function_args.push_back(IntegerType::get(globctx, 64));
+      all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(uint64_arg);
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       assoc_addrs_with_prog =
@@ -335,9 +343,9 @@ namespace bytesflops_pass {
       // asked to track unique addresses by function.
       if (TallyByFunction) {
         vector<Type*> all_function_args;
-        all_function_args.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
-        all_function_args.push_back(IntegerType::get(globctx, 64));
-        all_function_args.push_back(IntegerType::get(globctx, 64));
+        all_function_args.push_back(ptr_to_char_arg);
+        all_function_args.push_back(uint64_arg);
+        all_function_args.push_back(uint64_arg);
         FunctionType* void_func_result =
           FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
         assoc_addrs_with_func =
@@ -349,11 +357,68 @@ namespace bytesflops_pass {
       }
     }
 
+    // Declare bf_assoc_addresses_with_dstruct(),
+    // bf_assoc_addresses_with_dstruct_pm(), and bf_access_data_struct() only
+    // if we were asked to track data-structure acceses.
+    if (TallyByDataStruct) {
+      vector<Type*> all_function_args;
+      FunctionType* void_func_result;
+
+      // Declare bf_assoc_addresses_with_dstruct().
+      all_function_args.clear();
+      all_function_args.push_back(ptr_to_char_arg);
+      all_function_args.push_back(ptr_to_char_arg);
+      all_function_args.push_back(ptr_to_char_arg);
+      all_function_args.push_back(uint64_arg);
+      void_func_result =
+        FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+      assoc_addrs_with_dstruct =
+        declare_extern_c(void_func_result,
+                         "bf_assoc_addresses_with_dstruct",
+                         &module);
+
+      // Declare bf_assoc_addresses_with_dstruct_pm().
+      all_function_args.clear();
+      all_function_args.push_back(ptr_to_char_arg);
+      all_function_args.push_back(ptr_to_char_arg);
+      all_function_args.push_back(PointerType::get(ptr_to_char_arg, 0));
+      all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(IntegerType::get(globctx, 32));
+      void_func_result =
+        FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+      assoc_addrs_with_dstruct_pm =
+        declare_extern_c(void_func_result,
+                         "bf_assoc_addresses_with_dstruct_pm",
+                         &module);
+
+      // Declare bf_disassoc_addresses_with_dstruct().
+      all_function_args.clear();
+      all_function_args.push_back(ptr_to_char_arg);
+      void_func_result =
+        FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+      disassoc_addrs_with_dstruct =
+        declare_extern_c(void_func_result,
+                         "bf_disassoc_addresses_with_dstruct",
+                         &module);
+
+      // Declare bf_access_data_struct().
+      all_function_args.clear();
+      all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(IntegerType::get(globctx, 8));
+      void_func_result =
+        FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+      access_data_struct =
+        declare_extern_c(void_func_result,
+                         "bf_access_data_struct",
+                         &module);
+    }
+
     // Declare bf_touch_cache() only if we are asked to use it.
     if (CacheModel) {
       vector<Type*> all_function_args;
-      all_function_args.push_back(IntegerType::get(globctx, 64));
-      all_function_args.push_back(IntegerType::get(globctx, 64));
+      all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(uint64_arg);
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       access_cache =
@@ -366,9 +431,9 @@ namespace bytesflops_pass {
     memset_intrinsic = module.getFunction("llvm.memset.p0i8.i64");
     if (memset_intrinsic == NULL) {
       vector<Type*> all_function_args;
-      all_function_args.push_back(PointerType::get(IntegerType::get(globctx, 8), 0));
+      all_function_args.push_back(ptr_to_char_arg);
       all_function_args.push_back(IntegerType::get(globctx, 8));
-      all_function_args.push_back(IntegerType::get(globctx, 64));
+      all_function_args.push_back(uint64_arg);
       all_function_args.push_back(IntegerType::get(globctx, 32));
       all_function_args.push_back(IntegerType::get(globctx, 1));
       FunctionType* void_func_result =
@@ -387,8 +452,8 @@ namespace bytesflops_pass {
     // Inject external declarations for bf_reuse_dist_addrs_prog().
     if (rd_bits > 0) {
       vector<Type*> all_function_args;
-      all_function_args.push_back(IntegerType::get(globctx, 64));
-      all_function_args.push_back(IntegerType::get(globctx, 64));
+      all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(uint64_arg);
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       reuse_dist_prog =

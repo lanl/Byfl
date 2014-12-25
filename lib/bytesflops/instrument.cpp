@@ -186,7 +186,7 @@ namespace bytesflops_pass {
 
     // Determine the memory address that was loaded or stored.
     CastInst* mem_addr = NULL;
-    if (TrackUniqueBytes || FindMemFootprint || rd_bits > 0 || CacheModel) {
+    if (TrackUniqueBytes || FindMemFootprint || rd_bits > 0 || TallyByDataStruct || CacheModel) {
       Value* mem_ptr =
         opcode == Instruction::Load
         ? cast<LoadInst>(inst).getPointerOperand()
@@ -215,7 +215,17 @@ namespace bytesflops_pass {
       callinst_create(assoc_addrs_with_prog, arg_list, insert_before);
     }
 
-    // Conditionally insert a call to bf_touch_cache()
+    // If requested by the user, insert a call to bf_access_data_struct().
+    if (TallyByDataStruct) {
+      uint8_t load0store1 = opcode == Instruction::Load ? 0 : 1;
+      vector<Value*> arg_list;
+      arg_list.push_back(mem_addr);
+      arg_list.push_back(num_bytes);
+      arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
+      callinst_create(access_data_struct, arg_list, insert_before);
+    }
+
+    // If requested by the user, insert a call to bf_touch_cache().
     if (CacheModel) {
       vector<Value*> arg_list;
       arg_list.push_back(mem_addr);
@@ -263,7 +273,9 @@ namespace bytesflops_pass {
                                    Instruction* inst,
                                    BasicBlock::iterator& insert_before,
                                    int& must_clear) {
-    Function* func = dyn_cast<CallInst>(inst)->getCalledFunction();
+    LLVMContext& globctx = module->getContext();
+    CallInst* call_inst = dyn_cast<CallInst>(inst);
+    Function* func = call_inst->getCalledFunction();
     if (!func)
       return;
     StringRef callee_name = func->getName();
@@ -272,7 +284,6 @@ namespace bytesflops_pass {
 
     // Tally calls to the LLVM memory intrinsics (llvm.mem{set,cpy,move}.*).
     if (isa<MemIntrinsic>(inst)) {
-      LLVMContext& globctx = module->getContext();
       if (MemSetInst* memsetfunc = dyn_cast<MemSetInst>(inst)) {
         // Handle llvm.memset.* by incrementing the memset tally and
         // byte count.
@@ -299,12 +310,147 @@ namespace bytesflops_pass {
       FunctionKeyGen::KeyID keyval;
       string augmented_callee_name(string("+") + callee_name.str());
       keyval = record_func(augmented_callee_name);
-      ConstantInt* key = ConstantInt::get(IntegerType::get(module->getContext(),
+      ConstantInt* key = ConstantInt::get(IntegerType::get(globctx,
                                                            8*sizeof(FunctionKeyGen::KeyID)),
                                           keyval);
 
       // Tally the function with the given key.
       callinst_create(tally_function, key, insert_before);
+    }
+
+    // If data structures are to be monitored, keep track of all
+    // memory allocations and deallocations.
+    if (TallyByDataStruct) {
+      // Determine the number of bytes we allocated.
+      unsigned int num_args = call_inst->getNumArgOperands();
+      Value* byte_count = nullptr;       // Number of bytes allocated
+      Value* ptr_returned = call_inst;   // Pointer to allocated memory
+      Value* ptr_provided = null_pointer;   // Previously allocated pointer
+      if (callee_name == "malloc" || callee_name == "_Znwm" ||
+          callee_name == "_Znam" || callee_name == "valloc" ||
+          callee_name == "aligned_alloc" || callee_name == "memalign" ||
+          callee_name == "pvalloc")
+        // malloc, operator new, operator new[], valloc, aligned_alloc,
+        // memalign, or pvalloc -- last argument is the byte count.
+        // (Technically, pvalloc rounds up the byte count to the next multiple
+        // of the page size, but we'll ignore that feature for now.)  Note
+        // that operator new and operator new[] may also be invoked, not just
+        // called.  Hence, we additionally have to handle those functions in
+        // instrument_invoke().
+        byte_count = call_inst->getArgOperand(num_args - 1);
+      if (callee_name == "realloc") {
+        // realloc -- last argument is the byte count, but first argument is
+        // the old pointer value.
+        byte_count = call_inst->getArgOperand(num_args - 1);
+        ptr_provided = call_inst->getArgOperand(0);
+      }
+      else if (callee_name == "mmap")
+        // mmap -- second argument is the byte count.
+        byte_count = call_inst->getArgOperand(1);
+      else if (callee_name == "calloc")
+        // calloc -- product of first and second arguments is the byte count.
+        byte_count = BinaryOperator::Create(Instruction::Mul,
+                                            call_inst->getArgOperand(0),
+                                            call_inst->getArgOperand(1),
+                                            "calloc_size", insert_before);
+      else if (callee_name == "posix_memalign") {
+        // posix_memalign -- last argument is the byte count, but
+        // first argument is a pointer to the returned pointer.
+        byte_count = call_inst->getArgOperand(num_args - 1);
+        ptr_returned = call_inst->getArgOperand(0);
+      }
+
+      // Tell bf_assoc_addresses_with_dstruct() the allocation size
+      // and address returned.
+      if (byte_count != nullptr) {
+        vector<Value*> arg_list;
+        string alloc_name = string("bf_") + callee_name.str() + string("_name");
+        Constant* alloc_name_var =
+          create_global_constant(*module, alloc_name.c_str(), callee_name.data());
+        arg_list.push_back(alloc_name_var);
+        arg_list.push_back(ptr_provided);
+        arg_list.push_back(ptr_returned);
+        arg_list.push_back(byte_count);
+        if (callee_name == "posix_memalign") {
+          arg_list.push_back(call_inst);   // Error code
+          callinst_create(assoc_addrs_with_dstruct_pm, arg_list, insert_before);
+        }
+        else
+          callinst_create(assoc_addrs_with_dstruct, arg_list, insert_before);
+      }
+
+      // Now determine if we are instead deallocating memory.  If so, invoke
+      // bf_disassoc_addresses_with_dstruct().
+      if (byte_count == nullptr &&
+          (callee_name == "free" || callee_name == "_ZdlPv" ||
+           callee_name == "_ZdaPv" || callee_name == "munmap")) {
+        // free, operator delete, operator delete[], or munmap -- first
+        // argument is address to deallocate.
+        vector<Value*> arg_list;
+        ptr_provided = call_inst->getArgOperand(0);
+        arg_list.push_back(ptr_provided);
+        callinst_create(disassoc_addrs_with_dstruct, arg_list, insert_before);
+      }
+    }
+  }
+
+  // Instrument Invoke instructions.
+  void BytesFlops::instrument_invoke(Module* module,
+                                     Instruction* inst,
+                                     BasicBlock::iterator& insert_before,
+                                     int& must_clear) {
+    LLVMContext& globctx = module->getContext();
+    InvokeInst* invoke_inst = dyn_cast<InvokeInst>(inst);
+    Function* func = invoke_inst->getCalledFunction();
+    if (!func)
+      return;
+    StringRef callee_name = func->getName();
+
+    // Tally the callee (with a distinguishing "-" in front of its
+    // name) in order to keep track of invocations to uninstrumented
+    // functions.
+    if (TallyByFunction) {
+      // Generate a key if needed.
+      FunctionKeyGen::KeyID keyval;
+      string augmented_callee_name(string("-") + callee_name.str());
+      keyval = record_func(augmented_callee_name);
+      ConstantInt* key = ConstantInt::get(IntegerType::get(globctx,
+                                                           8*sizeof(FunctionKeyGen::KeyID)),
+                                          keyval);
+
+      // Tally the function with the given key.
+      callinst_create(tally_function, key, insert_before);
+    }
+
+    // If data structures are to be monitored, keep track of all
+    // memory allocations.
+    if (TallyByDataStruct) {
+      // Determine the number of bytes we allocated.
+      unsigned int num_args = invoke_inst->getNumArgOperands();
+      Value* byte_count = nullptr;
+      if (callee_name == "_Znwm" || callee_name == "_Znam")
+        // operator new or operator new[] -- last argument is the byte count.
+        byte_count = invoke_inst->getArgOperand(num_args - 1);
+
+      // We can insert instructions past the terminator so we have to
+      // insert them at the start of the target basic block.  Find
+      // where that is.
+      BasicBlock* next_bb = invoke_inst->getNormalDest();
+      BasicBlock::iterator next_insert_before = next_bb->getFirstInsertionPt();
+
+      // Tell bf_assoc_addresses_with_dstruct() the allocation size
+      // and address returned.
+      if (byte_count != nullptr) {
+        vector<Value*> arg_list;
+        string alloc_name = string("bf_") + callee_name.str() + string("_name");
+        Constant* alloc_name_var =
+          create_global_constant(*module, alloc_name.c_str(), callee_name.data());
+        arg_list.push_back(alloc_name_var);
+        arg_list.push_back(null_pointer);
+        arg_list.push_back(invoke_inst);
+        arg_list.push_back(byte_count);
+        callinst_create(assoc_addrs_with_dstruct, arg_list, next_insert_before);
+      }
     }
   }
 

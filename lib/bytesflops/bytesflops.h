@@ -66,6 +66,10 @@ namespace bytesflops_pass {
   // working-set size.
   extern cl::opt<bool> FindMemFootprint;
 
+  // Define a command-line option for tallying loads and stored by
+  // data structure.
+  extern cl::opt<bool> TallyByDataStruct;
+
   // Define a command-line option for tallying load/store operations
   // based on various data types.
   extern cl::opt<bool> TallyTypes;
@@ -121,7 +125,7 @@ namespace bytesflops_pass {
 
 
   // Define a pass over each basic block in the module.
-//  struct BytesFlops : public FunctionPass {
+  //  struct BytesFlops : public FunctionPass {
   struct BytesFlops : public ModulePass {
 
   private:
@@ -174,12 +178,16 @@ namespace bytesflops_pass {
     Function* assoc_counts_with_func;    // Pointer to bf_assoc_counters_with_func()
     Function* assoc_addrs_with_func;    // Pointer to bf_assoc_addresses_with_func()
     Function* assoc_addrs_with_prog;    // Pointer to bf_assoc_addresses_with_prog()
-    Function* push_function;     // Pointer to bf_push_function()
-    Function* pop_function;      // Pointer to bf_pop_function()
-    Function* tally_function;    // Pointer to bf_incr_func_tally()
-    Function* take_mega_lock;    // Pointer to bf_acquire_mega_lock()
-    Function* release_mega_lock; // Pointer to bf_release_mega_lock()
-    Function* tally_vector;      // Pointer to bf_tally_vector_operation()
+    Function* push_function;       // Pointer to bf_push_function()
+    Function* pop_function;        // Pointer to bf_pop_function()
+    Function* tally_function;      // Pointer to bf_incr_func_tally()
+    Function* take_mega_lock;      // Pointer to bf_acquire_mega_lock()
+    Function* release_mega_lock;   // Pointer to bf_release_mega_lock()
+    Function* tally_vector;        // Pointer to bf_tally_vector_operation()
+    Function* access_data_struct;  // Pointer to bf_access_data_struct()
+    Function* assoc_addrs_with_dstruct;     // Pointer to bf_assoc_addresses_with_dstruct
+    Function* assoc_addrs_with_dstruct_pm;  // Pointer to bf_assoc_addresses_with_dstruct_pm
+    Function* disassoc_addrs_with_dstruct;  // Pointer to bf_disassoc_addresses_with_dstruct
     Function* reuse_dist_prog;   // Pointer to bf_reuse_dist_addrs_prog()
     Function* memset_intrinsic;  // Pointer to LLVM's memset() intrinsic
     Function* access_cache;      // Pointer to bf_touch_cache()
@@ -191,6 +199,7 @@ namespace bytesflops_pass {
     ConstantInt* cond_end_bb;       // 2, basic block ended with a conditional branch
     ConstantInt* zero;        // A 64-bit constant "0"
     ConstantInt* one;         // A 64-bit constant "1"
+    ConstantPointerNull* null_pointer;   // (void *)NULL
     typedef unordered_map<string, unsigned long> str2ul_t;
     str2ul_t loop_len;        // Number of instructions in each inner loop
 
@@ -240,9 +249,9 @@ namespace bytesflops_pass {
     // Create and initialize a global variable in the
     // instrumented code.
     GlobalVariable* create_global_variable(Module& module,
-                                                         Type* var_type,
-                                                         Constant * init_value,
-                                                         const char* name);
+                                           Type* var_type,
+                                           Constant * init_value,
+                                           const char* name);
 
     // Create and initialize a global uint64_t constant in the
     // instrumented code.
@@ -256,8 +265,8 @@ namespace bytesflops_pass {
 
     // Create and initialize a global char* constant in the
     // instrumented code.
-    GlobalVariable* create_global_constant(Module& module, const char* name,
-                                           const char* value);
+    Constant* create_global_constant(Module& module, const char* name,
+                                     const char* value);
 
     // Return the number of elements in a given vector.
     ConstantInt* get_vector_length(LLVMContext& bbctx, const Type* dataType,
@@ -294,9 +303,9 @@ namespace bytesflops_pass {
                                        StringRef var_name, bool is_const=false);
 
     GlobalVariable* create_global_var(Module& module,
-                                                   Type* var_type,
-                                                   StringRef var_name,
-                                                   size_t nelts);
+                                      Type* var_type,
+                                      StringRef var_name,
+                                      size_t nelts);
 
     // Insert code to set every element of a given array to zero.
     void insert_zero_array_code(Module* module,
@@ -343,6 +352,12 @@ namespace bytesflops_pass {
                          Instruction* inst,
                          BasicBlock::iterator& insert_before,
                          int& must_clear);
+
+    // Instrument Invoke instructions.
+    void instrument_invoke(Module* module,
+                           Instruction* inst,
+                           BasicBlock::iterator& insert_before,
+                           int& must_clear);
 
     // Instrument all instructions.
     void instrument_all(Instruction& iter,
@@ -402,15 +417,14 @@ namespace bytesflops_pass {
     void initializeKeyMap(Module& module);
 
     void create_func_map_ctor(Module & module, uint32_t nkeys,
-            Constant * keys, Constant * fnames);
+                              Constant * keys, Constant * fnames);
   public:
     static char ID;
-//    BytesFlops() : FunctionPass(ID) { }
+
     BytesFlops() : ModulePass(ID) { }
-//    BytesFlops(BytesMP * bmp);
 
     const std::map<std::string, KeyType_t> &
-    getFuncKeyMap() const {return func_key_map;}
+      getFuncKeyMap() const {return func_key_map;}
 
     FunctionKeyGen::KeyID record_func(const std::string & fname);
 

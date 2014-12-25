@@ -68,6 +68,7 @@ enum {
   BF_END_BB_INDIRECT,     // Unconditional, indirect branch
   BF_END_BB_SWITCH,       // Switch instruction
   BF_END_BB_RETURN,       // Function-return instruction
+  BF_END_BB_INVOKE,       // Function-invocation instruction (supporting exceptions)
   BF_END_BB_NUM
 };
 
@@ -99,7 +100,8 @@ mem_type_to_index(uint64_t memop,
 // Attempt to demangle a space-separated list of function names so the
 // masses can follow along.  Elements in the resulting string are
 // separated by hash marks as these can't (?) appear in C++ function
-// names or argument types.
+// names or argument types.  Note that, despite its name,
+// demangle_func_name() can also demangle other symbol types as well.
 #pragma GCC diagnostic ignored "-Wunused-function"
 static std::string
 demangle_func_name(std::string mangled_name_list)

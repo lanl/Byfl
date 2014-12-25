@@ -12,9 +12,9 @@
 #include "callstack.h"
 #ifdef HAVE_BACKTRACE
 # include <execinfo.h>
-# ifdef USE_BFD
-#  include "findsrc.h"
-# endif
+#endif
+#ifdef USE_BFD
+# include "findsrc.h"
 #endif
 
 namespace bytesflops {}
@@ -306,7 +306,7 @@ uint64_t* bf_terminator_count = NULL; // Tally of terminators by type
 uint64_t* bf_mem_intrin_count = NULL; // Tally of memory intrinsic calls and data movement
 uint64_t  bf_load_ins_count   = 0;    // Tally of the number of load instructions performed
 uint64_t  bf_store_ins_count  = 0;    // Tally of the number of store instructions performed
-uint64_t  bf_call_ins_count   = 0;    // Tally of the number of function-call instructions performed
+uint64_t  bf_call_ins_count   = 0;    // Tally of the number of function-call instructions (non-exception-throwing) performed
 uint64_t  bf_flop_count       = 0;    // Tally of the number of FP operations performed
 uint64_t  bf_fp_bits_count    = 0;    // Tally of the number of bits used by all FP operations
 uint64_t  bf_op_count         = 0;    // Tally of the number of operations performed
@@ -316,9 +316,6 @@ uint64_t  bf_op_bits_count    = 0;    // Tally of the number of bits used by all
 static uint64_t num_merged = 0;    // Number of basic blocks merged so far
 static ByteFlopCounters global_totals;  // Global tallies of all of our counters
 static ByteFlopCounters prev_global_totals;  // Previously reported global tallies of all of our counters
-#ifdef USE_BFD
-static ProcessSymbolTable* procsymtab;  // The calling process's symbol table
-#endif
 
 // Keep track of counters on a per-function basis, being careful to
 // work around the "C++ static initialization order fiasco" (cf. the
@@ -409,6 +406,9 @@ BinaryOStream* bfbin;            // Stream to which to send binary output
 ofstream *bfbin_file;            // Underlying file for the above
 bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
 ByteFlopCounters bb_totals;      // Tallies of all of our counters across <= num_merged basic blocks
+#ifdef USE_BFD
+ProcessSymbolTable* procsymtab = NULL;  // The calling process's symbol table
+#endif
 
 static CallStack* call_stack = NULL;
 
@@ -432,6 +432,9 @@ void initialize_byfl (void) {
   bf_func_and_parents_id = KeyType_t(0);
   bf_current_func_key = KeyType_t(0);
   call_stack = new CallStack();
+#ifdef USE_BFD
+  procsymtab = new ProcessSymbolTable();
+#endif
   if (bf_types) {
     bf_mem_insts_count = new uint64_t[NUM_MEM_INSTS];
     for (size_t i = 0; i < NUM_MEM_INSTS; i++)
@@ -448,14 +451,9 @@ void initialize_byfl (void) {
   bf_mem_intrin_count = new uint64_t[BF_NUM_MEM_INTRIN];
   for (unsigned int i = 0; i < BF_NUM_MEM_INTRIN; i++)
     bf_mem_intrin_count[i] = 0;
-
   const char* partition = bf_categorize_counters();
   if (partition != NULL)
     bf_record_key(partition, bf_categorize_counters_id);
-
-#ifdef USE_BFD
-  procsymtab = new ProcessSymbolTable();
-#endif
 }
 
 // Initialize on first use all top-level variables in all files.  This
@@ -474,6 +472,7 @@ void bf_initialize_if_necessary (void)
     initialize_ubytes();
     initialize_tallybytes();
     initialize_vectors();
+    initialize_data_structures();
     initialize_cache();
     initialized = true;
   }
@@ -624,84 +623,104 @@ static bool suppress_output (void)
     // Log the Byfl command line to help users reproduce their results.
     *bfout << "BYFL_INFO: Byfl command line: " << bf_option_string << '\n';
 
+    // Number warning messages.
+    int num_warnings = 0;
+
     // Warn the user if he defined bf_categorize_counters() but didn't
     // compile with -bf-every-bb.
     if (bf_categorize_counters != bf_categorize_counters_original && !bf_every_bb)
-      *bfout << "BYFL_WARNING: bf_categorize_counters() has no effect without -bf-every-bb.\n"
-             << "BYFL_WARNING: Consider using -bf-every-bb -bf-merge-bb="
+      *bfout << "BYFL_WARNING: (" << ++num_warnings << ") bf_categorize_counters() has no effect without -bf-every-bb;\n"
+             << "BYFL_WARNING:     consider using -bf-every-bb -bf-merge-bb="
              << uint64_t(-1) << ".\n";
+
+    // Warn the user if he specified -bf-data-structs but lacks the
+    // backtrace() function and/or the BFD library.
+    if (bf_data_structs) {
+#ifndef USE_BFD
+      *bfout << "BYFL_WARNING: (" << ++num_warnings << ") Byfl failed to find the BFD development files at\n"
+             << "BYFL_WARNING:     configuration time.  -bf-data-structs will therefore be\n"
+             << "BYFL_WARNING:     unable to identify statically allocated data structures or\n"
+             << "BYFL_WARNING:     to report source-code locations for dynamically allocated\n"
+             << "BYFL_WARNING:     data structures.\n";
+#endif
+#ifndef HAVE_BACKTRACE
+      *bfout << "BYFL_WARNING: (" << ++num_warnings << ") Byfl failed to find a backtrace_symbols() function at\n"
+             << "BYFL_WARNING:     configuration time.  -bf-data-structs will therefore be\n"
+             << "BYFL_WARNING:     unable to identify dynamically allocated data structures.\n";
+#endif
+    }
   }
   return output == SUPPRESS;
 }
 
 #ifdef HAVE_BACKTRACE
-  // Return the address of the user code that invoked us.
-  static void* bf_find_caller_address (void)
-  {
-    const size_t DEPTH_UNINITIALIZED = (size_t)(-1);   // We haven't yet calibrarated our stack depth
-    const size_t DEPTH_UNKNOWN = (size_t)(-2);         // We were unable to determine our stack depth
-    static size_t discard_num = DEPTH_UNINITIALIZED;   // Number of stack entries to discard
-    const size_t max_stack_depth = 32;   // Maximum stack depth before we expect to find a user function
-    void* stack_addrs[max_stack_depth];
+// Return the address of the user code that invoked us.
+void* bf_find_caller_address (void)
+{
+  const size_t DEPTH_UNINITIALIZED = (size_t)(-1);   // We haven't yet calibrarated our stack depth
+  const size_t DEPTH_UNKNOWN = (size_t)(-2);         // We were unable to determine our stack depth
+  static size_t discard_num = DEPTH_UNINITIALIZED;   // Number of stack entries to discard
+  const size_t max_stack_depth = 32;   // Maximum stack depth before we expect to find a user function
+  void* stack_addrs[max_stack_depth];
 
-    switch (discard_num) {
-      case DEPTH_UNKNOWN:
-        // If we gave up once, give up forever after.
-        return NULL;
-        break;
+  switch (discard_num) {
+    case DEPTH_UNKNOWN:
+      // If we gave up once, give up forever after.
+      return NULL;
+      break;
 
-      case DEPTH_UNINITIALIZED:
-        // On our first invocation, determine the call depth of the
-        // Byfl library.
-        {
-          size_t stack_depth = backtrace(stack_addrs, max_stack_depth);
-          char** symnames = backtrace_symbols(stack_addrs, stack_depth);
-          discard_num = DEPTH_UNKNOWN;   // Assume we don't find anything.
-          for (size_t i = 0; i < stack_depth; i++) {
-            char* name = symnames[i];
-            if (!strstr(name, "byfl") &&
-                !strstr(name, "bf_") &&
-                !strstr(name, "bytesflops")) {
-              discard_num = i;
-              break;
-            }
+    case DEPTH_UNINITIALIZED:
+      // On our first invocation, determine the call depth of the
+      // Byfl library.
+      {
+        size_t stack_depth = backtrace(stack_addrs, max_stack_depth);
+        char** symnames = backtrace_symbols(stack_addrs, stack_depth);
+        discard_num = DEPTH_UNKNOWN;   // Assume we don't find anything.
+        for (size_t i = 0; i < stack_depth; i++) {
+          char* name = symnames[i];
+          if (!strstr(name, "byfl") &&
+              !strstr(name, "bf_") &&
+              !strstr(name, "bytesflops")) {
+            discard_num = i;
+            break;
           }
-          free(symnames);
-          if (discard_num == DEPTH_UNKNOWN)
-            return NULL;
         }
-        // No break
+        free(symnames);
+        if (discard_num == DEPTH_UNKNOWN)
+          return NULL;
+      }
+      // No break
 
-      default:
-        // On the first and all subsequent invocations, return the
-        // first non-Byfl stack address.
-        {
-          size_t stack_depth = backtrace(stack_addrs, discard_num + 1);
-          return stack_addrs[stack_depth - 1];
-        }
-        break;
-    }
+    default:
+      // On the first and all subsequent invocations, return the
+      // first non-Byfl stack address.
+      {
+        size_t stack_depth = backtrace(stack_addrs, discard_num + 1);
+        return stack_addrs[stack_depth - 1];
+      }
+      break;
   }
+}
 
-  // Return a string version of an instruction address (e.g., "foo.c:123").
-  static const char* bf_address_to_location_string (void* addrp)
-  {
-    typedef map<uintptr_t, const char*> addr2string_t;
-    static addr2string_t address_map;
-    uintptr_t addr = uintptr_t(addrp);
-    addr2string_t::iterator addr_iter = address_map.find(addr);
-    if (addr_iter == address_map.end()) {
-      // This is the first time we've seen this address.
-      char** locstrs = backtrace_symbols(&addrp, 1);
-      const char* location_string = locstrs == NULL ? "??:0" : strdup(locstrs[0]);
-      free(locstrs);
-      address_map[addr] = location_string;
-      return location_string;
-    }
-    else
-      // Return the string we found the previous time.
-      return addr_iter->second;
+// Return a string version of an instruction address (e.g., "foo.c:123").
+const char* bf_address_to_location_string (void* addrp)
+{
+  typedef map<uintptr_t, const char*> addr2string_t;
+  static addr2string_t address_map;
+  uintptr_t addr = uintptr_t(addrp);
+  addr2string_t::iterator addr_iter = address_map.find(addr);
+  if (addr_iter == address_map.end()) {
+    // This is the first time we've seen this address.
+    char** locstrs = backtrace_symbols(&addrp, 1);
+    const char* location_string = locstrs == NULL ? "??:0" : strdup(locstrs[0]);
+    free(locstrs);
+    address_map[addr] = location_string;
+    return location_string;
   }
+  else
+    // Return the string we found the previous time.
+    return addr_iter->second;
+}
 #endif
 
 // At the end of a basic block, accumulate the current counter
@@ -776,7 +795,8 @@ void bf_report_bb_tallies (void)
            << uint8_t(BINOUT_COL_UINT64) << "Store operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
-           << uint8_t(BINOUT_COL_UINT64) << "Function-call operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Function-call operations (non-exception-throwing)"
+           << uint8_t(BINOUT_COL_UINT64) << "Function-call operations (exception-throwing)"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (removable)"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (mandatory)"
            << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations (not taken)"
@@ -835,6 +855,7 @@ void bf_report_bb_tallies (void)
            << counter_deltas.flops
            << counter_deltas.ops - counter_deltas.flops - counter_deltas.load_ins - counter_deltas.store_ins - counter_deltas.terminators[BF_END_BB_ANY]
            << counter_deltas.call_ins
+           << counter_deltas.terminators[BF_END_BB_INVOKE]
            << counter_deltas.terminators[BF_END_BB_UNCOND_FAKE]
            << counter_deltas.terminators[BF_END_BB_UNCOND_REAL]
            << counter_deltas.terminators[BF_END_BB_COND_NT]
@@ -1001,7 +1022,8 @@ private:
            << uint8_t(BINOUT_COL_UINT64) << "Store operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
            << uint8_t(BINOUT_COL_UINT64) << "Integer operations"
-           << uint8_t(BINOUT_COL_UINT64) << "Function-call operations"
+           << uint8_t(BINOUT_COL_UINT64) << "Function-call operations (non-exception-throwing)"
+           << uint8_t(BINOUT_COL_UINT64) << "Function-call operations (exception-throwing)"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (removable)"
            << uint8_t(BINOUT_COL_UINT64) << "Unconditional and direct branch operations (mandatory)"
            << uint8_t(BINOUT_COL_UINT64) << "Conditional branch operations (not taken)"
@@ -1025,8 +1047,8 @@ private:
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled call stack"
              << uint8_t(BINOUT_COL_STRING) << "Demangled call stack";
     else
-      *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled name"
-             << uint8_t(BINOUT_COL_STRING) << "Demangled name";
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled function name"
+             << uint8_t(BINOUT_COL_STRING) << "Demangled function name";
     *bfbin << uint8_t(BINOUT_COL_NONE);
 
     // Output the data by sorted function name in both textual and
@@ -1079,6 +1101,7 @@ private:
              << func_counters->flops
              << func_counters->ops - func_counters->flops - func_counters->load_ins - func_counters->store_ins - func_counters->terminators[BF_END_BB_ANY]
              << func_counters->call_ins
+             << func_counters->terminators[BF_END_BB_INVOKE]
              << func_counters->terminators[BF_END_BB_UNCOND_FAKE]
              << func_counters->terminators[BF_END_BB_UNCOND_REAL]
              << func_counters->terminators[BF_END_BB_COND_NT]
@@ -1114,8 +1137,9 @@ private:
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Called functions";
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Invocations"
            << uint8_t(BINOUT_COL_BOOL) << "Byfl instrumented"
-           << uint8_t(BINOUT_COL_STRING) << "Mangled name"
-           << uint8_t(BINOUT_COL_STRING) << "Demangled name"
+           << uint8_t(BINOUT_COL_BOOL) << "Exception throwing"
+           << uint8_t(BINOUT_COL_STRING) << "Mangled function name"
+           << uint8_t(BINOUT_COL_STRING) << "Demangled function name"
            << uint8_t(BINOUT_COL_NONE);
     vector<const char*> all_called_funcs;
     for (str2num_t::iterator sm_iter = final_call_tallies().begin();
@@ -1129,7 +1153,9 @@ private:
       const char* funcname = *fn_iter;   // Function name
       uint64_t tally = 0;                // Invocation count
       bool instrumented = true;          // Whether function was instrumented
-      if (funcname[0] == '+') {
+      bool exception_throwing = false;   // Whether function can throw an exception
+      if (funcname[0] == '+' || funcname[0] == '-') {
+        exception_throwing = (funcname[0] == '-');
         const char* unique_name = bf_string_to_symbol(funcname+1);
         str2num_t::iterator tally_iter = final_call_tallies().find(unique_name);
         instrumented = (tally_iter != final_call_tallies().end());
@@ -1146,7 +1172,8 @@ private:
         if (funcname_demangled != funcname)
           *bfout << " [" << funcname << ']';
         *bfbin << uint8_t(BINOUT_ROW_DATA)
-               << tally << instrumented << funcname << funcname_demangled;
+               << tally << instrumented << exception_throwing
+               << funcname << funcname_demangled;
         *bfout << '\n';
       }
     }
@@ -1184,6 +1211,7 @@ private:
       counter_totals.terminators[BF_END_BB_INDIRECT] +
       counter_totals.terminators[BF_END_BB_SWITCH];
     const uint64_t term_returns = counter_totals.terminators[BF_END_BB_RETURN];
+    const uint64_t term_invokes = counter_totals.terminators[BF_END_BB_INVOKE];
     const uint64_t term_any = counter_totals.terminators[BF_END_BB_ANY];
     uint64_t term_other = term_any;
     for (int i = 0; i < BF_END_BB_NUM; i++)
@@ -1235,7 +1263,7 @@ private:
     *bfout << tag << ": " << setw(25) << term_any + counter_totals.call_ins << " branch ops ("
            << term_static << " unconditional and direct + "
            << term_dynamic << " conditional or indirect + "
-           << counter_totals.call_ins + term_returns
+           << counter_totals.call_ins + term_returns + term_invokes
            << " function calls or returns + "
            << term_any - term_static - term_dynamic - term_returns << " other)\n";
     *bfout << tag << ": " << setw(25) << counter_totals.ops + counter_totals.call_ins << " TOTAL OPS\n";
@@ -1258,8 +1286,11 @@ private:
            << "Integer operations"
            << global_int_ops;
     *bfbin << uint8_t(BINOUT_COL_UINT64)
-           << "Function-call operations"
+           << "Function-call operations (non-exception-throwing)"
            << counter_totals.call_ins;
+    *bfbin << uint8_t(BINOUT_COL_UINT64)
+           << "Function-call operations (exception-throwing)"
+           << counter_totals.terminators[BF_END_BB_INVOKE];
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Unconditional and direct branch operations (removable)"
            << counter_totals.terminators[BF_END_BB_UNCOND_FAKE];
@@ -1764,6 +1795,10 @@ public:
     // Output a histogram of vector usage.
     if (bf_vectors)
       bf_report_vector_operations(call_stack->max_depth);
+
+    // Report per-data-structure counts if requested.
+    if (bf_data_structs)
+      bf_report_data_struct_counts();
 
     // If we're not instrumented on the basic-block level, then we
     // need to accumulate the current values of all of our counters

@@ -37,6 +37,12 @@ namespace bytesflops_pass {
   FindMemFootprint("bf-mem-footprint", cl::init(false), cl::NotHidden,
 		   cl::desc("Tabulate the minimum amount of memory needed for various cache hit rates"));
 
+  // Define a command-line option for tallying loads and stored by
+  // data structure.
+  cl::opt<bool>
+  TallyByDataStruct("bf-data-structs", cl::init(false), cl::NotHidden,
+		    cl::desc("Tally loads and stores by data structure"));
+
   // Define a command-line option for tallying load/store operations
   // based on various data types (note this also implies --bf-all-ops).
   cl::opt<bool>
