@@ -1732,16 +1732,27 @@ private:
     *bfbin << uint8_t(BINOUT_COL_STRING) << "Variable"
            << uint8_t(BINOUT_COL_STRING) << "Value"
            << uint8_t(BINOUT_COL_NONE);
+    class compare_case_insensitive
+    {
+    public:
+      // Compare two strings in a case-insensitive manner.
+      bool operator() (const string& a, const string& b) const {
+        return strcasecmp(a.c_str(), b.c_str()) < 0;
+      }
+    };
+    map<string, string, compare_case_insensitive> environment_variables;
     for (char** ep = environ; *ep != NULL; ep++) {
       char* var_val_str = strdup(*ep);
       char* eqptr = strchr(var_val_str, '=');
       if (eqptr != NULL) {
         *eqptr = '\0';
-        *bfbin << uint8_t(BINOUT_ROW_DATA)
-               << var_val_str << (eqptr + 1);
+        environment_variables[string(var_val_str)] = string(eqptr + 1);
       }
       free(var_val_str);
     }
+    for (auto iter = environment_variables.cbegin(); iter != environment_variables.cend(); iter++)
+      *bfbin << uint8_t(BINOUT_ROW_DATA)
+             << iter->first << iter->second;
     *bfbin << uint8_t(BINOUT_ROW_NONE);
 
     // Report the program command line, if possible (probably only Linux).
