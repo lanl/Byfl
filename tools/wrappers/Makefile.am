@@ -19,15 +19,6 @@ nodist_bin_SCRIPTS = \
 EXTRA_DIST = bf-gcc.in bf-inst.in Makefile.PL lib/ParseGccOpts.pm make-bf-mpi
 CLEANFILES = $(nodist_bin_SCRIPTS) wrappers.mak
 
-bf-g++: bf-gcc
-	$(AM_V_GEN) cp bf-gcc bf-g++
-
-bf-gfortran: bf-gcc
-	$(AM_V_GEN) cp bf-gcc bf-gfortran
-
-bf-gccgo: bf-gcc
-	$(AM_V_GEN) cp bf-gcc bf-gccgo
-
 bf-mpicc: $(srcdir)/make-bf-mpi
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicc bf-gcc OMPI_CC MPICH_CC $(bindir) > $@
 
@@ -57,7 +48,7 @@ SILENT_MAKE_ = $(SILENT_MAKE_$(AM_DEFAULT_VERBOSITY))
 SILENT_MAKE_0 = -s
 SILENT_MAKE_1 = NOECHO=""
 
-blib: wrappers.mak
+blib bf-g++ bf-gfortran bf-gccgo: wrappers.mak
 	$(AM_V_at) test -f Makefile.PL || cp $(srcdir)/Makefile.PL .
 	$(AM_V_at) touch wrappers.mak
 	$(AM_V_GEN) $(MAKE) $(SILENT_MAKE) -f wrappers.mak \
