@@ -26,6 +26,21 @@ if test "$PERL" = no ; then
    AC_MSG_ERROR([Byfl can't build without Perl])
 fi
 AC_CHECK_PROGS([POD2MAN], [pod2man], [pod2man])
+AC_CACHE_CHECK([where Perl looks for architecture-independent modules],
+  [ax_cv_dir_perl_sitelib],
+  [
+cat <<'EOF' > conftest.pl
+use Config;
+$op = $Config{siteprefix};
+$np = $ARGV[[0]];
+$dir = $Config{sitelibexp};
+$dir =~ s/^\Q$op\E/$np/;
+print "$dir\n";
+EOF
+   ax_cv_dir_perl_sitelib="`$PERL conftest.pl '${prefix}'`"
+   rm -f conftest.pl
+  ])
+AC_SUBST([perlsitelibdir], [$ax_cv_dir_perl_sitelib])
 
 dnl We need grep, sed, and make within this script.
 AC_PROG_GREP

@@ -17,8 +17,6 @@ EXTRA_DIST = \
 
 CLEANFILES = $(nodist_bin_SCRIPTS)
 
-PERL_SITELIBEXP = $(shell $(PERL) -e 'use Config; $$op=$$Config{siteprefix}; $$np="$(prefix)"; $$dir=$$Config{sitelibexp}; $$dir=~s/^\Q$$op\E/$$np/; print "$$dir\n"')
-
 AM_DEFAULT_VERBOSITY ?= 1
 SILENT_MAKE = $(SILENT_MAKE_$(V))
 SILENT_MAKE_ = $(SILENT_MAKE_$(AM_DEFAULT_VERBOSITY))
@@ -26,7 +24,7 @@ SILENT_MAKE_0 = -s
 SILENT_MAKE_1 = NOECHO=""
 
 install-parser: $(srcdir)/ParseGccOpts.pm
-	$(INSTALL_DATA) -D "$(srcdir)/ParseGccOpts.pm" "$(DESTDIR)$(PERL_SITELIBEXP)/ParseGccOpts.pm"
+	$(INSTALL_DATA) -D "$(srcdir)/ParseGccOpts.pm" "$(DESTDIR)$(perlsitelibdir)/ParseGccOpts.pm"
 
 install-compiler-scripts: bf-gcc
 	$(LN_S) -f bf-gcc $(DESTDIR)$(bindir)/bf-g++
@@ -70,6 +68,6 @@ uninstall-local:
 	  $(RM) "$(DESTDIR)$(mandir)/man1/$${script}.1" ; \
 	done
 	$(RM) "$(DESTDIR)$(mandir)/man3/ParseGccOpts.3pm"
-	$(RM) "$(DESTDIR)$(PERL_SITELIBEXP)/ParseGccOpts.pm"
+	$(RM) "$(DESTDIR)$(perlsitelibdir)/ParseGccOpts.pm"
 
 .PHONY: install-parser install-compiler-scripts install-mpi-scripts install-man1-pages install-man3-pages
