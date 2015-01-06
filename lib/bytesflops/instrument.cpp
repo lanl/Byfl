@@ -291,6 +291,18 @@ namespace bytesflops_pass {
         increment_global_array(insert_before, mem_intrinsics_var, callVal, one);
         ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMSET_BYTES));
         increment_global_array(insert_before, mem_intrinsics_var, byteVal, memsetfunc->getLength());
+        if (TallyByDataStruct) {
+          // A memory set is treated as a store.
+          vector<Value*> arg_list;
+          CastInst* mem_addr =
+            new PtrToIntInst(memsetfunc->getDest(),
+                             IntegerType::get(globctx, 64),
+                             "", insert_before);
+          arg_list.push_back(mem_addr);
+          arg_list.push_back(memsetfunc->getLength());
+          arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
+          callinst_create(access_data_struct, arg_list, insert_before);
+        }
       }
       else if (MemTransferInst* memxferfunc = dyn_cast<MemTransferInst>(inst)) {
         // Handle llvm.memcpy.* and llvm.memmove.* by incrementing the
@@ -299,6 +311,29 @@ namespace bytesflops_pass {
         increment_global_array(insert_before, mem_intrinsics_var, callVal, one);
         ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMXFER_BYTES));
         increment_global_array(insert_before, mem_intrinsics_var, byteVal, memxferfunc->getLength());
+        if (TallyByDataStruct) {
+          // A memory transfer is treated as a load...
+          vector<Value*> arg_list;
+          CastInst* mem_addr =
+            new PtrToIntInst(memxferfunc->getSource(),
+                             IntegerType::get(globctx, 64),
+                             "", insert_before);
+          arg_list.push_back(mem_addr);
+          arg_list.push_back(memxferfunc->getLength());
+          arg_list.push_back(ConstantInt::get(globctx, APInt(8, 0)));
+          callinst_create(access_data_struct, arg_list, insert_before);
+
+          // ...plus a store.
+          arg_list.clear();
+          mem_addr =
+            new PtrToIntInst(memxferfunc->getDest(),
+                             IntegerType::get(globctx, 64),
+                             "", insert_before);
+          arg_list.push_back(mem_addr);
+          arg_list.push_back(memxferfunc->getLength());
+          arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
+          callinst_create(access_data_struct, arg_list, insert_before);
+        }
       }
     }
 
