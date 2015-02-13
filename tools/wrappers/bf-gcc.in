@@ -254,6 +254,7 @@ if (!defined $build_type{"compile"} && !defined $build_type{"link"}) {
     # Preprocessing only -- pass all of our arguments to the compiler.
     exit execute_command(($compiler, @constructed_ARGV));
 }
+die "${progname}: No input files specified.  Aborting.\n" if !@constructed_ARGV;
 
 # Define a map from source files to object files.
 my %src2obj;        # Map from a source-file name to an object-file name
