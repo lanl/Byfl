@@ -126,10 +126,20 @@ demangle_func_name(std::string mangled_name_list)
       else
         demangled_stream << mangled_name;
     }
-    else
-      // mangled_name does not look like a g++ mangled name; don't let
-      // __cxa_demangle() screw it up (e.g., by demangling "f" to "float").
-      demangled_stream << mangled_name;
+    else {
+      size_t mod_ofs = mangled_name.find("_MOD_");
+      if (mod_ofs != string::npos && mangled_name.compare(0, 2, "__") == 0) {
+        // mangled_name looks like a gfortran mangled name.
+        demangled_stream << mangled_name.substr(2, mod_ofs - 2)  // Module name
+                         << "::"                                 // Separator
+                         << mangled_name.substr(mod_ofs + 5);    // Function name
+      }
+      else
+        // mangled_name does not look like a g++ or gfortran mangled name;
+        // don't let __cxa_demangle() screw it up (e.g., by demangling "f" to
+        // "float").
+        demangled_stream << mangled_name;
+    }
   }
   return demangled_stream.str();
 }
