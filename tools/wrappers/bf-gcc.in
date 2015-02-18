@@ -21,6 +21,7 @@ use strict;
 
 # Specify some installation locations.
 my $dragonegg = '@DRAGONEGG@';
+my $byfl_plugin = '@plugindir@/bytesflops.so';
 my $byfl_libdir = '@libdir@';
 my $llvm_libdir = '@llvm_libdir@';
 
@@ -216,6 +217,7 @@ GetOptionsFromArray(\@constructed_ARGV,
                     "bf-static"       => \$static_analysis,
                     "bf-dragonegg=s"  => \$dragonegg,
                     "bf-libdir=s"     => \$byfl_libdir,
+                    "bf-plugin=s"     => \$byfl_plugin,
                     "bf-disable=s"    => \$bf_disable)
     || die "${progname}: Failed to parse the command line\n";
 switch ($bf_disable) {
@@ -377,7 +379,7 @@ if (defined $build_type{"compile"}) {
 
 		# add --debug-pass=Structure to debug
         # Run the static analyzer if -bf-static was specified.
-        execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
+        execute_command("opt", "-load", "$byfl_plugin",
                         "-bytesflops", @bf_options,
                         "-analyze", "$sfile") if $static_analysis;
 
@@ -416,7 +418,7 @@ if (defined $build_type{"compile"}) {
         }
         else {
             # Normally, we run Byfl instrumentation.
-            execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
+            execute_command("opt", "-load", "$byfl_plugin",
                             "-bytesflops", @bf_options,
                             $infile, "-o", $byfl_bcfile);
             if ($optlevel =~ /^\d+$/ && $optlevel ne "0" ) {
@@ -586,6 +588,7 @@ bf-gcc
 [B<-bf-static>]
 [B<-bf-dragonegg>=I<path/to/dragonegg.so>]
 [B<-bf-libdir>=I<path/to/byfl/lib/>]
+[B<-bf-plugin>=I<path/to/bytesflops.so>]
 [B<-bf-disable>=I<feature>]
 [I<gcc_options>...]
 [I<file>...]
@@ -680,6 +683,10 @@ Point B<bf-gcc> to the DragonEgg plugin.
 
 Point B<bf-gcc> to the directory containing the Byfl library
 (F<libbyfl.a> or F<libbyfl.so>).
+
+=item B<-bf-plugin>=I<path/to/bytesflops.so>
+
+Point B<bf-gcc> to the Byfl plugin (C<bytesflops.so>).
 
 =item B<-bf-disable>=I<feature>
 

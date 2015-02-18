@@ -20,6 +20,14 @@ AC_MSG_RESULT([$MAN_RELEASE])
 AC_SUBST([MAN_RELEASE])
 AC_SUBST([MAN_CATEGORY], ["Byfl tools"])
 
+# Tell the Makefiles where plugins should be installed.
+AC_ARG_WITH([plugindir],
+  [AS_HELP_STRING([--with-plugindir=DIR],
+    [install the Byfl LLVM plugin into DIR [default=$libexecdir/byfl]])],
+  [plugindir=$withval],
+  [plugindir=$libexecdir/$PACKAGE_NAME])
+AC_SUBST([plugindir], [$plugindir])
+
 dnl Building Byfl's MPI wrappers requires Perl.
 AC_CHECK_PROGS([PERL], [perl], [no])
 if test "$PERL" = no ; then

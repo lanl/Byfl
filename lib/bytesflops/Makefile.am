@@ -4,8 +4,8 @@
 # By Scott Pakin <pakin@lanl.gov> #
 ###################################
 
-lib_LTLIBRARIES = libbytesflops.la
-libbytesflops_la_SOURCES = \
+plugin_LTLIBRARIES = bytesflops.la
+bytesflops_la_SOURCES = \
 	bytesflops.cpp \
 	instrument.cpp \
 	helpers.cpp \
@@ -15,17 +15,19 @@ libbytesflops_la_SOURCES = \
 	mersennetwister.h \
 	functionkeygen.cpp \
 	functionkeygen.h
-libbytesflops_la_CPPFLAGS = -I$(top_srcdir)/include
-libbytesflops_la_LDFLAGS = -version-info 0:0:0
+bytesflops_la_CPPFLAGS = -I$(top_srcdir)/include
+bytesflops_la_LDFLAGS = -module -avoid-version
 
-install-exec-hook:
-	$(INSTALL) $(DESTDIR)$(libdir)/libbytesflops.so $(DESTDIR)$(libdir)/bytesflops.so
-	$(RM) $(DESTDIR)$(libdir)/libbytesflops.so*
-	$(RM) $(DESTDIR)$(libdir)/libbytesflops.{a,la}
+# Because bytesflops.so is a module, not an ordinary shared library one
+# explicitly links against, the Libtool .la file is, as far as I can
+# tell, useless.  Remove it.
 
-uninstall-local:
-	$(RM) $(DESTDIR)$(libdir)/bytesflops.so
+install-data-hook:
+	$(RM) "$(DESTDIR)$(plugindir)/bytesflops.la"
+	$(RM) "$(DESTDIR)$(plugindir)/bytesflops.a"
 
+uninstall-hook:
+	$(RM) "$(DESTDIR)$(plugindir)/bytesflops.so"
 
 # Force a shared-library build even if the user specified
 # --disable-shared to the configure script.
