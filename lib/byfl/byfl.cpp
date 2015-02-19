@@ -385,7 +385,7 @@ static void bf_record_key (const char* funcname, KeyType_t keyID)
 // bf_categorize_counters() is intended to be overridden by a
 // user-defined function.
 extern "C" {
-  static const char* bf_categorize_counters_original (void)
+  const char* bf_categorize_counters_original (void)
   {
     return NULL;
   }
