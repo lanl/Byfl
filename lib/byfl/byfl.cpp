@@ -314,6 +314,7 @@ uint64_t  bf_op_bits_count    = 0;    // Tally of the number of bits used by all
 
 // The following values represent more persistent counter and other state.
 static uint64_t num_merged = 0;    // Number of basic blocks merged so far
+static uint64_t first_bb = 0;      // First basic block in a merged set
 static ByteFlopCounters global_totals;  // Global tallies of all of our counters
 static ByteFlopCounters prev_global_totals;  // Previously reported global tallies of all of our counters
 
@@ -778,7 +779,9 @@ void bf_report_bb_tallies (void)
   if (__builtin_expect(!showed_header, 0)) {
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks";
     if (bf_bb_merge == 1) {
-      *bfbin << uint8_t(BINOUT_COL_STRING) << "Tag";
+      // Log every basic block individually.
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Basic block number"
+             << uint8_t(BINOUT_COL_STRING) << "Tag";
 #ifdef HAVE_BACKTRACE
       *bfbin << uint8_t(BINOUT_COL_UINT64) << "Address";
 # ifdef USE_BFD
@@ -791,6 +794,10 @@ void bf_report_bb_tallies (void)
 # endif
 #endif
     }
+    else
+      // Log groups of basic blocks.
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Beginning basic block number"
+             << uint8_t(BINOUT_COL_UINT64) << "Ending basic block number";
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Load operations"
            << uint8_t(BINOUT_COL_UINT64) << "Store operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
@@ -826,6 +833,10 @@ void bf_report_bb_tallies (void)
     static ByteFlopCounters counter_deltas;
     (void) global_totals.difference(&prev_global_totals, &counter_deltas);
     *bfbin << uint8_t(BINOUT_ROW_DATA);
+    *bfbin << first_bb;
+    if (bf_bb_merge != 1)
+      *bfbin << first_bb + num_merged - 1;
+    first_bb += num_merged;
     if (bf_bb_merge == 1) {
       const char* partition = bf_categorize_counters();
       *bfbin << (partition == NULL ? "" : partition);
