@@ -14,6 +14,7 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use File::stat;
 use Getopt::Long qw(GetOptionsFromArray);
+use lib '@perlsitelibdir@';   # Find ParseGccOpts if installed in a non-standard location.
 use ParseGccOpts;
 use Switch;
 use warnings;
