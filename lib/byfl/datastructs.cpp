@@ -73,6 +73,7 @@ public:
 extern ProcessSymbolTable* procsymtab;  // The calling process's symbol table
 #endif
 static map<Interval<uint64_t>, DataStructCounters*>* data_structs;  // Information about each data structure
+static DataStructCounters* unknown_data_counters;   // Information about stack or otherwise unknown accesses
 static map<string, DataStructCounters*>* location_to_counters;  // Map from a source-code location to data-structure counters
 
 // Construct an interval tree of symbol addresses.  If the BFD library
@@ -89,7 +90,10 @@ void initialize_data_structures (void)
   // symbol length.
   bfd* bfd_self;
   asymbol** symtable;
-  ssize_t numsyms;
+  ssize_t numsyms = 0;
+
+  // Initialize a structure for all unknown data structures.
+  unknown_data_counters = new DataStructCounters("*UNKNOWN*", "*UNKNOWN*", 0, "*UNKNOWN*");
 
   // Read the symbol table into a vector.
   procsymtab->get_raw_bfd_data(&bfd_self, &symtable, &numsyms);
@@ -273,9 +277,10 @@ void bf_disassoc_addresses_with_dstruct (void* baseptr)
   DataStructCounters* counters = iter->second;
 
   // Reduce the size of the data structure by the size of the address range
-  // and break the link from the address interval to the counters.  Note that
-  // location_to_counters still points to the counters those; we don't want to
-  // forget that the data structure ever existed after it's deallocated.
+  // and break the link from the address interval to the counters.  Note
+  // that location_to_counters still points to the counters; we don't want
+  // to forget that the data structure ever existed just because it was
+  // deallocated.
   counters->current_size -= interval.upper - interval.lower + 1;
   data_structs->erase(iter);
 #endif
@@ -285,17 +290,19 @@ void bf_disassoc_addresses_with_dstruct (void* baseptr)
 extern "C"
 void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0store1)
 {
-  // Find the interval containing the base address.  Return if we
-  // failed to find an interval (e.g., because the address represents
-  // a stack variable).
+  // Find the interval containing the base address.  Use a set of counts
+  // representing unknown data structures if we failed to find an interval
+  // (e.g., because the address represents a stack variable).
   static Interval<uint64_t> search_addr(0, 0);
   search_addr.lower = search_addr.upper = baseaddr;
   auto iter = data_structs->find(search_addr);
+  DataStructCounters* counters;
   if (iter == data_structs->end())
-    return;
+    counters = unknown_data_counters;
+  else
+    counters = iter->second;
 
   // Increment the appropriate counters.
-  DataStructCounters* counters = iter->second;
   if (load0store1 == 0) {
     counters->load_ops++;
     counters->bytes_loaded += numaddrs;
@@ -306,10 +313,10 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
   }
 }
 
-// Compare two counters with the intention of sorted them in decreasing order
-// of interestingness.  To that end, we sort first by decreasing access count,
-// then by decreasing memory footprint, then by increasing data-structure
-// name, and finally by increasing allocation function.
+// Compare two counters with the intention of sorted them in decreasing
+// order of interestingness.  To that end, we sort first by decreasing
+// access count, then by decreasing memory footprint, then by increasing
+// data-structure name, and finally by increasing allocation function.
 static bool compare_counter_interest (const DataStructCounters* a,
                                       const DataStructCounters* b)
 {
@@ -329,13 +336,15 @@ static bool compare_counter_interest (const DataStructCounters* a,
 void bf_report_data_struct_counts (void)
 {
   // Sort all data structures in the interval tree by decreasing order
-  // of total bytes accessed.  Ignore and unaccessed data structures.
+  // of total bytes accessed.  Ignore any unaccessed data structures.
   vector<const DataStructCounters*> interesting_data;
   for (auto iter = location_to_counters->cbegin(); iter != location_to_counters->cend(); iter++) {
     const DataStructCounters* counters = iter->second;
     if (counters->bytes_loaded + counters->bytes_stored > 0)
       interesting_data.push_back(counters);
   }
+  if (unknown_data_counters->bytes_loaded + unknown_data_counters->bytes_stored > 0)
+    interesting_data.push_back(unknown_data_counters);
   sort(interesting_data.begin(), interesting_data.end(), compare_counter_interest);
 
   // Output a textual header line.

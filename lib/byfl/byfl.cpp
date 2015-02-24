@@ -764,8 +764,7 @@ void bf_reset_bb_tallies (void)
 }
 
 // Report what we've measured for the current basic block.
-extern "C"
-void bf_report_bb_tallies (void)
+static void report_bb_tallies (uint64_t bb_merge)
 {
   static bool showed_header = false;         // true=already output our header
 
@@ -778,7 +777,7 @@ void bf_report_bb_tallies (void)
   // output device.
   if (__builtin_expect(!showed_header, 0)) {
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks";
-    if (bf_bb_merge == 1) {
+    if (bb_merge == 1) {
       // Log every basic block individually.
       *bfbin << uint8_t(BINOUT_COL_UINT64) << "Basic block number"
              << uint8_t(BINOUT_COL_STRING) << "Tag";
@@ -826,7 +825,7 @@ void bf_report_bb_tallies (void)
 
   // If we've accumulated enough basic blocks, output the aggregate of
   // their values.
-  if (__builtin_expect(++num_merged >= bf_bb_merge, 0)) {
+  if (__builtin_expect(++num_merged >= bb_merge, 0)) {
     // Output -- only to the binary output file, not the standard
     // output device -- the difference between the current counter
     // values and our previously saved values.
@@ -834,10 +833,10 @@ void bf_report_bb_tallies (void)
     (void) global_totals.difference(&prev_global_totals, &counter_deltas);
     *bfbin << uint8_t(BINOUT_ROW_DATA);
     *bfbin << first_bb;
-    if (bf_bb_merge != 1)
+    if (bb_merge != 1)
       *bfbin << first_bb + num_merged - 1;
     first_bb += num_merged;
-    if (bf_bb_merge == 1) {
+    if (bb_merge == 1) {
       const char* partition = bf_categorize_counters();
       *bfbin << (partition == NULL ? "" : partition);
 #ifdef HAVE_BACKTRACE
@@ -888,6 +887,14 @@ void bf_report_bb_tallies (void)
     num_merged = 0;
     prev_global_totals = global_totals;
   }
+}
+
+// Report what we've measured for the current basic block by calling the
+// internal report_bb_tallies() function with its default argument.
+extern "C"
+void bf_report_bb_tallies (void)
+{
+  report_bb_tallies(bf_bb_merge);
 }
 
 // Associate the current counter values with a given function.
@@ -1807,8 +1814,12 @@ public:
       return;
 
     // Complete the basic-block table.
-    if (bf_every_bb)
+    if (bf_every_bb) {
+      if (num_merged > 0)
+        // Flush the last set of basic blocks.
+        report_bb_tallies(0);
       *bfbin << uint8_t(BINOUT_ROW_NONE);
+    }
 
     // Report per-function counter totals.
     if (bf_per_func)

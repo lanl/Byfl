@@ -12,7 +12,7 @@
 
 #include "findsrc.h"
 
-ProcessSymbolTable::ProcessSymbolTable (void) : valid(false), bfd_self(NULL), symtable(NULL), cache_length(0)
+ProcessSymbolTable::ProcessSymbolTable (void) : valid(false), bfd_self(nullptr), symtable(nullptr), numsyms(0), cache_length(0)
 {
   // Initialize the BFD library.
   bfd_init();
