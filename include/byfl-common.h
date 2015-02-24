@@ -97,6 +97,18 @@ mem_type_to_index(uint64_t memop,
   return idx;
 }
 
+// Strip a "@@<version>" suffix from a symbol name.  It seems that
+// __cxa_demangle() can handle names like "_ZSt4cout" but gets confused by
+// names like "_ZSt4cout@@GLIBCXX_3.4".
+#pragma GCC diagnostic ignored "-Wunused-function"
+static std::string strip_atat(string name)
+{
+  size_t atat_pos = name.find("@@");
+  if (atat_pos != string::npos)
+    name.erase(atat_pos);
+  return name;
+}
+
 // Attempt to demangle a space-separated list of function names so the masses
 // can follow along.  Elements in the resulting string are separated by hash
 // marks as these can't (?) appear in C++ function names or argument types.
@@ -120,7 +132,7 @@ demangle_func_name(std::string mangled_name_list)
       demangled_stream << odelim;
     if (mangled_name.compare(0, 2, "_Z") == 0) {
       // mangled_name looks like a g++ mangled name.
-      char* demangled_name = __cxxabiv1::__cxa_demangle(mangled_name.c_str(), NULL, 0, &status);
+      char* demangled_name = __cxxabiv1::__cxa_demangle(strip_atat(mangled_name).c_str(), NULL, 0, &status);
       if (status == 0 && demangled_name != 0)
         demangled_stream << demangled_name;
       else
@@ -137,8 +149,9 @@ demangle_func_name(std::string mangled_name_list)
       else
         // mangled_name does not look like a g++ or gfortran mangled name;
         // don't let __cxa_demangle() screw it up (e.g., by demangling "f" to
-        // "float").
-        demangled_stream << mangled_name;
+        // "float").  However, do strip "@@<version>" from the end of the
+        // symbol name.
+        demangled_stream << strip_atat(mangled_name);
     }
   }
   return demangled_stream.str();
