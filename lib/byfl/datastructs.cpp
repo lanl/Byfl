@@ -147,9 +147,9 @@ void initialize_data_structures (void)
 }
 
 // Associate a range of addresses with a dynamically allocated data structure.
-extern "C"
-void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
-                                      void* baseptr, uint64_t numaddrs)
+static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
+                                          void* baseptr, uint64_t numaddrs,
+                                          const char* var_name)
 {
 #ifdef HAVE_BACKTRACE
   // Use the caller's location as the symbol name.
@@ -160,26 +160,30 @@ void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
     // We don't know where we're coming from -- ignore this data structure.
     return;
 # ifdef USE_BFD
+  // If we were given a variable name, begin the data-structure name with
+  // "Variable <name>".  Otherwise, begin it with "Data".
+  string var_prefix = var_name == nullptr ? "Data" : string("Variable ") + var_name;
+
   // If we have the BFD library, use that to get a more precise
   // source-code location.
   SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t)caller_addr);
   if (srcloc == nullptr) {
     // Location wasn't found -- use the address instead.
     char *caller_loc = new char[100];
-    sprintf(caller_loc, "Data allocated at %p", caller_addr);
+    sprintf(caller_loc, (var_prefix + " allocated at %p").c_str(), caller_addr);
     dstruct_name = caller_loc;
     delete[] caller_loc;
   }
   else {
     // Location was found -- format it and use it.
     stringstream locstr;
-    locstr << "Data allocated at "
+    locstr << var_prefix << " allocated at "
            << srcloc->file_name << ':' << srcloc->line_number
            << ", function " << srcloc->function_name
            << ", address " << hex << caller_addr << dec;
     dstruct_name = locstr.str();
     locstr.str(string());
-    locstr << "Data allocated at "
+    locstr << var_prefix << " allocated at "
            << srcloc->file_name << ':' << srcloc->line_number
            << ", function " << demangle_func_name(srcloc->function_name)
            << ", address " << hex << caller_addr << dec;
@@ -190,13 +194,13 @@ void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
   if (!strcmp(caller_loc, "??:0")) {
     // Location wasn't found -- use the address instead.
     char *alt_caller_loc = new char[100];
-    sprintf(alt_caller_loc, "Data allocated at %p", caller_addr);
+    sprintf(alt_caller_loc, (var_prefix + " allocated at %p").c_str(), caller_addr);
     dstruct_name = dstruct_demangled_name = alt_caller_loc;
     delete[] alt_caller_loc;
   }
   else
     // Location was found -- use it.
-    dstruct_name = dstruct_demangled_name = string("Data allocated at ") + caller_loc;
+    dstruct_name = dstruct_demangled_name = var_prefix + " allocated at " + caller_loc;
 # endif
 
   // Find an existing set of counters for the same source-code location.  If no
@@ -248,16 +252,33 @@ void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
 #endif
 }
 
-// Wrap bf_assoc_addresses_with_dstruct() with a version customized
-// for posix_memalign().
+// Associate a range of addresses with a dynamically allocated data structure.
+extern "C"
+void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
+                                      void* baseptr, uint64_t numaddrs)
+{
+  assoc_addresses_with_dstruct(origin, old_baseptr, baseptr, numaddrs, nullptr);
+}
+
+// Associate a range of addresses with a dynamically allocated data structure
+// allocated specifically by posix_memalign().
 extern "C"
 void bf_assoc_addresses_with_dstruct_pm (const char* origin, void* old_baseptr,
                                          void** baseptrptr, uint64_t numaddrs, int retcode)
 {
 #ifdef HAVE_BACKTRACE
   if (retcode == 0)
-    bf_assoc_addresses_with_dstruct(origin, old_baseptr, *baseptrptr, numaddrs);
+    assoc_addresses_with_dstruct(origin, old_baseptr, *baseptrptr, numaddrs, nullptr);
 #endif
+}
+
+// Associate a range of addresses with a dynamically allocated data structure
+// allocated specifically on the stack.
+extern "C"
+void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
+                                            uint64_t numaddrs, const char* varname)
+{
+  assoc_addresses_with_dstruct(origin, nullptr, baseptr, numaddrs, varname);
 }
 
 // Disassociate a range of previously allocated addresses (given the address
@@ -283,6 +304,27 @@ void bf_disassoc_addresses_with_dstruct (void* baseptr)
   // deallocated.
   counters->current_size -= interval.upper - interval.lower + 1;
   data_structs->erase(iter);
+#endif
+}
+
+// Remove all stack-allocated data structures from consideration.
+extern "C"
+void bf_disassoc_all_stack_addresses (void)
+{
+#ifdef HAVE_BACKTRACE
+  for (auto iter = data_structs->begin(); iter != data_structs->end(); iter++) {
+    Interval<uint64_t> interval = iter->first;
+    DataStructCounters* counters = iter->second;
+    if (counters->origin == "stack") {
+      // Reduce the size of the data structure by the size of the address range
+      // and break the link from the address interval to the counters.  Note
+      // that location_to_counters still points to the counters; we don't want
+      // to forget that the data structure ever existed just because it was
+      // deallocated.
+      counters->current_size -= interval.upper - interval.lower + 1;
+      data_structs->erase(iter);
+    }
+  }
 #endif
 }
 

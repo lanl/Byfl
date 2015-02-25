@@ -358,8 +358,9 @@ namespace bytesflops_pass {
     }
 
     // Declare bf_assoc_addresses_with_dstruct(),
-    // bf_assoc_addresses_with_dstruct_pm(), and bf_access_data_struct() only
-    // if we were asked to track data-structure acceses.
+    // bf_assoc_addresses_with_dstruct_pm(),
+    // bf_assoc_addresses_with_dstruct_stack(), and bf_access_data_struct()
+    // only if we were asked to track data-structure acceses.
     if (TallyByDataStruct) {
       vector<Type*> all_function_args;
       FunctionType* void_func_result;
@@ -391,6 +392,19 @@ namespace bytesflops_pass {
                          "bf_assoc_addresses_with_dstruct_pm",
                          &module);
 
+      // Declare bf_assoc_addresses_with_dstruct_stack().
+      all_function_args.clear();
+      all_function_args.push_back(ptr_to_char_arg);
+      all_function_args.push_back(ptr_to_char_arg);
+      all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(ptr_to_char_arg);
+      void_func_result =
+        FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+      assoc_addrs_with_dstruct_stack =
+        declare_extern_c(void_func_result,
+                         "bf_assoc_addresses_with_dstruct_stack",
+                         &module);
+
       // Declare bf_disassoc_addresses_with_dstruct().
       all_function_args.clear();
       all_function_args.push_back(ptr_to_char_arg);
@@ -400,6 +414,9 @@ namespace bytesflops_pass {
         declare_extern_c(void_func_result,
                          "bf_disassoc_addresses_with_dstruct",
                          &module);
+
+      // Declare bf_disassoc_all_stack_addresses().
+      disassoc_all_stack_addrs = declare_thunk(&module, "bf_disassoc_all_stack_addresses");
 
       // Declare bf_access_data_struct().
       all_function_args.clear();

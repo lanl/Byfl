@@ -364,7 +364,7 @@ bool BytesFlops::is_fp_operation(const Instruction& inst,
 }
 
 // Return the total number of bits consumed and produced by a given
-// instruction.  The result is are a bit unintuitive for certain types of
+// instruction.  The result is a bit unintuitive for certain types of
 // instructions so use with caution.
 uint64_t BytesFlops::instruction_operand_bits(const Instruction& inst)
 {
