@@ -93,7 +93,7 @@ void initialize_data_structures (void)
   ssize_t numsyms = 0;
 
   // Initialize a structure for all unknown data structures.
-  unknown_data_counters = new DataStructCounters("*UNKNOWN*", "*UNKNOWN*", 0, "*UNKNOWN*");
+  unknown_data_counters = new DataStructCounters("Unknown data structures of unknown size", "Unknown data structures of unknown size", 0, "unknown");
 
   // Read the symbol table into a vector.
   procsymtab->get_raw_bfd_data(&bfd_self, &symtable, &numsyms);
@@ -139,7 +139,10 @@ void initialize_data_structures (void)
     // Insert the symbol into the interval tree and into the mapping from
     // data-structure name to counters.
     DataStructCounters* info =
-      new DataStructCounters(symname, demangled_symname, last_addr - first_addr + 1, sectname);
+      new DataStructCounters(string("Static variable ") + symname,
+                             string("Static variable ") + demangled_symname,
+                             last_addr - first_addr + 1,
+                             sectname);
     (*data_structs)[Interval<uint64_t>(first_addr, last_addr)] = info;
     (*location_to_counters)[symname] = info;
   }
