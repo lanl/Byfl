@@ -503,12 +503,11 @@ namespace bytesflops_pass {
       uint64_t array_len = cast<ConstantInt>(ainst.getArraySize())->getZExtValue();
       Type* alloc_type = ainst.getAllocatedType();
       uint64_t bytes_alloced = target_data.getTypeStoreSize(alloc_type)*array_len;
-      StringRef lhs_name = ainst.getValueName()->getKey();   // QUERY: Is this dafe?
 
       // Tell bf_assoc_addresses_with_dstruct_stack() the allocation size and
       // address returned.
       if (bytes_alloced > 0) {
-        StringRef varname = ainst.getValueName()->getKey();
+        StringRef varname = ainst.hasName() ? ainst.getName() : StringRef("*UNNAMED*");
         if (!varname.startswith("bf_")) {
           vector<Value*> arg_list;
           Constant* alloc_name_var =

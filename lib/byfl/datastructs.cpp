@@ -73,7 +73,6 @@ public:
 extern ProcessSymbolTable* procsymtab;  // The calling process's symbol table
 #endif
 static map<Interval<uint64_t>, DataStructCounters*>* data_structs;  // Information about each data structure
-static DataStructCounters* unknown_data_counters;   // Information about stack or otherwise unknown accesses
 static map<string, DataStructCounters*>* location_to_counters;  // Map from a source-code location to data-structure counters
 
 // Construct an interval tree of symbol addresses.  If the BFD library
@@ -91,9 +90,6 @@ void initialize_data_structures (void)
   bfd* bfd_self;
   asymbol** symtable;
   ssize_t numsyms = 0;
-
-  // Initialize a structure for all unknown data structures.
-  unknown_data_counters = new DataStructCounters("Unknown data structures of unknown size", "Unknown data structures of unknown size", 0, "unknown");
 
   // Read the symbol table into a vector.
   procsymtab->get_raw_bfd_data(&bfd_self, &symtable, &numsyms);
@@ -191,7 +187,7 @@ void bf_disassoc_addresses_with_dstruct (void* baseptr)
 // Associate a range of addresses with a dynamically allocated data structure.
 static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
                                           void* baseptr, uint64_t numaddrs,
-                                          const char* var_name)
+                                          const char* var_prefix)
 {
 #ifdef HAVE_BACKTRACE
   // Use the caller's location as the symbol name.
@@ -202,17 +198,13 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
     // We don't know where we're coming from -- ignore this data structure.
     return;
 # ifdef USE_BFD
-  // If we were given a variable name, begin the data-structure name with
-  // "Variable <name>".  Otherwise, begin it with "Data".
-  string var_prefix = var_name == nullptr ? "Data" : string("Variable ") + var_name;
-
   // If we have the BFD library, use that to get a more precise
   // source-code location.
   SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t)caller_addr);
   if (srcloc == nullptr) {
     // Location wasn't found -- use the address instead.
     char *caller_loc = new char[100];
-    sprintf(caller_loc, (var_prefix + " allocated at %p").c_str(), caller_addr);
+    sprintf(caller_loc, (string(var_prefix) + " allocated at %p").c_str(), caller_addr);
     dstruct_name = caller_loc;
     delete[] caller_loc;
   }
@@ -236,7 +228,7 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
   if (!strcmp(caller_loc, "??:0")) {
     // Location wasn't found -- use the address instead.
     char *alt_caller_loc = new char[100];
-    sprintf(alt_caller_loc, (var_prefix + " allocated at %p").c_str(), caller_addr);
+    sprintf(alt_caller_loc, (string(var_prefix) + " allocated at %p").c_str(), caller_addr);
     dstruct_name = dstruct_demangled_name = alt_caller_loc;
     delete[] alt_caller_loc;
   }
@@ -299,7 +291,7 @@ extern "C"
 void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
                                       void* baseptr, uint64_t numaddrs)
 {
-  assoc_addresses_with_dstruct(origin, old_baseptr, baseptr, numaddrs, nullptr);
+  assoc_addresses_with_dstruct(origin, old_baseptr, baseptr, numaddrs, "Data");
 }
 
 // Associate a range of addresses with a dynamically allocated data structure
@@ -310,7 +302,7 @@ void bf_assoc_addresses_with_dstruct_pm (const char* origin, void* old_baseptr,
 {
 #ifdef HAVE_BACKTRACE
   if (retcode == 0)
-    assoc_addresses_with_dstruct(origin, old_baseptr, *baseptrptr, numaddrs, nullptr);
+    assoc_addresses_with_dstruct(origin, old_baseptr, *baseptrptr, numaddrs, "Data");
 #endif
 }
 
@@ -324,13 +316,15 @@ void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
   // declares "int32_t x,y;" then returns, then another function delcares
   // "int64_t foo;" and gets the same base address as x, we'll need to
   // associate foo's address range with foo from now on, not with x and y.
-  for (uint64_t ofs = 0;
-       ofs < numaddrs;
-       ofs += disassoc_addresses_with_dstruct((char*)baseptr + ofs) + 1)
-    ;
+  for (uint64_t ofs = 0; ofs < numaddrs; ) {
+    uint64_t freed = disassoc_addresses_with_dstruct((char*)baseptr + ofs);
+    ofs += freed == 0 ? 1 : freed;
+  }
 
   // Establish the new association.
-  assoc_addresses_with_dstruct(origin, nullptr, baseptr, numaddrs, varname);
+  string prefix(varname);
+  prefix = prefix == "*UNNAMED*" ? "Unnamed variable" : string("Variable ") + prefix;
+  assoc_addresses_with_dstruct(origin, nullptr, baseptr, numaddrs, prefix.c_str());
 }
 
 // Increment access counts for a data structure.
@@ -353,7 +347,7 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
       ofs += freed == 0 ? 1 : freed;
     }
     assoc_addresses_with_dstruct("unknown", nullptr, (void*)uintptr_t(baseaddr),
-                                 numaddrs, "*UNKNOWN*");
+                                 numaddrs, "Unknown data structure");
     iter = data_structs->find(search_addr);
   }
   counters = iter->second;
@@ -399,8 +393,6 @@ void bf_report_data_struct_counts (void)
     if (counters->bytes_loaded + counters->bytes_stored > 0)
       interesting_data.push_back(counters);
   }
-  if (unknown_data_counters->bytes_loaded + unknown_data_counters->bytes_stored > 0)
-    interesting_data.push_back(unknown_data_counters);
   sort(interesting_data.begin(), interesting_data.end(), compare_counter_interest);
 
   // Output a textual header line.
