@@ -189,7 +189,6 @@ namespace bytesflops_pass {
     Function* assoc_addrs_with_dstruct_pm;  // Pointer to bf_assoc_addresses_with_dstruct_pm
     Function* assoc_addrs_with_dstruct_stack;  // Pointer to bf_assoc_addresses_with_dstruct_stack
     Function* disassoc_addrs_with_dstruct;  // Pointer to bf_disassoc_addresses_with_dstruct
-    Function* disassoc_all_stack_addrs;     // Pointer to bf_disassoc_all_stack_addresses
     Function* reuse_dist_prog;   // Pointer to bf_reuse_dist_addrs_prog()
     Function* memset_intrinsic;  // Pointer to LLVM's memset() intrinsic
     Function* access_cache;      // Pointer to bf_touch_cache()

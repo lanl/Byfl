@@ -131,9 +131,11 @@ void initialize_data_structures (void)
       continue;   // Zero-sized data structure
     uint64_t last_addr = get<0>(*next_iter) - 1;
     string symname(get<1>(*iter));
-    string demangled_symname = demangle_func_name(symname);
     if (symname.compare(0, 11, "*DUMMY END*") == 0)
       continue;   // Dummy value we inserted above
+    if (symname.substr(0, 3) == "bf_")
+      continue;   // Byfl-inserted symbol
+    string demangled_symname = demangle_func_name(symname);
     string sectname(get<2>(*iter));
 
     // Insert the symbol into the interval tree and into the mapping from
@@ -147,6 +149,43 @@ void initialize_data_structures (void)
     (*location_to_counters)[symname] = info;
   }
 #endif
+}
+
+// Disassociate a range of previously allocated addresses (given the address
+// at the beginning of the range) from the data structure to which it used to
+// belong.
+static uint64_t disassoc_addresses_with_dstruct (void* baseptr)
+{
+#ifdef HAVE_BACKTRACE
+  // Find the address interval and set of counters.
+  static Interval<uint64_t> search_addr(0, 0);
+  search_addr.lower = search_addr.upper = uint64_t(uintptr_t(baseptr));
+  auto iter = data_structs->find(search_addr);
+  if (iter == data_structs->end())
+    return 0;  // Address was not previously allocated (or somehow snuck by us).
+  Interval<uint64_t> interval = iter->first;
+  DataStructCounters* counters = iter->second;
+
+  // Reduce the size of the data structure by the size of the address range
+  // and break the link from the address interval to the counters.  Note
+  // that location_to_counters still points to the counters; we don't want
+  // to forget that the data structure ever existed just because it was
+  // deallocated.
+  uint64_t interval_length = interval.upper - interval.lower + 1;
+  counters->current_size -= interval_length;
+  data_structs->erase(iter);
+  return interval_length;
+#else
+  return 0;
+#endif
+}
+
+// For access from user code, wrap disassoc_addresses_with_dstruct() and
+// discard the return value.
+extern "C"
+void bf_disassoc_addresses_with_dstruct (void* baseptr)
+{
+  (void) disassoc_addresses_with_dstruct(baseptr);
 }
 
 // Associate a range of addresses with a dynamically allocated data structure.
@@ -248,8 +287,8 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
     data_structs->erase(old_iter);
   }
 
-  // Associate the new range of addresses with the old (or just
-  // created) counters.
+  // Associate the new range of addresses with the old (or just created)
+  // counters.
   uint64_t baseaddr = uint64_t(uintptr_t(baseptr));
   (*data_structs)[Interval<uint64_t>(baseaddr, baseaddr + numaddrs - 1)] = counters;
 #endif
@@ -281,54 +320,17 @@ extern "C"
 void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
                                             uint64_t numaddrs, const char* varname)
 {
+  // Disassociate all overlapping data structures.  For example if a function
+  // declares "int32_t x,y;" then returns, then another function delcares
+  // "int64_t foo;" and gets the same base address as x, we'll need to
+  // associate foo's address range with foo from now on, not with x and y.
+  for (uint64_t ofs = 0;
+       ofs < numaddrs;
+       ofs += disassoc_addresses_with_dstruct((char*)baseptr + ofs) + 1)
+    ;
+
+  // Establish the new association.
   assoc_addresses_with_dstruct(origin, nullptr, baseptr, numaddrs, varname);
-}
-
-// Disassociate a range of previously allocated addresses (given the address
-// at the beginning of the range) from the data structure to which it used to
-// belong.
-extern "C"
-void bf_disassoc_addresses_with_dstruct (void* baseptr)
-{
-#ifdef HAVE_BACKTRACE
-  // Find the address interval and set of counters.
-  static Interval<uint64_t> search_addr(0, 0);
-  search_addr.lower = search_addr.upper = uint64_t(uintptr_t(baseptr));
-  auto iter = data_structs->find(search_addr);
-  if (iter == data_structs->end())
-    return;  // Address was not previously allocated (or somehow snuck by us).
-  Interval<uint64_t> interval = iter->first;
-  DataStructCounters* counters = iter->second;
-
-  // Reduce the size of the data structure by the size of the address range
-  // and break the link from the address interval to the counters.  Note
-  // that location_to_counters still points to the counters; we don't want
-  // to forget that the data structure ever existed just because it was
-  // deallocated.
-  counters->current_size -= interval.upper - interval.lower + 1;
-  data_structs->erase(iter);
-#endif
-}
-
-// Remove all stack-allocated data structures from consideration.
-extern "C"
-void bf_disassoc_all_stack_addresses (void)
-{
-#ifdef HAVE_BACKTRACE
-  for (auto iter = data_structs->begin(); iter != data_structs->end(); iter++) {
-    Interval<uint64_t> interval = iter->first;
-    DataStructCounters* counters = iter->second;
-    if (counters->origin == "stack") {
-      // Reduce the size of the data structure by the size of the address range
-      // and break the link from the address interval to the counters.  Note
-      // that location_to_counters still points to the counters; we don't want
-      // to forget that the data structure ever existed just because it was
-      // deallocated.
-      counters->current_size -= interval.upper - interval.lower + 1;
-      data_structs->erase(iter);
-    }
-  }
-#endif
 }
 
 // Increment access counts for a data structure.
@@ -342,10 +344,19 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
   search_addr.lower = search_addr.upper = baseaddr;
   auto iter = data_structs->find(search_addr);
   DataStructCounters* counters;
-  if (iter == data_structs->end())
-    counters = unknown_data_counters;
-  else
-    counters = iter->second;
+  if (iter == data_structs->end()) {
+    // The data structure wasn't found.  Frankly, I don't know how this can
+    // happen, but since it does, try at least to record where it's coming
+    // from.
+    for (uint64_t ofs = 0; ofs < numaddrs; ) {
+      uint64_t freed = disassoc_addresses_with_dstruct((void*)uintptr_t(baseaddr + ofs));
+      ofs += freed == 0 ? 1 : freed;
+    }
+    assoc_addresses_with_dstruct("unknown", nullptr, (void*)uintptr_t(baseaddr),
+                                 numaddrs, "*UNKNOWN*");
+    iter = data_structs->find(search_addr);
+  }
+  counters = iter->second;
 
   // Increment the appropriate counters.
   if (load0store1 == 0) {

@@ -415,9 +415,6 @@ namespace bytesflops_pass {
                          "bf_disassoc_addresses_with_dstruct",
                          &module);
 
-      // Declare bf_disassoc_all_stack_addresses().
-      disassoc_all_stack_addrs = declare_thunk(&module, "bf_disassoc_all_stack_addresses");
-
       // Declare bf_access_data_struct().
       all_function_args.clear();
       all_function_args.push_back(uint64_arg);

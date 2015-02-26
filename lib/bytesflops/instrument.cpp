@@ -508,20 +508,22 @@ namespace bytesflops_pass {
       // Tell bf_assoc_addresses_with_dstruct_stack() the allocation size and
       // address returned.
       if (bytes_alloced > 0) {
-        vector<Value*> arg_list;
-        Constant* alloc_name_var =
-          create_global_constant(*module, "bf_.stack._name", "stack");
-        PointerType* ptr8ty = Type::getInt8PtrTy(bbctx);
-        CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", insert_before);
         StringRef varname = ainst.getValueName()->getKey();
-        string varname_name = string("bf_") + varname.str() + string("_name");
-        Constant* varname_name_var =
-          create_global_constant(*module, varname_name.c_str(), varname.data());
-        arg_list.push_back(alloc_name_var);
-        arg_list.push_back(pointer);
-        arg_list.push_back(ConstantInt::get(bbctx, APInt(64, bytes_alloced)));
-        arg_list.push_back(varname_name_var);
-        callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_before);
+        if (!varname.startswith("bf_")) {
+          vector<Value*> arg_list;
+          Constant* alloc_name_var =
+            create_global_constant(*module, "bf_.stack._name", "stack");
+          PointerType* ptr8ty = Type::getInt8PtrTy(bbctx);
+          CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", insert_before);
+          string varname_name = string("bf_") + varname.str() + string("_name");
+          Constant* varname_name_var =
+            create_global_constant(*module, varname_name.c_str(), varname.data());
+          arg_list.push_back(alloc_name_var);
+          arg_list.push_back(pointer);
+          arg_list.push_back(ConstantInt::get(bbctx, APInt(64, bytes_alloced)));
+          arg_list.push_back(varname_name_var);
+          callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_before);
+        }
       }
     }
   }
@@ -775,14 +777,6 @@ namespace bytesflops_pass {
       else
         callinst_create(tally_function, key, new_entry);
     }
-
-    // Insert a call at the beginning of the function to
-    // bf_disassoc_all_stack_addresses() if -bf-data-structs was specified.
-    // Logically, bf_disassoc_all_stack_addresses() should be called at the
-    // *end* of the function, but it's a lot easier to call it at the beginning
-    // of a function than to track down all function-return points.
-    if (TallyByDataStruct)
-      callinst_create(disassoc_all_stack_addrs, new_entry);
 
     // Branch to the original entry point.
     BranchInst::Create(&old_entry, new_entry);
