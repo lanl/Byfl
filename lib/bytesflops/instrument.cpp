@@ -10,6 +10,10 @@
 #include <iostream>
 #include "bytesflops.h"
 
+// Temporary
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/Support/raw_os_ostream.h"
+
 namespace bytesflops_pass {
 
   const int BytesFlops::CLEAR_LOADS          =   1;
@@ -217,11 +221,22 @@ namespace bytesflops_pass {
 
     // If requested by the user, insert a call to bf_access_data_struct().
     if (TallyByDataStruct) {
+      // Temporary
+      static uint64_t inst_num = 1000000;
+      string inst_name = string("bf_inst_") + static_cast<ostringstream*>(&(ostringstream() << inst_num++))->str() + "_name";
+      string valuestring;
+      raw_string_ostream valuestream(valuestring);
+      valuestream << inst;
+      valuestream.flush();
+      Constant* inst_name_var =
+	create_global_constant(*module, inst_name.c_str(), valuestring.c_str());
+
       uint8_t load0store1 = opcode == Instruction::Load ? 0 : 1;
       vector<Value*> arg_list;
       arg_list.push_back(mem_addr);
       arg_list.push_back(num_bytes);
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
+      arg_list.push_back(inst_name_var);
       callinst_create(access_data_struct, arg_list, insert_before);
     }
 
@@ -270,6 +285,7 @@ namespace bytesflops_pass {
   // Instrument Call instructions.  Note that we've already skipped
   // over calls to llvm.dbg.*.
   void BytesFlops::instrument_call(Module* module,
+				   StringRef function_name,
                                    Instruction* inst,
                                    BasicBlock::iterator& insert_before,
                                    int& must_clear) {
@@ -294,6 +310,17 @@ namespace bytesflops_pass {
         if (TallyByDataStruct) {
           // A memory set is treated as a store.
           vector<Value*> arg_list;
+
+	  // Temporary
+	  static uint64_t inst_num = 2000000;
+	  string inst_name = string("bf_inst_") + static_cast<ostringstream*>(&(ostringstream() << inst_num++))->str() + "_name";
+	  string valuestring;
+	  raw_string_ostream valuestream(valuestring);
+	  valuestream << inst;
+	  valuestream.flush();
+	  Constant* inst_name_var =
+	    create_global_constant(*module, inst_name.c_str(), valuestring.c_str());
+
           CastInst* mem_addr =
             new PtrToIntInst(memsetfunc->getDest(),
                              IntegerType::get(globctx, 64),
@@ -301,6 +328,7 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memsetfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
+	  arg_list.push_back(inst_name_var);
           callinst_create(access_data_struct, arg_list, insert_before);
         }
       }
@@ -314,6 +342,17 @@ namespace bytesflops_pass {
         if (TallyByDataStruct) {
           // A memory transfer is treated as a load...
           vector<Value*> arg_list;
+
+	  // Temporary
+	  static uint64_t inst_num = 3000000;
+	  string inst_name = string("bf_inst_") + static_cast<ostringstream*>(&(ostringstream() << inst_num++))->str() + "_name";
+	  string valuestring;
+	  raw_string_ostream valuestream(valuestring);
+	  valuestream << inst;
+	  valuestream.flush();
+	  Constant* inst_name_var =
+	    create_global_constant(*module, inst_name.c_str(), valuestring.c_str());
+
           CastInst* mem_addr =
             new PtrToIntInst(memxferfunc->getSource(),
                              IntegerType::get(globctx, 64),
@@ -321,6 +360,7 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 0)));
+	  arg_list.push_back(inst_name_var);
           callinst_create(access_data_struct, arg_list, insert_before);
 
           // ...plus a store.
@@ -332,6 +372,7 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
+	  arg_list.push_back(inst_name_var);
           callinst_create(access_data_struct, arg_list, insert_before);
         }
       }
@@ -732,7 +773,7 @@ namespace bytesflops_pass {
             break;
 
           case Instruction::Call:
-            instrument_call(module, &inst, terminator_inst, must_clear);
+            instrument_call(module, function_name, &inst, terminator_inst, must_clear);
             break;
 
           case Instruction::Alloca:

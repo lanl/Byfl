@@ -329,7 +329,7 @@ void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
 
 // Increment access counts for a data structure.
 extern "C"
-void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0store1)
+void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0store1, char *instruction_string)
 {
   // Find the interval containing the base address.  Use a set of counts
   // representing unknown data structures if we failed to find an interval
@@ -349,6 +349,7 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
     assoc_addresses_with_dstruct("unknown", nullptr, (void*)uintptr_t(baseaddr),
                                  numaddrs, "Unknown data structure");
     iter = data_structs->find(search_addr);
+    cerr << "*** IN " << iter->second->demangled_name << ": NO DATA STRUCTURE FOR " << instruction_string << " ***\n";  // Temporary
   }
   counters = iter->second;
 
