@@ -109,6 +109,20 @@ static std::string strip_atat(string name)
   return name;
 }
 
+// Replace a "_GLOBAL__sub_I_" (respectively "_GLOBAL__sub_D_") prefix in a
+// symbol name with "_GLOBAL__sub_I_" (respectively "_GLOBAL__sub_D_").
+// __cxa_demangle() has no idea what the former is -- and I haven't yet found
+// any documentation to tell me -- but the latter is documented as global
+// constructors (respectively destructors) keyed to the function.  I'm guessing
+// that the "sub" form is some simple variant of that.
+#pragma GCC diagnostic ignored "-Wunused-function"
+static std::string strip_global_sub(string name)
+{
+  if (name.compare(0, 13, "_GLOBAL__sub_") == 0)
+    name = string("_GLOBAL__") + name.substr(13);
+  return name;
+}
+
 // Attempt to demangle a space-separated list of function names so the masses
 // can follow along.  Elements in the resulting string are separated by hash
 // marks as these can't (?) appear in C++ function names or argument types.
@@ -130,9 +144,12 @@ demangle_func_name(std::string mangled_name_list)
       first_name = false;
     else
       demangled_stream << odelim;
-    if (mangled_name.compare(0, 2, "_Z") == 0) {
+    if (mangled_name.compare(0, 2, "_Z") == 0 ||
+        mangled_name.compare(0, 13, "_GLOBAL__sub_") == 0) {
       // mangled_name looks like a g++ mangled name.
-      char* demangled_name = __cxxabiv1::__cxa_demangle(strip_atat(mangled_name).c_str(), NULL, 0, &status);
+      char* demangled_name =
+        __cxxabiv1::__cxa_demangle(strip_global_sub(strip_atat(mangled_name)).c_str(),
+                                   NULL, 0, &status);
       if (status == 0 && demangled_name != 0)
         demangled_stream << demangled_name;
       else
