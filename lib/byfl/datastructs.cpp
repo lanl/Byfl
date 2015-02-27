@@ -205,7 +205,7 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
     // Location wasn't found -- use the address instead.
     char *caller_loc = new char[100];
     sprintf(caller_loc, (string(var_prefix) + " allocated at %p").c_str(), caller_addr);
-    dstruct_name = caller_loc;
+    dstruct_name = dstruct_demangled_name = caller_loc;
     delete[] caller_loc;
   }
   else {
