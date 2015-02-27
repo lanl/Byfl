@@ -768,8 +768,9 @@ namespace bytesflops_pass {
     // was specified without -bf-call-stack.
     if (TallyByFunction) {
       std::vector<Value*> key_args;
-      ConstantInt * key = ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
-                                           keyval);
+      ConstantInt * key =
+        ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
+                         keyval);
       Constant* argument = map_func_name_to_arg(module, function_name);
       key_args.push_back(argument);
       key_args.push_back(key);
@@ -788,13 +789,10 @@ namespace bytesflops_pass {
       PointerType* ptr8ty = Type::getInt8PtrTy(func_ctx);
       ConstantInt* zero32 = ConstantInt::get(func_ctx, APInt(32, 0));
       for (auto iter = argList.begin(); iter != argList.end(); iter++) {
-        if (!iter->hasByValOrInAllocaAttr() && !iter->hasStructRetAttr())
-          // Argument is either an explicit pointer or was passed in a
-          // register.
-          continue;
-
-        // Convert the argument to both a pointer and a value.
+        // Prepare to access the argument as both a pointer and a value.
         Value* argVal = &cast<Value>(*iter);
+	if (!argVal->getType()->isPointerTy())
+	  continue;
         Value* argPtr = new BitCastInst(argVal, ptr8ty, "argptr", new_entry);
         argVal = new LoadInst(argVal, "arg", false, new_entry);
 
