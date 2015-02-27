@@ -323,7 +323,7 @@ void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
 
   // Establish the new association.
   string prefix(varname);
-  prefix = prefix == "*UNNAMED*" ? "Unnamed variable" : string("Variable ") + prefix;
+  prefix = prefix == "*UNNAMED*" ? "Compiler-generated variable" : string("Variable ") + prefix;
   assoc_addresses_with_dstruct(origin, nullptr, baseptr, numaddrs, prefix.c_str());
 }
 

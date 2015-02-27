@@ -675,6 +675,9 @@ namespace bytesflops_pass {
     // Generate a unique key for the function and insert call to record it.
     FunctionKeyGen::KeyID keyval = record_func(function_name.str());
 
+    // Gain access to getTypeStoreSize().
+    DataLayoutPass& target_data = getAnalysis<DataLayoutPass>();
+
     // Iterate over each basic block in turn.
     for (Function::iterator func_iter = function.begin();
          func_iter != function.end();
@@ -682,7 +685,6 @@ namespace bytesflops_pass {
       // Perform per-basic-block variable initialization.
       BasicBlock& bb = *func_iter;
       LLVMContext& bbctx = bb.getContext();
-      DataLayoutPass& target_data = getAnalysis<DataLayoutPass>();
       BasicBlock::iterator terminator_inst = bb.end();
       terminator_inst--;
       int must_clear = 0;   // Keep track of which counters we need to clear.
@@ -767,7 +769,7 @@ namespace bytesflops_pass {
     if (TallyByFunction) {
       std::vector<Value*> key_args;
       ConstantInt * key = ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
-                                       keyval);
+                                           keyval);
       Constant* argument = map_func_name_to_arg(module, function_name);
       key_args.push_back(argument);
       key_args.push_back(key);
@@ -775,6 +777,42 @@ namespace bytesflops_pass {
         callinst_create(push_function, key_args, new_entry);
       else
         callinst_create(tally_function, key, new_entry);
+    }
+
+    // If -bf-data-struct was specified, insert calls at the beginning of the
+    // function to bf_assoc_addresses_with_dstruct_stack() for each function
+    // argument that was allocated implicitly on the stack.
+    if (TallyByDataStruct) {
+      DataLayout data_layout = target_data.getDataLayout();
+      Function::ArgumentListType& argList = function.getArgumentList();
+      PointerType* ptr8ty = Type::getInt8PtrTy(func_ctx);
+      ConstantInt* zero32 = ConstantInt::get(func_ctx, APInt(32, 0));
+      for (auto iter = argList.begin(); iter != argList.end(); iter++) {
+        if (!iter->hasByValOrInAllocaAttr() && !iter->hasStructRetAttr())
+          // Argument is either an explicit pointer or was passed in a
+          // register.
+          continue;
+
+        // Convert the argument to both a pointer and a value.
+        Value* argVal = &cast<Value>(*iter);
+        Value* argPtr = new BitCastInst(argVal, ptr8ty, "argptr", new_entry);
+        argVal = new LoadInst(argVal, "arg", false, new_entry);
+
+        // Invoke bf_assoc_addresses_with_dstruct_stack() on the argument.
+        vector<Value*> arg_list;
+        Constant* alloc_name_var =
+          create_global_constant(*module, "bf_.stack._name", "stack");
+        uint64_t bytes_alloced = data_layout.getTypeStoreSize(argVal->getType());
+        StringRef varname = iter->getName();
+        string varname_name = string("bf_") + varname.str() + string("_name");
+        Constant* varname_name_var =
+          create_global_constant(*module, varname_name.c_str(), varname.data());
+        arg_list.push_back(alloc_name_var);
+        arg_list.push_back(argPtr);
+        arg_list.push_back(ConstantInt::get(func_ctx, APInt(64, bytes_alloced)));
+        arg_list.push_back(varname_name_var);
+        callinst_create(assoc_addrs_with_dstruct_stack, arg_list, new_entry);
+      }
     }
 
     // Branch to the original entry point.
