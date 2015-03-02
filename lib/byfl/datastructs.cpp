@@ -234,7 +234,7 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
   }
   else
     // Location was found -- use it.
-    dstruct_name = dstruct_demangled_name = var_prefix + " allocated at " + caller_loc;
+    dstruct_name = dstruct_demangled_name = string(var_prefix) + " allocated at " + caller_loc;
 # endif
 
   // Find an existing set of counters for the same source-code location.  If no
