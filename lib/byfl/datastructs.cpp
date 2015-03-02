@@ -22,6 +22,9 @@ extern BinaryOStream* bfbin;
 extern void* bf_find_caller_address (void);
 extern const char* bf_address_to_location_string (void* addrp);
 #endif
+#ifdef USE_BFD
+extern ProcessSymbolTable* procsymtab;  // The calling process's symbol table
+#endif
 
 // Define an interval-tree type.
 template<typename T>
@@ -50,6 +53,8 @@ public:
 class DataStructCounters
 {
 public:
+  void* alloc_addr;       // Instruction address that allocated this data structure
+  const char *var_prefix; // String with which to prefix the data structure's name
   string name;            // Name of this data structure
   string demangled_name;  // Same as the above but demangled
   uint64_t current_size;  // Current total memory footprint in bytes
@@ -60,20 +65,84 @@ public:
   uint64_t load_ops;      // Number of load operations
   uint64_t store_ops;     // Number of store operations
 
-  // The minimum we need to initialize are the mangled and demangled names of
-  // the data structure, its initial size (which can grow), and its origin.
+  // For a static data structure, the minimum we need to initialize are the
+  // mangled and demangled names of the data structure, its size, and its
+  // origin.
   DataStructCounters(string nm, string dnm, uint64_t sz, string org) :
     name(nm), demangled_name(dnm), current_size(sz), max_size(sz), origin(org),
-    bytes_loaded(0), bytes_stored(0), load_ops(0), store_ops(0)
+    bytes_loaded(0), bytes_stored(0), load_ops(0), store_ops(0),
+    alloc_addr(nullptr), var_prefix(nullptr)
   {
   }
+
+  // For a dynamic data structure, the minimum we need to initialize are the
+  // allocating instruction address and the data structure's string prefix,
+  // initial size (which can grow), and origin.
+  DataStructCounters(void* aaddr, const char *vpref, uint64_t sz, string org) :
+    alloc_addr(aaddr), var_prefix(vpref), current_size(sz), max_size(sz),
+    origin(org), bytes_loaded(0), bytes_stored(0), load_ops(0), store_ops(0)
+  {
+  }
+
+  // Generate a symbol name for a dynamic data structure.
+  void generate_symbol_name(void);
 };
 
-#ifdef USE_BFD
-extern ProcessSymbolTable* procsymtab;  // The calling process's symbol table
+// Generate a symbol name for a dynamic data structure.
+void DataStructCounters::generate_symbol_name (void)
+{
+#ifdef HAVE_BACKTRACE
+  // Do nothing if we already have a name or if we don't know where we're
+  // coming from.
+  if (name != "" || alloc_addr == nullptr)
+    return;
+
+  // Derive the symbol name from the allocation location and the specified
+  // prefix.
+# ifdef USE_BFD
+  // If we have the BFD library, use that to get a more precise
+  // source-code location.
+  SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t)alloc_addr);
+  if (srcloc == nullptr) {
+    // Location wasn't found -- use the address instead.
+    char *alloc_loc = new char[100];
+    sprintf(alloc_loc, (string(var_prefix) + " allocated at %p").c_str(), alloc_addr);
+    name = demangled_name = alloc_loc;
+    delete[] alloc_loc;
+  }
+  else {
+    // Location was found -- format it and use it.
+    stringstream locstr;
+    locstr << var_prefix << " allocated at "
+           << srcloc->file_name << ':' << srcloc->line_number
+           << ", function " << srcloc->function_name
+           << ", address " << hex << alloc_addr << dec;
+    name = locstr.str();
+    locstr.str(string());
+    locstr << var_prefix << " allocated at "
+           << srcloc->file_name << ':' << srcloc->line_number
+           << ", function " << demangle_func_name(srcloc->function_name)
+           << ", address " << hex << alloc_addr << dec;
+    demangled_name = locstr.str();
+  }
+# else
+  const char* alloc_loc = bf_address_to_location_string(alloc_addr);
+  if (!strcmp(alloc_loc, "??:0")) {
+    // Location wasn't found -- use the address instead.
+    char *alt_alloc_loc = new char[100];
+    sprintf(alt_alloc_loc, (string(var_prefix) + " allocated at %p").c_str(), alloc_addr);
+    name = demangled_name = alt_alloc_loc;
+    delete[] alt_alloc_loc;
+  }
+  else
+    // Location was found -- use it.
+    name = demangled_name = string(var_prefix) + " allocated at " + alloc_loc;
+# endif
 #endif
+}
+
 static map<Interval<uint64_t>, DataStructCounters*>* data_structs;  // Information about each data structure
-static map<string, DataStructCounters*>* location_to_counters;  // Map from a source-code location to data-structure counters
+static map<void*, DataStructCounters*>* location_to_counters;  // Map from a source-code location to data-structure counters
 
 // Construct an interval tree of symbol addresses.  If the BFD library
 // isn't available we proceed without information about statically
@@ -81,7 +150,7 @@ static map<string, DataStructCounters*>* location_to_counters;  // Map from a so
 void initialize_data_structures (void)
 {
   data_structs = new map<Interval<uint64_t>, DataStructCounters*>;
-  location_to_counters = new map<string, DataStructCounters*>;
+  location_to_counters = new map<void*, DataStructCounters*>;
 #ifdef USE_BFD
   // I don't know if there's a more automatic way to find symbol
   // lengths, but the following seems to work: Sort all symbols by
@@ -142,7 +211,7 @@ void initialize_data_structures (void)
                              last_addr - first_addr + 1,
                              sectname);
     (*data_structs)[Interval<uint64_t>(first_addr, last_addr)] = info;
-    (*location_to_counters)[symname] = info;
+    (*location_to_counters)[(void*)uintptr_t(first_addr)] = info;  // Use data address as code-allocation point.
   }
 #endif
 }
@@ -190,52 +259,10 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
                                           const char* var_prefix)
 {
 #ifdef HAVE_BACKTRACE
-  // Use the caller's location as the symbol name.
-  string dstruct_name;             // Fabricated data-structure name
-  string dstruct_demangled_name;   // Same as the above but demangled
+  // Ignore this data structure if we don't know where we're coming from.
   void* caller_addr = bf_find_caller_address();
   if (caller_addr == NULL)
-    // We don't know where we're coming from -- ignore this data structure.
     return;
-# ifdef USE_BFD
-  // If we have the BFD library, use that to get a more precise
-  // source-code location.
-  SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t)caller_addr);
-  if (srcloc == nullptr) {
-    // Location wasn't found -- use the address instead.
-    char *caller_loc = new char[100];
-    sprintf(caller_loc, (string(var_prefix) + " allocated at %p").c_str(), caller_addr);
-    dstruct_name = dstruct_demangled_name = caller_loc;
-    delete[] caller_loc;
-  }
-  else {
-    // Location was found -- format it and use it.
-    stringstream locstr;
-    locstr << var_prefix << " allocated at "
-           << srcloc->file_name << ':' << srcloc->line_number
-           << ", function " << srcloc->function_name
-           << ", address " << hex << caller_addr << dec;
-    dstruct_name = locstr.str();
-    locstr.str(string());
-    locstr << var_prefix << " allocated at "
-           << srcloc->file_name << ':' << srcloc->line_number
-           << ", function " << demangle_func_name(srcloc->function_name)
-           << ", address " << hex << caller_addr << dec;
-    dstruct_demangled_name = locstr.str();
-  }
-# else
-  const char* caller_loc = bf_address_to_location_string(caller_addr);
-  if (!strcmp(caller_loc, "??:0")) {
-    // Location wasn't found -- use the address instead.
-    char *alt_caller_loc = new char[100];
-    sprintf(alt_caller_loc, (string(var_prefix) + " allocated at %p").c_str(), caller_addr);
-    dstruct_name = dstruct_demangled_name = alt_caller_loc;
-    delete[] alt_caller_loc;
-  }
-  else
-    // Location was found -- use it.
-    dstruct_name = dstruct_demangled_name = string(var_prefix) + " allocated at " + caller_loc;
-# endif
 
   // Find an existing set of counters for the same source-code location.  If no
   // such counters exist, allocate a new set.
@@ -252,12 +279,13 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
     // Common case -- we haven't seen the old base address before (because it's
     // presumably the same as the new address, and that's what was just
     // allocated).
-    auto count_iter = location_to_counters->find(dstruct_name);
+    auto count_iter = location_to_counters->find(caller_addr);
     if (count_iter == location_to_counters->end()) {
       // Not found -- allocate new counters.
-      counters = new DataStructCounters(dstruct_name, dstruct_demangled_name,
+      counters = new DataStructCounters(caller_addr,
+                                        bf_string_to_symbol(var_prefix),
                                         numaddrs, origin);
-      (*location_to_counters)[dstruct_name] = counters;
+      (*location_to_counters)[caller_addr] = counters;
     }
     else {
       // Found -- increment the size of the data structure.
@@ -336,8 +364,8 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
   // (e.g., because the address represents a stack variable).
   static Interval<uint64_t> search_addr(0, 0);
   search_addr.lower = search_addr.upper = baseaddr;
-  auto iter = data_structs->find(search_addr);
   DataStructCounters* counters;
+  auto iter = data_structs->find(search_addr);
   if (iter == data_structs->end()) {
     // The data structure wasn't found.  Frankly, I don't know how this can
     // happen, but since it does, try at least to record where it's coming
@@ -353,6 +381,8 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
   counters = iter->second;
 
   // Increment the appropriate counters.
+  if (iter == data_structs->end())
+    return;  // Couldn't find data structure (no backtrace() function?)
   if (load0store1 == 0) {
     counters->load_ops++;
     counters->bytes_loaded += numaddrs;
@@ -387,13 +417,20 @@ void bf_report_data_struct_counts (void)
 {
   // Sort all data structures in the interval tree by decreasing order
   // of total bytes accessed.  Ignore any unaccessed data structures.
-  vector<const DataStructCounters*> interesting_data;
-  for (auto iter = location_to_counters->cbegin(); iter != location_to_counters->cend(); iter++) {
-    const DataStructCounters* counters = iter->second;
+  vector<DataStructCounters*> interesting_data;
+  for (auto iter = location_to_counters->begin(); iter != location_to_counters->end(); iter++) {
+    DataStructCounters* counters = iter->second;
     if (counters->bytes_loaded + counters->bytes_stored > 0)
       interesting_data.push_back(counters);
   }
   sort(interesting_data.begin(), interesting_data.end(), compare_counter_interest);
+
+  // Assign a name to all data structures that lack one (i.e., all dynamic data
+  // structures).
+  for (auto iter = interesting_data.begin(); iter != interesting_data.end(); iter++) {
+    DataStructCounters* counters = *iter;
+    counters->generate_symbol_name();
+  }
 
   // Output a textual header line.
   *bfout << "BYFL_DATA_STRUCT_HEADER: "
