@@ -199,21 +199,21 @@ if [ "$download" = yes ] ; then
     # Delete old files before downloading the new ones.
     if [ "$use_byfl" = yes ] ; then
         echo "# Removing old versions of Byfl from $builddir" 1>&4
-        run_with_progress cleanup-byfl 320 rm -rfv byfl
+        run_with_progress cleanup-byfl 300 rm -rfv byfl
     fi
     if [ "$use_dragonegg" = yes ] ; then
         echo "# Removing old versions of DragonEgg from $builddir" 1>&4
-        run_with_progress cleanup-dregg 980 rm -rfv dragonegg
+        run_with_progress cleanup-dregg 1300 rm -rfv dragonegg
     fi
     if [ "$use_llvm" = yes ] ; then
         echo "# Removing old versions of LLVM and Clang from $builddir" 1>&4
-        run_with_progress cleanup-llvm 62000 rm -rfv llvm
+        run_with_progress cleanup-llvm 97000 rm -rfv llvm
     fi
 
     # Download LLVM trunk.
     if [ "$use_llvm" = yes ] ; then
         echo "# Downloading LLVM into $builddir" 1>&4
-        run_with_progress llvm-dl 16000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/trunk llvm
+        run_with_progress llvm-dl 17000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/trunk llvm
     fi
     cd llvm
     llvm_revision=`svn info | awk '/^Revision: / {print $2}'`
@@ -271,7 +271,7 @@ if [ "$compile" = yes ] ; then
 
         # Install LLVM and Clang.
         echo "# Installing LLVM and Clang into $destdir$installdir" 1>&4
-        run_with_progress llvm-inst 840 make DESTDIR="$destdir" install
+        run_with_progress llvm-inst 810 make DESTDIR="$destdir" install
         cd ..
     fi
     export PATH="$destdir$installdir/bin:$PATH"
@@ -280,7 +280,7 @@ if [ "$compile" = yes ] ; then
         # Build DragonEgg.
         cd dragonegg
         echo "# Compiling DragonEgg" 1>&4
-        run_with_progress dregg-build 390 make -j$numprocs
+        run_with_progress dregg-build 380 make -j$numprocs
 
         # Install DragonEgg.
         echo "# Installing DragonEgg into $destdir$installdir" 1>&4
@@ -293,7 +293,7 @@ if [ "$compile" = yes ] ; then
         echo "# Configuring Byfl" 1>&4
         cd byfl
         if [ $configure = yes -o ! -e config.log ] ; then
-            run_with_progress byfl-autogen 21 autoreconf -v -f -i
+            run_with_progress byfl-autogen 20 autoreconf -v -f -i
         fi
         test -e build || mkdir build
         cd build
@@ -303,7 +303,7 @@ if [ "$compile" = yes ] ; then
 
         # Build Byfl.
         echo "# Compiling Byfl" 1>&4
-        run_with_progress byfl-build 260 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" -j$numprocs
+        run_with_progress byfl-build 180 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" -j$numprocs
 
         # Install Byfl.
         echo "# Installing Byfl into $destdir$installdir" 1>&4
@@ -313,7 +313,6 @@ if [ "$compile" = yes ] ; then
     # Test the installation
     echo "# Testing the Byfl installation" 1>&4
     test "$gui" = yes && echo 0 1>&4
-    byflperllib="$(make -f tools/wrappers/wrappers.mak echo-INSTALLSITELIB)"
     cfile=`mktemp --tmpdir --suffix=.c byfltest-XXXXXX`
     exefile=`echo $cfile | sed 's/\.c$//'`
     cat <<CFILE > $cfile
@@ -323,7 +322,6 @@ int main (void) {
   return 0;
 }
 CFILE
-    export PERL5LIB="${destdir}${byflperllib}:$PERL5LIB"
     bf-gcc -bf-libdir="$destdir$installdir/lib" -bf-dragonegg="$destdir$installdir/lib/dragonegg.so" $cfile -o $exefile
     run_with_progress byfl-test 22 $exefile
     rm -f $cfile $exefile
@@ -331,9 +329,8 @@ CFILE
     # Say what we did.
     echo "Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir."
     echo "It is now safe to delete $builddir."
-    echo "Don't forget to add $byflperllib to your PERL5LIB variable."
     if [ "$gui" = yes ] ; then
         kill $zenity_pid
-        zenity --info --title="Finished installation" --text="Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir.\n\nIt is now safe to delete $builddir.\nDon't forget to add $byflperllib to your PERL5LIB variable."
+        zenity --info --title="Finished installation" --text="Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir.\n\nIt is now safe to delete $builddir."
     fi
 fi
