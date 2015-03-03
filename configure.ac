@@ -112,13 +112,33 @@ dnl The Byfl binary-output library uses asprintf for error reporting can
 dnl work around its absence with an unsafe alternative.
 AC_CHECK_FUNCS([asprintf])
 
-dnl If HDF5 is installed we can build bfbin2hdf5.  We check only that the
-dnl wrapper script exists.  Out of laziness we assume that if the script
-dnl exists, it must work.
+dnl If HDF5 is installed and seems to work we can try building bfbin2hdf5.
 AC_ARG_VAR([H5CXX], [Compiler for C++ code using HDF5])
 AC_CHECK_PROGS([H5CXX], [h5c++], [no])
-AX_CHECK_CXX11([H5CXX])
-if test "x$ax_cv_cxx11_H5CXX" = xno ; then
+if test "x$H5CXX" != xno ; then
+  AX_CHECK_CXX11([H5CXX])
+  if test "x$ax_cv_cxx11_H5CXX" = xno ; then
+    H5CXX=no
+  fi
+fi
+if test "x$H5CXX" != xno ; then
+  AC_CACHE_CHECK([if $H5CXX can compile and link an HDF5 program],
+    [ax_cv_link_h5cxx],
+    [orig_CXX="$CXX"
+     CXX="$H5CXX"
+     AC_LANG_PUSH([C++])
+     AC_LINK_IFELSE(
+       [AC_LANG_PROGRAM([[#include <H5Cpp.h>]], [
+  H5::H5File hdf5file("myfile.h5", H5F_ACC_TRUNC);
+  return 0;
+       ])],
+       [ax_cv_link_h5cxx=yes],
+       [ax_cv_link_h5cxx=no])
+     AC_LANG_POP([C++])
+     CXX="$orig_CXX"
+    ])
+fi
+if test "x$ax_cv_link_h5cxx" = xno ; then
   H5CXX=no
 fi
 if test "x$H5CXX" = xno ; then
