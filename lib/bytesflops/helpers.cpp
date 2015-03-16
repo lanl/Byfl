@@ -370,7 +370,9 @@ uint64_t BytesFlops::instruction_operand_bits(const Instruction& inst)
 {
   uint64_t total_bits = inst.getType()->getPrimitiveSizeInBits();
   for (User::const_op_iterator iter = inst.op_begin(); iter != inst.op_end(); iter++) {
-    Value* val = dyn_cast<Value>(*iter);
+    if (dyn_cast<Constant>(*iter) != nullptr)
+      continue;   // We want constants to count as zero operand bits.
+    Value* val = *iter;
     total_bits += val->getType()->getPrimitiveSizeInBits();
   }
   return total_bits;

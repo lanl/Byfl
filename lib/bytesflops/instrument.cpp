@@ -791,8 +791,8 @@ namespace bytesflops_pass {
       for (auto iter = argList.begin(); iter != argList.end(); iter++) {
         // Prepare to access the argument as both a pointer and a value.
         Value* argVal = &cast<Value>(*iter);
-	if (!argVal->getType()->isPointerTy())
-	  continue;
+        if (!argVal->getType()->isPointerTy())
+          continue;
         Value* argPtr = new BitCastInst(argVal, ptr8ty, "argptr", new_entry);
         argVal = new LoadInst(argVal, "arg", false, new_entry);
 
