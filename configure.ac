@@ -236,7 +236,7 @@ if test $USE_BFD = no ; then
   AC_MSG_WARN([Install the libbfd development files if you want to associate source-code locations with basic blocks])
 fi
 if test $BUILD_BFBIN2HDF5 = no ; then
-  AC_MSG_WARN([Not building the bfbin2hdf5 postprocessor because it requires HDF5 with C++11 support])
+  AC_MSG_WARN([Not building the bfbin2hdf5 postprocessor because it requires a working HDF5 with C++11 support])
 fi
 if test $BUILD_BFBIN2SQLITE3 = no ; then
   AC_MSG_WARN([Not building the bfbin2sqlite3 postprocessor because it requires SQLite3 (v3.7.15+)])

@@ -53,25 +53,26 @@ public:
 class DataStructCounters
 {
 public:
-  void* alloc_addr;       // Instruction address that allocated this data structure
-  const char *var_prefix; // String with which to prefix the data structure's name
-  string name;            // Name of this data structure
-  string demangled_name;  // Same as the above but demangled
-  uint64_t current_size;  // Current total memory footprint in bytes
-  uint64_t max_size;      // Largest memory footprint in bytes ever seen
-  string origin;          // Who allocated the memory
-  uint64_t bytes_loaded;  // Number of bytes loaded
-  uint64_t bytes_stored;  // Number of bytes stored
-  uint64_t load_ops;      // Number of load operations
-  uint64_t store_ops;     // Number of store operations
+  void* alloc_addr = nullptr;       // Instruction address that allocated this data structure
+  const char *var_prefix = nullptr; // String with which to prefix the data structure's name
+  string name;                // Name of this data structure
+  string demangled_name;      // Same as the above but demangled
+  uint64_t current_size = 0;  // Current total memory footprint in bytes
+  uint64_t max_size = 0;      // Largest memory footprint in bytes ever seen
+  string origin;              // Who allocated the memory
+  uint64_t bytes_loaded = 0;  // Number of bytes loaded
+  uint64_t bytes_stored = 0;  // Number of bytes stored
+  uint64_t load_ops = 0;      // Number of load operations
+  uint64_t store_ops = 0;     // Number of store operations
+  uint64_t bytes_alloced = 0; // Total number of bytes allocated (always >= max_size)
+  uint64_t num_allocs = 0;    // Number of allocation calls
 
   // For a static data structure, the minimum we need to initialize are the
   // mangled and demangled names of the data structure, its size, and its
   // origin.
   DataStructCounters(string nm, string dnm, uint64_t sz, string org) :
     name(nm), demangled_name(dnm), current_size(sz), max_size(sz), origin(org),
-    bytes_loaded(0), bytes_stored(0), load_ops(0), store_ops(0),
-    alloc_addr(nullptr), var_prefix(nullptr)
+    bytes_alloced(sz), num_allocs(1)
   {
   }
 
@@ -80,7 +81,7 @@ public:
   // initial size (which can grow), and origin.
   DataStructCounters(void* aaddr, const char *vpref, uint64_t sz, string org) :
     alloc_addr(aaddr), var_prefix(vpref), current_size(sz), max_size(sz),
-    origin(org), bytes_loaded(0), bytes_stored(0), load_ops(0), store_ops(0)
+    origin(org), bytes_alloced(sz), num_allocs(1)
   {
   }
 
@@ -288,11 +289,13 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
       (*location_to_counters)[caller_addr] = counters;
     }
     else {
-      // Found -- increment the size of the data structure.
+      // Found -- increment the size of the data structure and its tallies.
       counters = count_iter->second;
       counters->current_size += numaddrs;
       if (counters->current_size > counters->max_size)
         counters->max_size = counters->current_size;
+      counters->bytes_alloced += numaddrs;
+      counters->num_allocs++;
     }
   }
   else {
@@ -304,6 +307,8 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
     counters->current_size += numaddrs;
     if (counters->current_size > counters->max_size)
       counters->max_size = counters->current_size;
+    counters->bytes_alloced += numaddrs;
+    counters->num_allocs++;
     data_structs->erase(old_iter);
   }
 
@@ -367,9 +372,8 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
   DataStructCounters* counters;
   auto iter = data_structs->find(search_addr);
   if (iter == data_structs->end()) {
-    // The data structure wasn't found.  Frankly, I don't know how this can
-    // happen, but since it does, try at least to record where it's coming
-    // from.
+    // The data structure wasn't found.  For example, it was allocated by a
+    // non-Byfl-instrumented function (say, strdup(), for example).
     for (uint64_t ofs = 0; ofs < numaddrs; ) {
       uint64_t freed = disassoc_addresses_with_dstruct((void*)uintptr_t(baseaddr + ofs));
       ofs += freed == 0 ? 1 : freed;
@@ -444,7 +448,9 @@ void bf_report_data_struct_counts (void)
 
   // Output a binary table header.
   *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Data-structure accesses";
-  *bfbin << uint8_t(BINOUT_COL_UINT64) << "Maximum memory footprint"
+  *bfbin << uint8_t(BINOUT_COL_UINT64) << "Number of allocations"
+         << uint8_t(BINOUT_COL_UINT64) << "Total bytes allocated"
+         << uint8_t(BINOUT_COL_UINT64) << "Maximum memory footprint"
          << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"
          << uint8_t(BINOUT_COL_UINT64) << "Bytes stored"
          << uint8_t(BINOUT_COL_UINT64) << "Load operations"
@@ -473,6 +479,8 @@ void bf_report_data_struct_counts (void)
 
     // Output binary data-structure information.
     *bfbin << uint8_t(BINOUT_ROW_DATA)
+           << counters->num_allocs
+           << counters->bytes_alloced
            << counters->max_size
            << counters->bytes_loaded
            << counters->bytes_stored
