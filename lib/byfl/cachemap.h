@@ -48,18 +48,6 @@ public:
   // Ditto for the size() method.
   size_t size() const { return the_map->size(); }
 
-  iterator contains( const T & value )
-  {
-      for ( auto iter = this->begin(); iter != this->end(); iter++ )
-      {
-          if ( iter->second == value )
-          {
-              return iter;
-          }
-      }
-      return this->end();
-  }
-
   // The find() method first checks the cache then falls back to the
   // unordered_map.
   iterator find (const Key& key) {
