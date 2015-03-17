@@ -34,14 +34,23 @@ public:
   T lower;    // Lower limit
   T upper;    // Upper limit
 
+  Interval() { }
+
   Interval(T ll, T ul) : lower(ll), upper(ul) { }
 
   bool operator<(const Interval<T>& other) const {
     return upper < other.lower;
   }
+
   bool operator>(const Interval<T>& other) const {
     return lower > other.upper;
   }
+
+  // Equality is defined as not less than and not greater than.
+  bool operator==(const Interval<T>& other) const {
+    return !(*this < other) && !(*this > other);
+  }
+
   friend ostream& operator<<(ostream& os, const Interval<T>& val) {
     os << '[' << val.lower << ", " << val.upper << ']';
     return os;
@@ -142,16 +151,16 @@ void DataStructCounters::generate_symbol_name (void)
 #endif
 }
 
-static map<Interval<uint64_t>, DataStructCounters*>* data_structs;  // Information about each data structure
-static map<void*, DataStructCounters*>* location_to_counters;  // Map from a source-code location to data-structure counters
+static CachedOrderedMap<Interval<uint64_t>, DataStructCounters*>* data_structs;  // Interval tree with information about each data structure
+static CachedUnorderedMap<void*, DataStructCounters*>* location_to_counters;  // Map from a source-code location to data-structure counters
 
 // Construct an interval tree of symbol addresses.  If the BFD library
 // isn't available we proceed without information about statically
 // allocated data structures.
 void initialize_data_structures (void)
 {
-  data_structs = new map<Interval<uint64_t>, DataStructCounters*>;
-  location_to_counters = new map<void*, DataStructCounters*>;
+  data_structs = new CachedOrderedMap<Interval<uint64_t>, DataStructCounters*>;
+  location_to_counters = new CachedUnorderedMap<void*, DataStructCounters*>;
 #ifdef USE_BFD
   // I don't know if there's a more automatic way to find symbol
   // lengths, but the following seems to work: Sort all symbols by
@@ -239,7 +248,7 @@ static uint64_t disassoc_addresses_with_dstruct (void* baseptr)
   // deallocated.
   uint64_t interval_length = interval.upper - interval.lower + 1;
   counters->current_size -= interval_length;
-  data_structs->erase(iter);
+  data_structs->erase(interval);
   return interval_length;
 #else
   return 0;
@@ -309,7 +318,7 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
       counters->max_size = counters->current_size;
     counters->bytes_alloced += numaddrs;
     counters->num_allocs++;
-    data_structs->erase(old_iter);
+    data_structs->erase(old_interval);
   }
 
   // Associate the new range of addresses with the old (or just created)

@@ -1,6 +1,6 @@
 /*
  * Helper library for computing bytes:flops ratios
- * (cached unordered map class definition)
+ * (cached-map class definitions)
  *
  * By Scott Pakin <pakin@lanl.gov>
  *    Rob Aulwes <rta@lanl.gov>
@@ -13,33 +13,35 @@
 
 using namespace std;
 
-// Wrap unordered_map with a simple cache.  We expect to have many
-// hits to the same key.
-template<class Key,
+// Wrap an STL map or unordered_map with a simple cache.  We expect to have
+// many hits to the same key.
+template<typename map_type,
+         class Key,
          class T,
-         class Hash = std::hash<Key>,
-         class KeyEqual = std::equal_to<Key>,
-         class Allocator = std::allocator< std::pair<const Key, T> > >
-class CachedUnorderedMap {
+         class KeyEqual = std::equal_to<Key> >
+class CachedAnyMap {
 private:
-  typedef unordered_map<Key, T, Hash, KeyEqual, Allocator> umap_type;
   static const size_t cache_size = 1;  // Number of previous entries to cache
-  Key prev_key[cache_size];            // Keys previously searched for
-  typename umap_type::iterator prev_iter[cache_size];   // Iterators previously returned
+  struct CacheElt {
+    Key key;                           // Key previously searched for
+    typename map_type::iterator iter;  // Iterator previously returned
+  };
+  CacheElt* cache[cache_size];         // The cache proper
   KeyEqual compare_keys;               // Functor for comparing two keys for equality
-  umap_type* the_map;                  // The underlying unordered_map
+  map_type* the_map;                   // The underlying map
+  size_t null_entries = cache_size;    // Number of null entries in the cache
 
 public:
-  // The constructor sets prev_key and prev_value to (hopefully) bogus values.
-  CachedUnorderedMap() {
-    the_map = new umap_type();
-    for (size_t i=0; i<cache_size; i++)
-      memset((void *)&prev_key[i], 0, sizeof(Key));
+  // The constructor initializes all cache entries to null (no entry).
+  CachedAnyMap() {
+    the_map = new map_type();
+    for (size_t i = 0; i < cache_size; i++)
+      cache[i] = nullptr;
   }
 
-  // All iterator types and methods get delegated to unordered_map.
-  typedef typename umap_type::iterator iterator;
-  typedef typename umap_type::const_iterator const_iterator;
+  // All iterator types and methods get delegated to the underlying map.
+  typedef typename map_type::iterator iterator;
+  typedef typename map_type::const_iterator const_iterator;
   iterator begin() { return the_map->begin(); }
   const_iterator begin() const { return the_map->begin(); }
   iterator end() { return the_map->end(); }
@@ -49,57 +51,58 @@ public:
   size_t size() const { return the_map->size(); }
 
   // The find() method first checks the cache then falls back to the
-  // unordered_map.
+  // underlying map.
   iterator find (const Key& key) {
     // Linear-search the cache.
-    for (size_t i=0; i<cache_size; i++) {
-      if (compare_keys(key, prev_key[i])) {
-        // Hit -- bubble up.
-        typename umap_type::iterator found_iter;
+    for (size_t i = 0; i < cache_size; i++) {
+      if (cache[i] != nullptr && compare_keys(key, cache[i]->key)) {
+        // Hit!
+        typename map_type::iterator found_iter;
         if (i > 0) {
-          Key temp_key = prev_key[i-1];
-          typename umap_type::iterator temp_iter = prev_iter[i-1];
-          prev_key[i-1] = prev_key[i];
-          prev_iter[i-1] = prev_iter[i];
-          prev_key[i] = temp_key;
-          prev_iter[i] = temp_iter;
-          found_iter = prev_iter[i-1];
+          // Hit was not in the first cache entry -- bubble up.
+          CacheElt* prev_elt = cache[i - 1];
+          cache[i - 1] = cache[i];
+          cache[i] = prev_elt;
+          found_iter = cache[i - 1]->iter;
         }
         else
-          found_iter = prev_iter[i];
+          // Hit was in the first cache entry -- don't bubble up.
+          found_iter = cache[0]->iter;
         return found_iter;
       }
     }
 
-    // The entry wasn't found in the cache -- search the unordered map.
+    // The item wasn't found in the cache -- search the unordered map.
     iterator iter = the_map->find(key);
     if (iter != end()) {
       // Cache only successful searches.
-      //memcpy((void *)&prev_key[cache_size-1], &key, sizeof(Key));
-      prev_key[cache_size-1] = key;
-      prev_iter[cache_size-1] = iter;
+      CacheElt* new_ent = cache[cache_size - 1];
+      if (null_entries > 0)
+        for (size_t i = 0; i < cache_size; i++)
+          if (cache[i] == nullptr) {
+            // Insert a new entry into the cache.
+            new_ent = cache[i] = new CacheElt;
+            null_entries--;
+            break;
+          }
+      new_ent->key = key;
+      new_ent->iter = iter;
     }
     return iter;
   }
 
   // The erase() method erases the key:value pair from both the cache
-  // and the unordered_map.
+  // and the underlying map.
   size_t erase (const Key& key) {
     // Linear-search the cache.
-    for (size_t i=0; i<cache_size; i++) {
-      if (compare_keys(key, prev_key[i])) {
-        // Hit -- bubble up.
-        if (i > 0) {
-          Key temp_key = prev_key[i-1];
-          typename umap_type::iterator temp_iter = prev_iter[i-1];
-          prev_key[i-1] = prev_key[i];
-          prev_iter[i-1] = prev_iter[i];
-          prev_key[i] = temp_key;
-          prev_iter[i] = temp_iter;
-        }
+    for (size_t i = 0; i < cache_size; i++)
+      if (cache[i] != nullptr && compare_keys(key, cache[i]->key)) {
+        // Hit -- mark as invalid.
+        delete cache[i];
+        cache[i] = nullptr;
+        null_entries++;
         break;
       }
-    }
 
     // Remove the key:value pair from the unordered map.
     return the_map->erase(key);
@@ -129,6 +132,28 @@ public:
     return keys;
   }
 
+};
+
+// Specialize CachedAnyMap to an STL unordered_map.
+template<class Key,
+         class T,
+         class Hash = std::hash<Key>,
+         class KeyEqual = std::equal_to<Key>,
+         class Allocator = std::allocator< std::pair<const Key, T> > >
+class CachedUnorderedMap : public CachedAnyMap<
+  unordered_map<Key, T, Hash, KeyEqual, Allocator>, Key, T, KeyEqual>
+{
+};
+
+// Specialize CachedAnyMap to an STL map.
+template<class Key,
+         class T,
+         class Compare = std::less<Key>,
+         class Allocator = std::allocator< std::pair<const Key, T> >,
+         class KeyEqual = std::equal_to<Key> >
+class CachedOrderedMap : public CachedAnyMap<
+  map<Key, T, Compare, Allocator>, Key, T, KeyEqual>
+{
 };
 
 #endif
