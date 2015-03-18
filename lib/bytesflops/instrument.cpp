@@ -793,6 +793,9 @@ namespace bytesflops_pass {
         Value* argVal = &cast<Value>(*iter);
         if (!argVal->getType()->isPointerTy())
           continue;
+        uint64_t bytes_alloced = data_layout.getTypeStoreSize(argVal->getType());
+        if (bytes_alloced == 0)
+          continue;
         Value* argPtr = new BitCastInst(argVal, ptr8ty, "argptr", new_entry);
         argVal = new LoadInst(argVal, "arg", false, new_entry);
 
@@ -800,7 +803,6 @@ namespace bytesflops_pass {
         vector<Value*> arg_list;
         Constant* alloc_name_var =
           create_global_constant(*module, "bf_.stack._name", "stack");
-        uint64_t bytes_alloced = data_layout.getTypeStoreSize(argVal->getType());
         StringRef varname = iter->getName();
         string varname_name = string("bf_") + varname.str() + string("_name");
         Constant* varname_name_var =
