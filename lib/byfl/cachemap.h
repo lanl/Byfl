@@ -72,9 +72,9 @@ public:
       }
     }
 
-    // The item wasn't found in the cache -- search the unordered map.
+    // The item wasn't found in the cache -- search the underlying map.
     iterator iter = the_map->find(key);
-    if (iter != end()) {
+    if (iter != end() && cache_size > 0) {
       // Cache only successful searches.
       CacheElt* new_ent = cache[cache_size - 1];
       if (null_entries > 0)
@@ -104,7 +104,7 @@ public:
         break;
       }
 
-    // Remove the key:value pair from the unordered map.
+    // Remove the key:value pair from the underlying map.
     return the_map->erase(key);
   }
 
