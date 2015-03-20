@@ -466,6 +466,7 @@ void bf_report_data_struct_counts (void)
          << uint8_t(BINOUT_COL_UINT64) << "Store operations"
          << uint8_t(BINOUT_COL_STRING) << "Allocation point (mangled)"
          << uint8_t(BINOUT_COL_STRING) << "Allocation point (demangled)"
+         << uint8_t(BINOUT_COL_UINT64) << "Data-structure instruction address"
          << uint8_t(BINOUT_COL_STRING) << "Data-structure name (mangled)"
          << uint8_t(BINOUT_COL_STRING) << "Data-structure name (demangled)"
          << uint8_t(BINOUT_COL_NONE);
@@ -497,6 +498,7 @@ void bf_report_data_struct_counts (void)
            << counters->store_ops
            << counters->origin
            << demangled_origin
+           << uint64_t(uintptr_t(counters->alloc_addr))
            << counters->name
            << counters->demangled_name;
   }
