@@ -223,6 +223,9 @@ namespace bytesflops_pass {
       arg_list.push_back(num_bytes);
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
       callinst_create(access_data_struct, arg_list, insert_before);
+
+      // Temporary
+      errs() << "*** LOAD/STORE IN " << function_name << ": " << inst << " ***\n";
     }
 
     // If requested by the user, insert a call to bf_touch_cache().
@@ -412,6 +415,10 @@ namespace bytesflops_pass {
         }
         else
           callinst_create(assoc_addrs_with_dstruct, arg_list, insert_before);
+
+	// Temporary
+	StringRef function_name = inst->getParent()->getParent()->getName();
+	errs() << "*** CALLING " << callee_name << " IN " << function_name << ": " << *inst << " ***\n";
       }
 
       // Now determine if we are instead deallocating memory.  If so, invoke
@@ -539,13 +546,12 @@ namespace bytesflops_pass {
 
     // Process all other instructions.
     if (isa<GetElementPtrInst>(inst)) {
-      // LLVM's getelementptr instruction requires special handling.
-      // Given the C declaration "int *a", the getelementptr
-      // representation of a[3] is likely to turn into a+12 (a single
-      // addition), while the getelementptr representation of a[i] is
-      // likely to turn into a+4*i (an addition plus a
-      // multiplication).  We therefore count variable arguments as
-      // two ops and constants as one op.
+      // LLVM's getelementptr instruction requires special handling.  Given the
+      // C declaration "int *a", the getelementptr representation of a[3] is
+      // likely to turn into a+12 (a single addition), while the getelementptr
+      // representation of a[i] is likely to turn into a+4*i (an addition plus
+      // a multiplication).  We therefore count variable arguments as two ops
+      // and constants as one op.
       uint64_t arg_ops = 0;      // Expected number of operations
       uint64_t arg_op_bits = 0;  // Expected number of bits used
       User::const_op_iterator arg_iter = inst.op_begin();
@@ -799,6 +805,13 @@ namespace bytesflops_pass {
         Value* argPtr = new BitCastInst(argVal, ptr8ty, "argptr", new_entry);
         argVal = new LoadInst(argVal, "arg", false, new_entry);
 
+	// Temporary
+	uint64_t old_bytes_alloced = bytes_alloced;
+
+	bytes_alloced = data_layout.getPointerTypeSize(argVal->getType());
+        if (bytes_alloced == 0)
+          continue;
+
         // Invoke bf_assoc_addresses_with_dstruct_stack() on the argument.
         vector<Value*> arg_list;
         Constant* alloc_name_var =
@@ -812,6 +825,12 @@ namespace bytesflops_pass {
         arg_list.push_back(ConstantInt::get(func_ctx, APInt(64, bytes_alloced)));
         arg_list.push_back(varname_name_var);
         callinst_create(assoc_addrs_with_dstruct_stack, arg_list, new_entry);
+
+	// Temporary
+	errs() << "*** FUNCTION " << function_name << " ARGUMENT " << varname
+	       << " (" << *argPtr << ") TAKES UP " << bytes_alloced
+	       << " (NOT " << old_bytes_alloced << ") "
+	       << " BYTES ***\n";
       }
     }
 

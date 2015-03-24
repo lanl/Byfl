@@ -511,8 +511,10 @@ void bf_push_function (const char* funcname, KeyType_t key)
 
   bf_current_func_key = key;
 
-  const char* unique_combined_name = call_stack->push_function(funcname, key);
-  bf_func_and_parents = unique_combined_name;
+  bf_func_and_parents =  call_stack->push_function(funcname, key);
+
+  // Temporary
+  cerr << "*** CALL STACK: " << bf_func_and_parents << " ***\n";
 
   depth <<= call_stack->depth();
   bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ key;
