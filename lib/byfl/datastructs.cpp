@@ -157,16 +157,16 @@ void DataStructCounters::generate_symbol_name (void)
 #endif
 }
 
-static map<Interval<uint64_t>, DataStructCounters*>* data_structs;  // Interval tree with information about each data structure
-static unordered_map<void*, DataStructCounters*>* location_to_counters;  // Map from a source-code location to data-structure counters
+static CachedOrderedMap<Interval<uint64_t>, DataStructCounters*>* data_structs;  // Interval tree with information about each data structure
+static CachedUnorderedMap<void*, DataStructCounters*>* location_to_counters;  // Map from a source-code location to data-structure counters
 
 // Construct an interval tree of symbol addresses.  If the BFD library
 // isn't available we proceed without information about statically
 // allocated data structures.
 void initialize_data_structures (void)
 {
-  data_structs = new map<Interval<uint64_t>, DataStructCounters*>;
-  location_to_counters = new unordered_map<void*, DataStructCounters*>;
+  data_structs = new CachedOrderedMap<Interval<uint64_t>, DataStructCounters*>;
+  location_to_counters = new CachedUnorderedMap<void*, DataStructCounters*>;
 #ifdef USE_BFD
   // I don't know if there's a more automatic way to find symbol
   // lengths, but the following seems to work: Sort all symbols by
