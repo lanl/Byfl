@@ -270,10 +270,11 @@ namespace bytesflops_pass {
   // Instrument Call instructions.  Note that we've already skipped
   // over calls to llvm.dbg.*.
   void BytesFlops::instrument_call(Module* module,
-                                   Instruction* inst,
+                                   BasicBlock::iterator& iter,
                                    BasicBlock::iterator& insert_before,
                                    int& must_clear) {
     LLVMContext& globctx = module->getContext();
+    Instruction* inst = &*iter;
     CallInst* call_inst = dyn_cast<CallInst>(inst);
     Function* func = call_inst->getCalledFunction();
     if (!func)
@@ -356,6 +357,16 @@ namespace bytesflops_pass {
     // If data structures are to be monitored, keep track of all
     // memory allocations and deallocations.
     if (TallyByDataStruct) {
+      // We can't delay allocation instrumentation to the end of the basic
+      // block.  We have to do it now in case a function called within the
+      // basic block uses the allocated data.
+      BasicBlock::iterator insert_post_call = iter;
+      insert_post_call++;
+
+      // Acquire the mega-lock before inserting any instrumentation code.
+      if (ThreadSafety)
+        callinst_create(take_mega_lock, insert_post_call);
+
       // Determine the number of bytes we allocated.
       unsigned int num_args = call_inst->getNumArgOperands();
       Value* byte_count = nullptr;       // Number of bytes allocated
@@ -387,7 +398,7 @@ namespace bytesflops_pass {
         byte_count = BinaryOperator::Create(Instruction::Mul,
                                             call_inst->getArgOperand(0),
                                             call_inst->getArgOperand(1),
-                                            "calloc_size", insert_before);
+                                            "calloc_size", insert_post_call);
       else if (callee_name == "posix_memalign") {
         // posix_memalign -- last argument is the byte count, but
         // first argument is a pointer to the returned pointer.
@@ -408,10 +419,10 @@ namespace bytesflops_pass {
         arg_list.push_back(byte_count);
         if (callee_name == "posix_memalign") {
           arg_list.push_back(call_inst);   // Error code
-          callinst_create(assoc_addrs_with_dstruct_pm, arg_list, insert_before);
+          callinst_create(assoc_addrs_with_dstruct_pm, arg_list, insert_post_call);
         }
         else
-          callinst_create(assoc_addrs_with_dstruct, arg_list, insert_before);
+          callinst_create(assoc_addrs_with_dstruct, arg_list, insert_post_call);
       }
 
       // Now determine if we are instead deallocating memory.  If so, invoke
@@ -424,8 +435,17 @@ namespace bytesflops_pass {
         vector<Value*> arg_list;
         ptr_provided = call_inst->getArgOperand(0);
         arg_list.push_back(ptr_provided);
-        callinst_create(disassoc_addrs_with_dstruct, arg_list, insert_before);
+        callinst_create(disassoc_addrs_with_dstruct, arg_list, insert_post_call);
       }
+
+      // Release the mega-lock.
+      if (ThreadSafety)
+        callinst_create(release_mega_lock, insert_post_call);
+
+      // Advance the iterator to the last piece of code we inserted.  The
+      // invoking loop will then advance it again.
+      iter = insert_post_call;
+      iter--;
     }
   }
 
@@ -464,17 +484,17 @@ namespace bytesflops_pass {
       unsigned int num_args = invoke_inst->getNumArgOperands();
       Value* byte_count = nullptr;
       if (callee_name == "_Znwm" || callee_name == "_Znam")
-        // operator new or operator new[] -- last argument is the byte count.
+        // operator new or operator new[] -- the last argument is the byte
+        // count.
         byte_count = invoke_inst->getArgOperand(num_args - 1);
 
-      // We can insert instructions past the terminator so we have to
-      // insert them at the start of the target basic block.  Find
-      // where that is.
+      // We can't insert instructions past the terminator so we have to insert
+      // them at the start of the target basic block.  Find where that is.
       BasicBlock* next_bb = invoke_inst->getNormalDest();
       BasicBlock::iterator next_insert_before = next_bb->getFirstInsertionPt();
 
-      // Tell bf_assoc_addresses_with_dstruct() the allocation size
-      // and address returned.
+      // Tell bf_assoc_addresses_with_dstruct() the allocation size and address
+      // returned.
       if (byte_count != nullptr) {
         vector<Value*> arg_list;
         string alloc_name = string("bf_") + callee_name.str() + string("_name");
@@ -731,7 +751,7 @@ namespace bytesflops_pass {
             break;
 
           case Instruction::Call:
-            instrument_call(module, &inst, terminator_inst, must_clear);
+            instrument_call(module, iter, terminator_inst, must_clear);
             break;
 
           case Instruction::Alloca:
