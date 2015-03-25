@@ -272,21 +272,6 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
 #ifdef HAVE_BACKTRACE
   // Ignore this data structure if we don't know where we're coming from.
   void* caller_addr = bf_find_caller_address();
-
-  // Temporary
-  if (caller_addr == NULL)
-    cerr << hex
-	 << "*** FAILED TO FIND CALLER FOR [" << baseptr << ", "
-	 << (void*)uintptr_t(baseptr) + numaddrs - 1 << "], " << var_prefix
-	 << " FROM " << origin << " ***\n"
-	 << dec;
-  else
-    cerr << hex
-	 << "*** FOUND CALLER = " << caller_addr << " FOR [" << baseptr << ", "
-	 << (void*)uintptr_t(baseptr) + numaddrs - 1 << "], " << var_prefix
-	 << " FROM " << origin << " ***\n"
-	 << dec;
-
   if (caller_addr == NULL)
     return;
 
@@ -407,14 +392,6 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
        addr < lastaddr;
        addr = disassoc_addresses_with_dstruct(addr))
     ;
-
-    // Temporary
-    cerr << hex
-	 << "*** " << (load0store1 == 0 ? "LOADING" : "STORING")
-	 << " MYSTERY ADDRESSES [" << baseaddr << ", "
-	 << baseaddr + numaddrs - 1 << "] ***\n"
-	 << dec;
-
     assoc_addresses_with_dstruct("unknown", nullptr, (void*)uintptr_t(baseaddr),
                                  numaddrs, "Unknown data structure");
     iter = data_structs->find(search_addr);
