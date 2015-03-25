@@ -223,9 +223,6 @@ namespace bytesflops_pass {
       arg_list.push_back(num_bytes);
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
       callinst_create(access_data_struct, arg_list, insert_before);
-
-      // Temporary
-      errs() << "*** LOAD/STORE IN " << function_name << ": " << inst << " ***\n";
     }
 
     // If requested by the user, insert a call to bf_touch_cache().
@@ -415,10 +412,6 @@ namespace bytesflops_pass {
         }
         else
           callinst_create(assoc_addrs_with_dstruct, arg_list, insert_before);
-
-	// Temporary
-	StringRef function_name = inst->getParent()->getParent()->getName();
-	errs() << "*** CALLING " << callee_name << " IN " << function_name << ": " << *inst << " ***\n";
       }
 
       // Now determine if we are instead deallocating memory.  If so, invoke
@@ -799,16 +792,9 @@ namespace bytesflops_pass {
         Value* argVal = &cast<Value>(*iter);
         if (!argVal->getType()->isPointerTy())
           continue;
-        uint64_t bytes_alloced = data_layout.getTypeStoreSize(argVal->getType());
-        if (bytes_alloced == 0)
-          continue;
         Value* argPtr = new BitCastInst(argVal, ptr8ty, "argptr", new_entry);
         argVal = new LoadInst(argVal, "arg", false, new_entry);
-
-	// Temporary
-	uint64_t old_bytes_alloced = bytes_alloced;
-
-	bytes_alloced = data_layout.getPointerTypeSize(argVal->getType());
+        uint64_t bytes_alloced = data_layout.getPointerTypeSize(argVal->getType());
         if (bytes_alloced == 0)
           continue;
 
@@ -825,12 +811,6 @@ namespace bytesflops_pass {
         arg_list.push_back(ConstantInt::get(func_ctx, APInt(64, bytes_alloced)));
         arg_list.push_back(varname_name_var);
         callinst_create(assoc_addrs_with_dstruct_stack, arg_list, new_entry);
-
-	// Temporary
-	errs() << "*** FUNCTION " << function_name << " ARGUMENT " << varname
-	       << " (" << *argPtr << ") TAKES UP " << bytes_alloced
-	       << " (NOT " << old_bytes_alloced << ") "
-	       << " BYTES ***\n";
       }
     }
 

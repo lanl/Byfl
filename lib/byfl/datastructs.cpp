@@ -37,11 +37,6 @@ public:
   Interval() { }
 
   Interval(T ll, T ul) : lower(ll), upper(ul) {
-    // Temporary
-    if (ll > ul) {
-      cerr << "*** BAD INTERVAL " << hex << *this << dec << " ***\n";
-      exit(1);
-    }
   }
 
   bool operator<(const Interval<T>& other) const {
@@ -247,10 +242,6 @@ static void* disassoc_addresses_with_dstruct (void* baseptr)
   Interval<uint64_t> interval = iter->first;
   DataStructCounters* counters = iter->second;
 
-  // Temporary
-  cerr << "*** DEALLOCATED [" << hex << interval.lower << ", " << interval.upper
-       << "] WHEN TOLD TO DEALLOCATE " << baseptr << dec << " ***\n";
-
   // Reduce the size of the data structure by the size of the address range
   // and break the link from the address interval to the counters.  Note
   // that location_to_counters still points to the counters; we don't want
@@ -270,9 +261,6 @@ static void* disassoc_addresses_with_dstruct (void* baseptr)
 extern "C"
 void bf_disassoc_addresses_with_dstruct (void* baseptr)
 {
-  // Temporary
-  cerr << "*** EXPLICITLY DEALLOCATING " << hex << baseptr << dec << " ***\n";
-
   (void) disassoc_addresses_with_dstruct(baseptr);
 }
 
@@ -282,16 +270,10 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
                                           const char* var_prefix)
 {
 #ifdef HAVE_BACKTRACE
-  // Temporary
-  cerr << "*** ALLOCATED [" << hex << baseptr << ", " << uintptr_t(baseptr)+numaddrs-1
-       << dec << "] (" << numaddrs << " BYTES) FROM " << origin << " AS " << var_prefix << " ***\n";
-
   // Ignore this data structure if we don't know where we're coming from.
   void* caller_addr = bf_find_caller_address();
-  if (caller_addr == NULL) {
-    cerr << "***   FALSE ALARM; CALLER IS UNKNOWN ***\n";   // Temporary
+  if (caller_addr == NULL)
     return;
-  }
 
   // Find an existing set of counters for the same source-code location.  If no
   // such counters exist, allocate a new set.
@@ -303,12 +285,6 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
     search_addr.lower = search_addr.upper = uint64_t(uintptr_t(old_baseptr));
     old_iter = data_structs->find(search_addr);
     new_allocation = old_iter == data_structs->end();
-
-    // Temporary
-    if (new_allocation) {
-      cerr << "*** NON-NULL OLD POINTER FOR " << origin << " BUT NEW ALLOCATION ***\n";
-      exit(1);
-    }
   }
   if (new_allocation) {
     // Common case -- we haven't seen the old base address before (because it's
@@ -352,14 +328,6 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
   //(*data_structs)[Interval<uint64_t>(baseaddr, baseaddr + numaddrs - 1)] = counters;
   Interval<uint64_t> ival(baseaddr, baseaddr + numaddrs - 1);
   (*data_structs)[ival] = counters;
-
-  // Temporary
-  Interval<uint64_t> just_added(baseaddr, baseaddr + numaddrs - 1);
-  for (auto diter = data_structs->begin(); diter != data_structs->end(); diter++)
-    cerr << "***   DOES " << hex << diter->first << " EQUAL "
-         << just_added << "?  "
-         << (diter->first == just_added ? "YES" : "NO")
-         << dec << " ***\n";
 #endif
 }
 
@@ -389,10 +357,6 @@ extern "C"
 void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
                                             uint64_t numaddrs, const char* varname)
 {
-  // Temporary
-  cerr << "*** IMPLICITLY DEALLOCATING " << hex << baseptr << ", " << uintptr_t(baseptr)+numaddrs-1
-       << dec << "] TO MAKE ROOM FOR " << varname << " FROM " << origin << " ***\n";
-
   // Disassociate all overlapping data structures.  For example if a function
   // declares "int32_t x,y;" then returns, then another function delcares
   // "int64_t foo;" and gets the same base address as x, we'll need to
@@ -421,12 +385,6 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
   DataStructCounters* counters;
   auto iter = data_structs->find(search_addr);
   if (iter == data_structs->end()) {
-    // Temporary
-    cerr << "*** FAILED TO FIND ADDRESS " << hex << baseaddr << dec << " ***\n";
-    for (auto diter = data_structs->begin(); diter != data_structs->end(); diter++)
-      cerr << "***   " << hex << diter->first << dec << " ***\n";
-    exit(1);
-
     // The data structure wasn't found.  For example, it was allocated by a
     // non-Byfl-instrumented function (say, strdup(), for example).
     void* lastaddr = (void*)(baseaddr + numaddrs);
