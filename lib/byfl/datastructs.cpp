@@ -278,15 +278,7 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
   // Find an existing set of counters for the same source-code location.  If no
   // such counters exist, allocate a new set.
   DataStructCounters* counters;      // Counters associated with the data structure
-  bool new_allocation = true;   // false==realloc; true=other allocation call
-  map<Interval<uint64_t>, DataStructCounters*>::iterator old_iter;  // Memory range to reallocate
-  if (old_baseptr != nullptr) {
-    static Interval<uint64_t> search_addr(0, 0);
-    search_addr.lower = search_addr.upper = uint64_t(uintptr_t(old_baseptr));
-    old_iter = data_structs->find(search_addr);
-    new_allocation = old_iter == data_structs->end();
-  }
-  if (new_allocation) {
+  if (old_baseptr == nullptr) {
     // Common case -- we haven't seen the old base address before (because it's
     // presumably the same as the new address, and that's what was just
     // allocated).
@@ -311,6 +303,9 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
   else {
     // Case of realloc -- reuse the old counters, but remove the old address
     // range, and subtract off the bytes previously allocated.
+    static Interval<uint64_t> search_addr(0, 0);
+    search_addr.lower = search_addr.upper = uint64_t(uintptr_t(old_baseptr));
+    auto old_iter = data_structs->find(search_addr);
     counters = old_iter->second;
     Interval<uint64_t> old_interval = old_iter->first;
     counters->current_size -= old_interval.upper - old_interval.lower + 1;
