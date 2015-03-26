@@ -249,11 +249,10 @@ namespace bytesflops_pass {
       uint8_t load0store1 = opcode == Instruction::Load ? 0 : 1;
       vector<Value*> arg_list;
       CastInst* imm_mem_addr =
-	new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64), "", insert_post_ls);
+        new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64), "", insert_post_ls);
       arg_list.push_back(imm_mem_addr);
       arg_list.push_back(num_bytes);
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
-      push_value_string(*module, arg_list, &inst);
       callinst_create(access_data_struct, arg_list, insert_post_ls);
 
       // Release the mega-lock.
@@ -316,16 +315,34 @@ namespace bytesflops_pass {
         ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMSET_BYTES));
         increment_global_array(insert_before, mem_intrinsics_var, byteVal, memsetfunc->getLength());
         if (TallyByDataStruct) {
+          // We can't delay instrumentation to the end of the basic block.  We
+          // have to do it now in case the data are about to be deallocated.
+          BasicBlock::iterator insert_post_mem = iter;
+          insert_post_mem++;
+
+          // Acquire the mega-lock before inserting any instrumentation code.
+          if (ThreadSafety)
+            callinst_create(take_mega_lock, insert_post_mem);
+
           // A memory set is treated as a store.
           vector<Value*> arg_list;
           CastInst* mem_addr =
             new PtrToIntInst(memsetfunc->getDest(),
                              IntegerType::get(globctx, 64),
-                             "", insert_before);
+                             "", insert_post_mem);
           arg_list.push_back(mem_addr);
           arg_list.push_back(memsetfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
-          callinst_create(access_data_struct, arg_list, insert_before);
+          callinst_create(access_data_struct, arg_list, insert_post_mem);
+
+          // Release the mega-lock.
+          if (ThreadSafety)
+            callinst_create(release_mega_lock, insert_post_mem);
+
+          // Advance the iterator to the last piece of code we inserted.  The
+          // invoking loop will then advance it again.
+          iter = insert_post_mem;
+          iter--;
         }
       }
       else if (MemTransferInst* memxferfunc = dyn_cast<MemTransferInst>(inst)) {
@@ -336,27 +353,45 @@ namespace bytesflops_pass {
         ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMXFER_BYTES));
         increment_global_array(insert_before, mem_intrinsics_var, byteVal, memxferfunc->getLength());
         if (TallyByDataStruct) {
+          // We can't delay instrumentation to the end of the basic block.  We
+          // have to do it now in case the data are about to be deallocated.
+          BasicBlock::iterator insert_post_mem = iter;
+          insert_post_mem++;
+
+          // Acquire the mega-lock before inserting any instrumentation code.
+          if (ThreadSafety)
+            callinst_create(take_mega_lock, insert_post_mem);
+
           // A memory transfer is treated as a load...
           vector<Value*> arg_list;
           CastInst* mem_addr =
             new PtrToIntInst(memxferfunc->getSource(),
                              IntegerType::get(globctx, 64),
-                             "", insert_before);
+                             "", insert_post_mem);
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 0)));
-          callinst_create(access_data_struct, arg_list, insert_before);
+          callinst_create(access_data_struct, arg_list, insert_post_mem);
 
           // ...plus a store.
           arg_list.clear();
           mem_addr =
             new PtrToIntInst(memxferfunc->getDest(),
                              IntegerType::get(globctx, 64),
-                             "", insert_before);
+                             "", insert_post_mem);
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
-          callinst_create(access_data_struct, arg_list, insert_before);
+          callinst_create(access_data_struct, arg_list, insert_post_mem);
+
+          // Release the mega-lock.
+          if (ThreadSafety)
+            callinst_create(release_mega_lock, insert_post_mem);
+
+          // Advance the iterator to the last piece of code we inserted.  The
+          // invoking loop will then advance it again.
+          iter = insert_post_mem;
+          iter--;
         }
       }
     }
