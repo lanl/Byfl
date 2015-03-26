@@ -529,11 +529,22 @@ namespace bytesflops_pass {
       if (bytes_alloced > 0) {
         StringRef varname = ainst.hasName() ? ainst.getName() : StringRef("*UNNAMED*");
         if (!varname.startswith("bf_")) {
+          // We can't delay allocation instrumentation to the end of the basic
+          // block.  We have to do it now in case a function called within the
+          // basic block uses the allocated data.
+          BasicBlock::iterator insert_post_alloca = iter;
+          insert_post_alloca++;
+
+          // Acquire the mega-lock before inserting any instrumentation code.
+          if (ThreadSafety)
+            callinst_create(take_mega_lock, insert_post_alloca);
+
+          // Instrument the alloca instruction.
           vector<Value*> arg_list;
           Constant* alloc_name_var =
             create_global_constant(*module, "bf_.stack._name", "stack");
           PointerType* ptr8ty = Type::getInt8PtrTy(bbctx);
-          CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", insert_before);
+          CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", insert_post_alloca);
           string varname_name = string("bf_") + varname.str() + string("_name");
           Constant* varname_name_var =
             create_global_constant(*module, varname_name.c_str(), varname.data());
@@ -541,7 +552,16 @@ namespace bytesflops_pass {
           arg_list.push_back(pointer);
           arg_list.push_back(ConstantInt::get(bbctx, APInt(64, bytes_alloced)));
           arg_list.push_back(varname_name_var);
-          callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_before);
+          callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_post_alloca);
+
+          // Release the mega-lock.
+          if (ThreadSafety)
+            callinst_create(release_mega_lock, insert_post_alloca);
+
+          // Advance the iterator to the last piece of code we inserted.  The
+          // invoking loop will then advance it again.
+          iter = insert_post_alloca;
+          iter--;
         }
       }
     }

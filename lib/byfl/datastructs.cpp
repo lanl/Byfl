@@ -380,13 +380,23 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
   DataStructCounters* counters;
   auto iter = data_structs->find(search_addr);
   if (iter == data_structs->end()) {
+    // Temporary
+    cerr << hex << "*** FAILED TO FIND " << search_addr << " ***\n" << dec;
+    for (auto diter = data_structs->begin(); diter != data_structs->end(); diter++)
+      cerr << hex
+	   << "***   INTERVAL " << diter->first << " REFERS TO \""
+	   << diter->second->demangled_name << "\" ("
+	   << (diter->first == search_addr ? "NATCH" : "NO MATCH")
+	   << ") ***\n"
+	   << dec;
+
     // The data structure wasn't found.  For example, it was allocated by a
     // non-Byfl-instrumented function (say, strdup(), for example).
     void* lastaddr = (void*)(baseaddr + numaddrs);
     for (void* addr = (void*)(uintptr_t(baseaddr));
-       addr < lastaddr;
-       addr = disassoc_addresses_with_dstruct(addr))
-    ;
+         addr < lastaddr;
+         addr = disassoc_addresses_with_dstruct(addr))
+      ;
     assoc_addresses_with_dstruct("unknown", nullptr, (void*)uintptr_t(baseaddr),
                                  numaddrs, "Unknown data structure");
     iter = data_structs->find(search_addr);
