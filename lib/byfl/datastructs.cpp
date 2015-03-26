@@ -242,6 +242,11 @@ static void* disassoc_addresses_with_dstruct (void* baseptr)
   Interval<uint64_t> interval = iter->first;
   DataStructCounters* counters = iter->second;
 
+  // Temporary
+  cerr << hex
+       << "*** DEALLOCATED " << interval << " ***\n"
+       << dec;
+
   // Reduce the size of the data structure by the size of the address range
   // and break the link from the address interval to the counters.  Note
   // that location_to_counters still points to the counters; we don't want
@@ -323,6 +328,11 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
   //(*data_structs)[Interval<uint64_t>(baseaddr, baseaddr + numaddrs - 1)] = counters;
   Interval<uint64_t> ival(baseaddr, baseaddr + numaddrs - 1);
   (*data_structs)[ival] = counters;
+
+  // Temporary
+  cerr << hex
+       << "*** ALLOCATED " << ival << " ***\n"
+       << dec;
 #endif
 }
 
@@ -370,7 +380,8 @@ void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
 
 // Increment access counts for a data structure.
 extern "C"
-void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0store1)
+void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs,
+                            uint8_t load0store1, const char* instruction)
 {
   // Find the interval containing the base address.  Use a set of counts
   // representing unknown data structures if we failed to find an interval
@@ -381,14 +392,19 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
   auto iter = data_structs->find(search_addr);
   if (iter == data_structs->end()) {
     // Temporary
-    cerr << hex << "*** FAILED TO FIND " << search_addr << " ***\n" << dec;
+    cerr << hex
+         << "*** FAILED TO FIND " << search_addr
+         << ", ACCESSED BY " << instruction
+         << " (" << bf_find_caller_address() << ") "
+         << " ***\n"
+         << dec;
     for (auto diter = data_structs->begin(); diter != data_structs->end(); diter++)
       cerr << hex
-	   << "***   INTERVAL " << diter->first << " REFERS TO \""
-	   << diter->second->demangled_name << "\" ("
-	   << (diter->first == search_addr ? "NATCH" : "NO MATCH")
-	   << ") ***\n"
-	   << dec;
+           << "***   INTERVAL " << diter->first << " REFERS TO \""
+           << diter->second->demangled_name << "\" ("
+           << (diter->first == search_addr ? "NATCH" : "NO MATCH")
+           << ") ***\n"
+           << dec;
 
     // The data structure wasn't found.  For example, it was allocated by a
     // non-Byfl-instrumented function (say, strdup(), for example).

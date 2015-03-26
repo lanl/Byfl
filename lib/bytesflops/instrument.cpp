@@ -186,8 +186,9 @@ namespace bytesflops_pass {
 
     // Determine the memory address that was loaded or stored.
     CastInst* mem_addr = NULL;
+    Value* mem_ptr;
     if (TrackUniqueBytes || FindMemFootprint || rd_bits > 0 || TallyByDataStruct || CacheModel) {
-      Value* mem_ptr =
+      mem_ptr =
         opcode == Instruction::Load
         ? cast<LoadInst>(inst).getPointerOperand()
         : cast<StoreInst>(inst).getPointerOperand();
@@ -215,16 +216,6 @@ namespace bytesflops_pass {
       callinst_create(assoc_addrs_with_prog, arg_list, insert_before);
     }
 
-    // If requested by the user, insert a call to bf_access_data_struct().
-    if (TallyByDataStruct) {
-      uint8_t load0store1 = opcode == Instruction::Load ? 0 : 1;
-      vector<Value*> arg_list;
-      arg_list.push_back(mem_addr);
-      arg_list.push_back(num_bytes);
-      arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
-      callinst_create(access_data_struct, arg_list, insert_before);
-    }
-
     // If requested by the user, insert a call to bf_touch_cache().
     if (CacheModel) {
       vector<Value*> arg_list;
@@ -241,6 +232,38 @@ namespace bytesflops_pass {
       arg_list.push_back(mem_addr);
       arg_list.push_back(num_bytes);
       callinst_create(reuse_dist_prog, arg_list, insert_before);
+    }
+
+    // If requested by the user, insert a call to bf_access_data_struct().
+    if (TallyByDataStruct) {
+      // We can't delay instrumentation to the end of the basic block.  We have
+      // to do it now in case the data are about to be deallocated.
+      BasicBlock::iterator insert_post_ls = iter;
+      insert_post_ls++;
+
+      // Acquire the mega-lock before inserting any instrumentation code.
+      if (ThreadSafety)
+        callinst_create(take_mega_lock, insert_post_ls);
+
+      // Instrument the load or store.
+      uint8_t load0store1 = opcode == Instruction::Load ? 0 : 1;
+      vector<Value*> arg_list;
+      CastInst* imm_mem_addr =
+	new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64), "", insert_post_ls);
+      arg_list.push_back(imm_mem_addr);
+      arg_list.push_back(num_bytes);
+      arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
+      push_value_string(*module, arg_list, &inst);
+      callinst_create(access_data_struct, arg_list, insert_post_ls);
+
+      // Release the mega-lock.
+      if (ThreadSafety)
+        callinst_create(release_mega_lock, insert_post_ls);
+
+      // Advance the iterator to the last piece of code we inserted.  The
+      // invoking loop will then advance it again.
+      iter = insert_post_ls;
+      iter--;
     }
   }
 
