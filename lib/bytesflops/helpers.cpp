@@ -735,4 +735,13 @@ size_t BytesFlops::bb_size(const BasicBlock& bb)
   return tally;
 }
 
+// Convert an LLVM value to an STL string.
+string BytesFlops::value_to_string(const Value* value)
+{
+  string valstr;
+  raw_string_ostream rso(valstr);
+  value->print(rso);
+  return valstr;
+}
+
 } // namespace bytesflops_pass
