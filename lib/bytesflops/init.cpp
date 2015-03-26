@@ -371,6 +371,7 @@ namespace bytesflops_pass {
       all_function_args.push_back(ptr_to_char_arg);
       all_function_args.push_back(ptr_to_char_arg);
       all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(ptr_to_char_arg);  // Debug
       void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       assoc_addrs_with_dstruct =
@@ -385,6 +386,7 @@ namespace bytesflops_pass {
       all_function_args.push_back(PointerType::get(ptr_to_char_arg, 0));
       all_function_args.push_back(uint64_arg);
       all_function_args.push_back(IntegerType::get(globctx, 32));
+      all_function_args.push_back(ptr_to_char_arg);  // Debug
       void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       assoc_addrs_with_dstruct_pm =
@@ -398,6 +400,7 @@ namespace bytesflops_pass {
       all_function_args.push_back(ptr_to_char_arg);
       all_function_args.push_back(uint64_arg);
       all_function_args.push_back(ptr_to_char_arg);
+      all_function_args.push_back(ptr_to_char_arg);  // Debug
       void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       assoc_addrs_with_dstruct_stack =

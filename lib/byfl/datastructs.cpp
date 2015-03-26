@@ -267,7 +267,8 @@ void bf_disassoc_addresses_with_dstruct (void* baseptr)
 // Associate a range of addresses with a dynamically allocated data structure.
 static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
                                           void* baseptr, uint64_t numaddrs,
-                                          const char* var_prefix)
+                                          const char* var_prefix,
+                                          const char* instruction)
 {
 #ifdef HAVE_BACKTRACE
   // Ignore this data structure if we don't know where we're coming from.
@@ -329,20 +330,22 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
 // Associate a range of addresses with a dynamically allocated data structure.
 extern "C"
 void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
-                                      void* baseptr, uint64_t numaddrs)
+                                      void* baseptr, uint64_t numaddrs,
+				      const char* instruction)
 {
-  assoc_addresses_with_dstruct(origin, old_baseptr, baseptr, numaddrs, "Data");
+  assoc_addresses_with_dstruct(origin, old_baseptr, baseptr, numaddrs, "Data", instruction);
 }
 
 // Associate a range of addresses with a dynamically allocated data structure
 // allocated specifically by posix_memalign().
 extern "C"
 void bf_assoc_addresses_with_dstruct_pm (const char* origin, void* old_baseptr,
-                                         void** baseptrptr, uint64_t numaddrs, int retcode)
+                                         void** baseptrptr, uint64_t numaddrs,
+					 int retcode, const char* instruction)
 {
 #ifdef HAVE_BACKTRACE
   if (retcode == 0)
-    assoc_addresses_with_dstruct(origin, old_baseptr, *baseptrptr, numaddrs, "Data");
+    assoc_addresses_with_dstruct(origin, old_baseptr, *baseptrptr, numaddrs, "Data", instruction);
 #endif
 }
 
@@ -350,7 +353,8 @@ void bf_assoc_addresses_with_dstruct_pm (const char* origin, void* old_baseptr,
 // allocated specifically on the stack.
 extern "C"
 void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
-                                            uint64_t numaddrs, const char* varname)
+                                            uint64_t numaddrs, const char* varname,
+					    const char* instruction)
 {
   // Disassociate all overlapping data structures.  For example if a function
   // declares "int32_t x,y;" then returns, then another function delcares
@@ -365,7 +369,7 @@ void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
   // Establish the new association.
   string prefix(varname);
   prefix = prefix == "*UNNAMED*" ? "Compiler-generated variable" : string("Variable ") + prefix;
-  assoc_addresses_with_dstruct(origin, nullptr, baseptr, numaddrs, prefix.c_str());
+  assoc_addresses_with_dstruct(origin, nullptr, baseptr, numaddrs, prefix.c_str(), instruction);
 }
 
 // Increment access counts for a data structure.
@@ -398,7 +402,7 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
          addr = disassoc_addresses_with_dstruct(addr))
       ;
     assoc_addresses_with_dstruct("unknown", nullptr, (void*)uintptr_t(baseaddr),
-                                 numaddrs, "Unknown data structure");
+                                 numaddrs, "Unknown data structure", "???");
     iter = data_structs->find(search_addr);
   }
   counters = iter->second;

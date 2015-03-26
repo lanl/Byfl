@@ -24,9 +24,9 @@ namespace bytesflops_pass
   class MersenneTwister
   {
   public:
-    typedef KeyType_t  Value_t;
+    typedef KeyType_t Value_t;
 
-    MersenneTwister(const Value_t &);
+    MersenneTwister(const Value_t&);
 
     Value_t next();
 
@@ -34,7 +34,7 @@ namespace bytesflops_pass
     typedef std::vector<Value_t> ValueList_t;
     ValueList_t mt;
     size_t mti;
-    void init(const Value_t &);
+    void init(const Value_t&);
   };
 
 } /* namespace bytesflops_pass */

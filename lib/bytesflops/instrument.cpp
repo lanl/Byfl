@@ -419,10 +419,13 @@ namespace bytesflops_pass {
         arg_list.push_back(byte_count);
         if (callee_name == "posix_memalign") {
           arg_list.push_back(call_inst);   // Error code
+	  push_value_string(*module, arg_list, inst);
           callinst_create(assoc_addrs_with_dstruct_pm, arg_list, insert_post_call);
         }
-        else
+        else {
+	  push_value_string(*module, arg_list, inst);
           callinst_create(assoc_addrs_with_dstruct, arg_list, insert_post_call);
+	}
       }
 
       // Now determine if we are instead deallocating memory.  If so, invoke
@@ -504,6 +507,7 @@ namespace bytesflops_pass {
         arg_list.push_back(null_pointer);
         arg_list.push_back(invoke_inst);
         arg_list.push_back(byte_count);
+	push_value_string(*module, arg_list, inst);
         callinst_create(assoc_addrs_with_dstruct, arg_list, next_insert_before);
       }
     }
@@ -552,6 +556,7 @@ namespace bytesflops_pass {
           arg_list.push_back(pointer);
           arg_list.push_back(ConstantInt::get(bbctx, APInt(64, bytes_alloced)));
           arg_list.push_back(varname_name_var);
+	  push_value_string(*module, arg_list, &inst);
           callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_post_alloca);
 
           // Release the mega-lock.
@@ -850,6 +855,7 @@ namespace bytesflops_pass {
         arg_list.push_back(argPtr);
         arg_list.push_back(ConstantInt::get(func_ctx, APInt(64, bytes_alloced)));
         arg_list.push_back(varname_name_var);
+	push_value_string(*module, arg_list, argVal);
         callinst_create(assoc_addrs_with_dstruct_stack, arg_list, new_entry);
       }
     }
