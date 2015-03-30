@@ -253,6 +253,8 @@ namespace bytesflops_pass {
       arg_list.push_back(imm_mem_addr);
       arg_list.push_back(num_bytes);
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
+      push_value_string(*module, arg_list, &inst);  // Temporary
+      push_value_string(*module, arg_list, inst.getParent());  // Temporary
       callinst_create(access_data_struct, arg_list, insert_post_ls);
 
       // Release the mega-lock.
@@ -333,6 +335,8 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memsetfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
+          push_value_string(*module, arg_list, inst);  // Temporary
+          push_value_string(*module, arg_list, inst->getParent());  // Temporary
           callinst_create(access_data_struct, arg_list, insert_post_mem);
 
           // Release the mega-lock.
@@ -371,6 +375,8 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 0)));
+          push_value_string(*module, arg_list, inst);  // Temporary
+          push_value_string(*module, arg_list, inst->getParent());  // Temporary
           callinst_create(access_data_struct, arg_list, insert_post_mem);
 
           // ...plus a store.
@@ -382,6 +388,8 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
+          push_value_string(*module, arg_list, inst);  // Temporary
+          push_value_string(*module, arg_list, inst->getParent());  // Temporary
           callinst_create(access_data_struct, arg_list, insert_post_mem);
 
           // Release the mega-lock.
@@ -575,52 +583,65 @@ namespace bytesflops_pass {
                                      const DataLayout& target_data,
                                      BasicBlock::iterator& insert_before) {
     if (TallyByDataStruct) {
-      // Determine the number of bytes allocated.
-      Instruction& inst = *iter;
-      AllocaInst& ainst = cast<AllocaInst>(inst);
-      uint64_t array_len = cast<ConstantInt>(ainst.getArraySize())->getZExtValue();
-      Type* alloc_type = ainst.getAllocatedType();
-      uint64_t bytes_alloced = target_data.getTypeStoreSize(alloc_type)*array_len;
-
       // Tell bf_assoc_addresses_with_dstruct_stack() the allocation size and
       // address returned.
-      if (bytes_alloced > 0) {
-        StringRef varname = ainst.hasName() ? ainst.getName() : StringRef("*UNNAMED*");
-        if (!varname.startswith("bf_")) {
-          // We can't delay allocation instrumentation to the end of the basic
-          // block.  We have to do it now in case a function called within the
-          // basic block uses the allocated data.
-          BasicBlock::iterator insert_post_alloca = iter;
-          insert_post_alloca++;
+      Instruction& inst = *iter;
+      AllocaInst& ainst = cast<AllocaInst>(inst);
+      StringRef varname = ainst.hasName() ? ainst.getName() : StringRef("*UNNAMED*");
+      if (!varname.startswith("bf_")) {
+        // We can't delay allocation instrumentation to the end of the basic
+        // block.  We have to do it now in case a function called within the
+        // basic block uses the allocated data.
+        BasicBlock::iterator insert_post_alloca = iter;
+        insert_post_alloca++;
 
-          // Acquire the mega-lock before inserting any instrumentation code.
-          if (ThreadSafety)
-            callinst_create(take_mega_lock, insert_post_alloca);
+        // Acquire the mega-lock before inserting any instrumentation code.
+        if (ThreadSafety)
+          callinst_create(take_mega_lock, insert_post_alloca);
 
-          // Instrument the alloca instruction.
-          vector<Value*> arg_list;
-          Constant* alloc_name_var =
-            create_global_constant(*module, "bf_.stack._name", "stack");
-          PointerType* ptr8ty = Type::getInt8PtrTy(bbctx);
-          CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", insert_post_alloca);
-          string varname_name = string("bf_") + varname.str() + string("_name");
-          Constant* varname_name_var =
-            create_global_constant(*module, varname_name.c_str(), varname.data());
-          arg_list.push_back(alloc_name_var);
-          arg_list.push_back(pointer);
-          arg_list.push_back(ConstantInt::get(bbctx, APInt(64, bytes_alloced)));
-          arg_list.push_back(varname_name_var);
-          callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_post_alloca);
+        // Determine the number of bytes allocated.
+        Type* alloc_type = ainst.getAllocatedType();
+        ConstantInt* bytes_per_elt =
+          ConstantInt::get(bbctx, APInt(64, target_data.getTypeStoreSize(alloc_type)));
+        Value* elts_per_array = ainst.getArraySize();
+        if (target_data.getTypeSizeInBits(elts_per_array->getType()) < 64)
+          elts_per_array = new ZExtInst(ainst.getArraySize(),
+                                        IntegerType::get(bbctx, 64),
+                                        "nelts",
+                                        insert_post_alloca);
+        BinaryOperator* bytes_alloced =
+          BinaryOperator::Create(Instruction::Mul,
+                                 bytes_per_elt,
+                                 elts_per_array,
+                                 "nbytes",
+                                 insert_post_alloca);
 
-          // Release the mega-lock.
-          if (ThreadSafety)
-            callinst_create(release_mega_lock, insert_post_alloca);
+        // Temporary
+        errs() << "*** ALLOCA " << ainst << " ==> " << *bytes_alloced << " BYTES ***\n";
 
-          // Advance the iterator to the last piece of code we inserted.  The
-          // invoking loop will then advance it again.
-          iter = insert_post_alloca;
-          iter--;
-        }
+        // Instrument the alloca instruction.
+        vector<Value*> arg_list;
+        Constant* alloc_name_var =
+          create_global_constant(*module, "bf_.stack._name", "stack");
+        PointerType* ptr8ty = Type::getInt8PtrTy(bbctx);
+        CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", insert_post_alloca);
+        string varname_name = string("bf_") + varname.str() + string("_name");
+        Constant* varname_name_var =
+          create_global_constant(*module, varname_name.c_str(), varname.data());
+        arg_list.push_back(alloc_name_var);
+        arg_list.push_back(pointer);
+        arg_list.push_back(bytes_alloced);
+        arg_list.push_back(varname_name_var);
+        callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_post_alloca);
+
+        // Release the mega-lock.
+        if (ThreadSafety)
+          callinst_create(release_mega_lock, insert_post_alloca);
+
+        // Advance the iterator to the last piece of code we inserted.  The
+        // invoking loop will then advance it again.
+        iter = insert_post_alloca;
+        iter--;
       }
     }
   }
@@ -875,41 +896,6 @@ namespace bytesflops_pass {
         callinst_create(push_function, key_args, new_entry);
       else
         callinst_create(tally_function, key, new_entry);
-    }
-
-    // If -bf-data-struct was specified, insert calls at the beginning of the
-    // function to bf_assoc_addresses_with_dstruct_stack() for each function
-    // argument that was allocated implicitly on the stack.
-    if (TallyByDataStruct) {
-      DataLayout data_layout = target_data.getDataLayout();
-      Function::ArgumentListType& argList = function.getArgumentList();
-      PointerType* ptr8ty = Type::getInt8PtrTy(func_ctx);
-      ConstantInt* zero32 = ConstantInt::get(func_ctx, APInt(32, 0));
-      for (auto iter = argList.begin(); iter != argList.end(); iter++) {
-        // Prepare to access the argument as both a pointer and a value.
-        Value* argVal = &cast<Value>(*iter);
-        if (!argVal->getType()->isPointerTy())
-          continue;
-        Value* argPtr = new BitCastInst(argVal, ptr8ty, "argptr", new_entry);
-        argVal = new LoadInst(argVal, "arg", false, new_entry);
-        uint64_t bytes_alloced = data_layout.getPointerTypeSize(argVal->getType());
-        if (bytes_alloced == 0)
-          continue;
-
-        // Invoke bf_assoc_addresses_with_dstruct_stack() on the argument.
-        vector<Value*> arg_list;
-        Constant* alloc_name_var =
-          create_global_constant(*module, "bf_.stack._name", "stack");
-        StringRef varname = iter->getName();
-        string varname_name = string("bf_") + varname.str() + string("_name");
-        Constant* varname_name_var =
-          create_global_constant(*module, varname_name.c_str(), varname.data());
-        arg_list.push_back(alloc_name_var);
-        arg_list.push_back(argPtr);
-        arg_list.push_back(ConstantInt::get(func_ctx, APInt(64, bytes_alloced)));
-        arg_list.push_back(varname_name_var);
-        callinst_create(assoc_addrs_with_dstruct_stack, arg_list, new_entry);
-      }
     }
 
     // Branch to the original entry point.

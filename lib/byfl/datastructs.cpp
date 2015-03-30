@@ -242,6 +242,11 @@ static void* disassoc_addresses_with_dstruct (void* baseptr)
   Interval<uint64_t> interval = iter->first;
   DataStructCounters* counters = iter->second;
 
+  // Temporary
+  cerr << "*** DEALLOCATING " << hex << interval << dec
+       << " (" << interval.upper - interval.lower + 1
+       << " BYTES) ***\n";
+
   // Reduce the size of the data structure by the size of the address range
   // and break the link from the address interval to the counters.  Note
   // that location_to_counters still points to the counters; we don't want
@@ -270,16 +275,18 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
                                           const char* var_prefix)
 {
 #ifdef HAVE_BACKTRACE
+  // Temporary
+  if (numaddrs == 0)
+    cerr << "*** IGNORING ZERO-BYTE ALLOCATION AT " << hex << baseptr << dec << " ***\n";
+
+  // Ignore this data structure if it consumes no space.
+  if (numaddrs == 0)
+    return;
+
   // Ignore this data structure if we don't know where we're coming from.
   void* caller_addr = bf_find_caller_address();
-  if (caller_addr == NULL) {
-    // Temporary
-    cerr << hex
-	 << "*** MYSTERY SOURCE " << caller_addr
-	 << " ALLOCATED [" << baseptr << ", " << uintptr_t(baseptr) + numaddrs - 1
-	 << "] ***\n" << dec;
+  if (caller_addr == NULL)
     return;
-  }
 
   // Find an existing set of counters for the same source-code location.  If no
   // such counters exist, allocate a new set.
@@ -329,6 +336,14 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
   //(*data_structs)[Interval<uint64_t>(baseaddr, baseaddr + numaddrs - 1)] = counters;
   Interval<uint64_t> ival(baseaddr, baseaddr + numaddrs - 1);
   (*data_structs)[ival] = counters;
+
+  // Temporary
+  counters->generate_symbol_name();
+  cerr << "*** " << (strcmp(origin, "stack") == 0 ? "STACK" : "HEAP")
+       << "-ALLOCATING [" << hex << uintptr_t(baseptr) << ", "
+       << uintptr_t(baseptr) + numaddrs - 1 << dec << "] ("
+       << numaddrs << " BYTES) FOR "
+       << counters->demangled_name << " ***\n";
 #endif
 }
 
@@ -358,6 +373,12 @@ extern "C"
 void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
                                             uint64_t numaddrs, const char* varname)
 {
+  // Temporary
+  cerr << "*** IMPLICITLY DEALLOCATING ["
+       << hex << uintptr_t(baseptr) << ", "
+       << uintptr_t(baseptr) + numaddrs - 1 << dec
+       << "] TO MAKE ROOM FOR " << varname << " ***\n";
+
   // Disassociate all overlapping data structures.  For example if a function
   // declares "int32_t x,y;" then returns, then another function delcares
   // "int64_t foo;" and gets the same base address as x, we'll need to
@@ -376,7 +397,9 @@ void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
 
 // Increment access counts for a data structure.
 extern "C"
-void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0store1)
+void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0store1,
+                            const char* instruction,
+                            const char* basic_block)
 {
   // Find the interval containing the base address.  Use a set of counts
   // representing unknown data structures if we failed to find an interval
@@ -388,10 +411,14 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
   if (iter == data_structs->end()) {
     // Temporary
     cerr << hex
-         << "*** FAILED TO FIND " << search_addr
+         << "*** FAILED TO FIND " << Interval<uint64_t>(baseaddr, baseaddr + numaddrs - 1)
          << " (" << bf_find_caller_address() << ") "
          << " ***\n"
          << dec;
+    cerr << "*** INSTRUCTION: " << instruction << " ***\n";
+    cerr << "*** BASIC BLOCK FOLLOWS: ***\n"
+         << basic_block << "\n";
+    exit(1);
 
     // The data structure wasn't found.  For example, it was allocated by a
     // non-Byfl-instrumented function (say, strdup(), for example).
