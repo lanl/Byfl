@@ -253,8 +253,6 @@ namespace bytesflops_pass {
       arg_list.push_back(imm_mem_addr);
       arg_list.push_back(num_bytes);
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
-      push_value_string(*module, arg_list, &inst);  // Temporary
-      push_value_string(*module, arg_list, inst.getParent());  // Temporary
       callinst_create(access_data_struct, arg_list, insert_post_ls);
 
       // Release the mega-lock.
@@ -335,8 +333,6 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memsetfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
-          push_value_string(*module, arg_list, inst);  // Temporary
-          push_value_string(*module, arg_list, inst->getParent());  // Temporary
           callinst_create(access_data_struct, arg_list, insert_post_mem);
 
           // Release the mega-lock.
@@ -375,8 +371,6 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 0)));
-          push_value_string(*module, arg_list, inst);  // Temporary
-          push_value_string(*module, arg_list, inst->getParent());  // Temporary
           callinst_create(access_data_struct, arg_list, insert_post_mem);
 
           // ...plus a store.
@@ -388,8 +382,6 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
-          push_value_string(*module, arg_list, inst);  // Temporary
-          push_value_string(*module, arg_list, inst->getParent());  // Temporary
           callinst_create(access_data_struct, arg_list, insert_post_mem);
 
           // Release the mega-lock.
@@ -615,9 +607,6 @@ namespace bytesflops_pass {
                                  elts_per_array,
                                  "nbytes",
                                  insert_post_alloca);
-
-        // Temporary
-        errs() << "*** ALLOCA " << ainst << " ==> " << *bytes_alloced << " BYTES ***\n";
 
         // Instrument the alloca instruction.
         vector<Value*> arg_list;
