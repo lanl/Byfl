@@ -186,8 +186,9 @@ namespace bytesflops_pass {
 
     // Determine the memory address that was loaded or stored.
     CastInst* mem_addr = NULL;
+    Value* mem_ptr;
     if (TrackUniqueBytes || FindMemFootprint || rd_bits > 0 || TallyByDataStruct || CacheModel) {
-      Value* mem_ptr =
+      mem_ptr =
         opcode == Instruction::Load
         ? cast<LoadInst>(inst).getPointerOperand()
         : cast<StoreInst>(inst).getPointerOperand();
@@ -215,16 +216,6 @@ namespace bytesflops_pass {
       callinst_create(assoc_addrs_with_prog, arg_list, insert_before);
     }
 
-    // If requested by the user, insert a call to bf_access_data_struct().
-    if (TallyByDataStruct) {
-      uint8_t load0store1 = opcode == Instruction::Load ? 0 : 1;
-      vector<Value*> arg_list;
-      arg_list.push_back(mem_addr);
-      arg_list.push_back(num_bytes);
-      arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
-      callinst_create(access_data_struct, arg_list, insert_before);
-    }
-
     // If requested by the user, insert a call to bf_touch_cache().
     if (CacheModel) {
       vector<Value*> arg_list;
@@ -241,6 +232,37 @@ namespace bytesflops_pass {
       arg_list.push_back(mem_addr);
       arg_list.push_back(num_bytes);
       callinst_create(reuse_dist_prog, arg_list, insert_before);
+    }
+
+    // If requested by the user, insert a call to bf_access_data_struct().
+    if (TallyByDataStruct) {
+      // We can't delay instrumentation to the end of the basic block.  We have
+      // to do it now in case the data are about to be deallocated.
+      BasicBlock::iterator insert_post_ls = iter;
+      insert_post_ls++;
+
+      // Acquire the mega-lock before inserting any instrumentation code.
+      if (ThreadSafety)
+        callinst_create(take_mega_lock, insert_post_ls);
+
+      // Instrument the load or store.
+      uint8_t load0store1 = opcode == Instruction::Load ? 0 : 1;
+      vector<Value*> arg_list;
+      CastInst* imm_mem_addr =
+        new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64), "", insert_post_ls);
+      arg_list.push_back(imm_mem_addr);
+      arg_list.push_back(num_bytes);
+      arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
+      callinst_create(access_data_struct, arg_list, insert_post_ls);
+
+      // Release the mega-lock.
+      if (ThreadSafety)
+        callinst_create(release_mega_lock, insert_post_ls);
+
+      // Advance the iterator to the last piece of code we inserted.  The
+      // invoking loop will then advance it again.
+      iter = insert_post_ls;
+      iter--;
     }
   }
 
@@ -270,10 +292,11 @@ namespace bytesflops_pass {
   // Instrument Call instructions.  Note that we've already skipped
   // over calls to llvm.dbg.*.
   void BytesFlops::instrument_call(Module* module,
-                                   Instruction* inst,
+                                   BasicBlock::iterator& iter,
                                    BasicBlock::iterator& insert_before,
                                    int& must_clear) {
     LLVMContext& globctx = module->getContext();
+    Instruction* inst = &*iter;
     CallInst* call_inst = dyn_cast<CallInst>(inst);
     Function* func = call_inst->getCalledFunction();
     if (!func)
@@ -292,16 +315,34 @@ namespace bytesflops_pass {
         ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMSET_BYTES));
         increment_global_array(insert_before, mem_intrinsics_var, byteVal, memsetfunc->getLength());
         if (TallyByDataStruct) {
+          // We can't delay instrumentation to the end of the basic block.  We
+          // have to do it now in case the data are about to be deallocated.
+          BasicBlock::iterator insert_post_mem = iter;
+          insert_post_mem++;
+
+          // Acquire the mega-lock before inserting any instrumentation code.
+          if (ThreadSafety)
+            callinst_create(take_mega_lock, insert_post_mem);
+
           // A memory set is treated as a store.
           vector<Value*> arg_list;
           CastInst* mem_addr =
             new PtrToIntInst(memsetfunc->getDest(),
                              IntegerType::get(globctx, 64),
-                             "", insert_before);
+                             "", insert_post_mem);
           arg_list.push_back(mem_addr);
           arg_list.push_back(memsetfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
-          callinst_create(access_data_struct, arg_list, insert_before);
+          callinst_create(access_data_struct, arg_list, insert_post_mem);
+
+          // Release the mega-lock.
+          if (ThreadSafety)
+            callinst_create(release_mega_lock, insert_post_mem);
+
+          // Advance the iterator to the last piece of code we inserted.  The
+          // invoking loop will then advance it again.
+          iter = insert_post_mem;
+          iter--;
         }
       }
       else if (MemTransferInst* memxferfunc = dyn_cast<MemTransferInst>(inst)) {
@@ -312,27 +353,45 @@ namespace bytesflops_pass {
         ConstantInt* byteVal = ConstantInt::get(globctx, APInt(64, BF_MEMXFER_BYTES));
         increment_global_array(insert_before, mem_intrinsics_var, byteVal, memxferfunc->getLength());
         if (TallyByDataStruct) {
+          // We can't delay instrumentation to the end of the basic block.  We
+          // have to do it now in case the data are about to be deallocated.
+          BasicBlock::iterator insert_post_mem = iter;
+          insert_post_mem++;
+
+          // Acquire the mega-lock before inserting any instrumentation code.
+          if (ThreadSafety)
+            callinst_create(take_mega_lock, insert_post_mem);
+
           // A memory transfer is treated as a load...
           vector<Value*> arg_list;
           CastInst* mem_addr =
             new PtrToIntInst(memxferfunc->getSource(),
                              IntegerType::get(globctx, 64),
-                             "", insert_before);
+                             "", insert_post_mem);
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 0)));
-          callinst_create(access_data_struct, arg_list, insert_before);
+          callinst_create(access_data_struct, arg_list, insert_post_mem);
 
           // ...plus a store.
           arg_list.clear();
           mem_addr =
             new PtrToIntInst(memxferfunc->getDest(),
                              IntegerType::get(globctx, 64),
-                             "", insert_before);
+                             "", insert_post_mem);
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
-          callinst_create(access_data_struct, arg_list, insert_before);
+          callinst_create(access_data_struct, arg_list, insert_post_mem);
+
+          // Release the mega-lock.
+          if (ThreadSafety)
+            callinst_create(release_mega_lock, insert_post_mem);
+
+          // Advance the iterator to the last piece of code we inserted.  The
+          // invoking loop will then advance it again.
+          iter = insert_post_mem;
+          iter--;
         }
       }
     }
@@ -356,6 +415,16 @@ namespace bytesflops_pass {
     // If data structures are to be monitored, keep track of all
     // memory allocations and deallocations.
     if (TallyByDataStruct) {
+      // We can't delay allocation instrumentation to the end of the basic
+      // block.  We have to do it now in case a function called within the
+      // basic block uses the allocated data.
+      BasicBlock::iterator insert_post_call = iter;
+      insert_post_call++;
+
+      // Acquire the mega-lock before inserting any instrumentation code.
+      if (ThreadSafety)
+        callinst_create(take_mega_lock, insert_post_call);
+
       // Determine the number of bytes we allocated.
       unsigned int num_args = call_inst->getNumArgOperands();
       Value* byte_count = nullptr;       // Number of bytes allocated
@@ -387,7 +456,7 @@ namespace bytesflops_pass {
         byte_count = BinaryOperator::Create(Instruction::Mul,
                                             call_inst->getArgOperand(0),
                                             call_inst->getArgOperand(1),
-                                            "calloc_size", insert_before);
+                                            "calloc_size", insert_post_call);
       else if (callee_name == "posix_memalign") {
         // posix_memalign -- last argument is the byte count, but
         // first argument is a pointer to the returned pointer.
@@ -408,10 +477,10 @@ namespace bytesflops_pass {
         arg_list.push_back(byte_count);
         if (callee_name == "posix_memalign") {
           arg_list.push_back(call_inst);   // Error code
-          callinst_create(assoc_addrs_with_dstruct_pm, arg_list, insert_before);
+          callinst_create(assoc_addrs_with_dstruct_pm, arg_list, insert_post_call);
         }
         else
-          callinst_create(assoc_addrs_with_dstruct, arg_list, insert_before);
+          callinst_create(assoc_addrs_with_dstruct, arg_list, insert_post_call);
       }
 
       // Now determine if we are instead deallocating memory.  If so, invoke
@@ -424,8 +493,17 @@ namespace bytesflops_pass {
         vector<Value*> arg_list;
         ptr_provided = call_inst->getArgOperand(0);
         arg_list.push_back(ptr_provided);
-        callinst_create(disassoc_addrs_with_dstruct, arg_list, insert_before);
+        callinst_create(disassoc_addrs_with_dstruct, arg_list, insert_post_call);
       }
+
+      // Release the mega-lock.
+      if (ThreadSafety)
+        callinst_create(release_mega_lock, insert_post_call);
+
+      // Advance the iterator to the last piece of code we inserted.  The
+      // invoking loop will then advance it again.
+      iter = insert_post_call;
+      iter--;
     }
   }
 
@@ -464,17 +542,17 @@ namespace bytesflops_pass {
       unsigned int num_args = invoke_inst->getNumArgOperands();
       Value* byte_count = nullptr;
       if (callee_name == "_Znwm" || callee_name == "_Znam")
-        // operator new or operator new[] -- last argument is the byte count.
+        // operator new or operator new[] -- the last argument is the byte
+        // count.
         byte_count = invoke_inst->getArgOperand(num_args - 1);
 
-      // We can insert instructions past the terminator so we have to
-      // insert them at the start of the target basic block.  Find
-      // where that is.
+      // We can't insert instructions past the terminator so we have to insert
+      // them at the start of the target basic block.  Find where that is.
       BasicBlock* next_bb = invoke_inst->getNormalDest();
       BasicBlock::iterator next_insert_before = next_bb->getFirstInsertionPt();
 
-      // Tell bf_assoc_addresses_with_dstruct() the allocation size
-      // and address returned.
+      // Tell bf_assoc_addresses_with_dstruct() the allocation size and address
+      // returned.
       if (byte_count != nullptr) {
         vector<Value*> arg_list;
         string alloc_name = string("bf_") + callee_name.str() + string("_name");
@@ -497,32 +575,62 @@ namespace bytesflops_pass {
                                      const DataLayout& target_data,
                                      BasicBlock::iterator& insert_before) {
     if (TallyByDataStruct) {
-      // Determine the number of bytes allocated.
-      Instruction& inst = *iter;
-      AllocaInst& ainst = cast<AllocaInst>(inst);
-      uint64_t array_len = cast<ConstantInt>(ainst.getArraySize())->getZExtValue();
-      Type* alloc_type = ainst.getAllocatedType();
-      uint64_t bytes_alloced = target_data.getTypeStoreSize(alloc_type)*array_len;
-
       // Tell bf_assoc_addresses_with_dstruct_stack() the allocation size and
       // address returned.
-      if (bytes_alloced > 0) {
-        StringRef varname = ainst.hasName() ? ainst.getName() : StringRef("*UNNAMED*");
-        if (!varname.startswith("bf_")) {
-          vector<Value*> arg_list;
-          Constant* alloc_name_var =
-            create_global_constant(*module, "bf_.stack._name", "stack");
-          PointerType* ptr8ty = Type::getInt8PtrTy(bbctx);
-          CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", insert_before);
-          string varname_name = string("bf_") + varname.str() + string("_name");
-          Constant* varname_name_var =
-            create_global_constant(*module, varname_name.c_str(), varname.data());
-          arg_list.push_back(alloc_name_var);
-          arg_list.push_back(pointer);
-          arg_list.push_back(ConstantInt::get(bbctx, APInt(64, bytes_alloced)));
-          arg_list.push_back(varname_name_var);
-          callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_before);
-        }
+      Instruction& inst = *iter;
+      AllocaInst& ainst = cast<AllocaInst>(inst);
+      StringRef varname = ainst.hasName() ? ainst.getName() : StringRef("*UNNAMED*");
+      if (!varname.startswith("bf_")) {
+        // We can't delay allocation instrumentation to the end of the basic
+        // block.  We have to do it now in case a function called within the
+        // basic block uses the allocated data.
+        BasicBlock::iterator insert_post_alloca = iter;
+        insert_post_alloca++;
+
+        // Acquire the mega-lock before inserting any instrumentation code.
+        if (ThreadSafety)
+          callinst_create(take_mega_lock, insert_post_alloca);
+
+        // Determine the number of bytes allocated.
+        Type* alloc_type = ainst.getAllocatedType();
+        ConstantInt* bytes_per_elt =
+          ConstantInt::get(bbctx, APInt(64, target_data.getTypeStoreSize(alloc_type)));
+        Value* elts_per_array = ainst.getArraySize();
+        if (target_data.getTypeSizeInBits(elts_per_array->getType()) < 64)
+          elts_per_array = new ZExtInst(ainst.getArraySize(),
+                                        IntegerType::get(bbctx, 64),
+                                        "nelts",
+                                        insert_post_alloca);
+        BinaryOperator* bytes_alloced =
+          BinaryOperator::Create(Instruction::Mul,
+                                 bytes_per_elt,
+                                 elts_per_array,
+                                 "nbytes",
+                                 insert_post_alloca);
+
+        // Instrument the alloca instruction.
+        vector<Value*> arg_list;
+        Constant* alloc_name_var =
+          create_global_constant(*module, "bf_.stack._name", "stack");
+        PointerType* ptr8ty = Type::getInt8PtrTy(bbctx);
+        CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", insert_post_alloca);
+        string varname_name = string("bf_") + varname.str() + string("_name");
+        Constant* varname_name_var =
+          create_global_constant(*module, varname_name.c_str(), varname.data());
+        arg_list.push_back(alloc_name_var);
+        arg_list.push_back(pointer);
+        arg_list.push_back(bytes_alloced);
+        arg_list.push_back(varname_name_var);
+        callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_post_alloca);
+
+        // Release the mega-lock.
+        if (ThreadSafety)
+          callinst_create(release_mega_lock, insert_post_alloca);
+
+        // Advance the iterator to the last piece of code we inserted.  The
+        // invoking loop will then advance it again.
+        iter = insert_post_alloca;
+        iter--;
       }
     }
   }
@@ -539,13 +647,12 @@ namespace bytesflops_pass {
 
     // Process all other instructions.
     if (isa<GetElementPtrInst>(inst)) {
-      // LLVM's getelementptr instruction requires special handling.
-      // Given the C declaration "int *a", the getelementptr
-      // representation of a[3] is likely to turn into a+12 (a single
-      // addition), while the getelementptr representation of a[i] is
-      // likely to turn into a+4*i (an addition plus a
-      // multiplication).  We therefore count variable arguments as
-      // two ops and constants as one op.
+      // LLVM's getelementptr instruction requires special handling.  Given the
+      // C declaration "int *a", the getelementptr representation of a[3] is
+      // likely to turn into a+12 (a single addition), while the getelementptr
+      // representation of a[i] is likely to turn into a+4*i (an addition plus
+      // a multiplication).  We therefore count variable arguments as two ops
+      // and constants as one op.
       uint64_t arg_ops = 0;      // Expected number of operations
       uint64_t arg_op_bits = 0;  // Expected number of bits used
       User::const_op_iterator arg_iter = inst.op_begin();
@@ -732,7 +839,7 @@ namespace bytesflops_pass {
             break;
 
           case Instruction::Call:
-            instrument_call(module, &inst, terminator_inst, must_clear);
+            instrument_call(module, iter, terminator_inst, must_clear);
             break;
 
           case Instruction::Alloca:
@@ -778,41 +885,6 @@ namespace bytesflops_pass {
         callinst_create(push_function, key_args, new_entry);
       else
         callinst_create(tally_function, key, new_entry);
-    }
-
-    // If -bf-data-struct was specified, insert calls at the beginning of the
-    // function to bf_assoc_addresses_with_dstruct_stack() for each function
-    // argument that was allocated implicitly on the stack.
-    if (TallyByDataStruct) {
-      DataLayout data_layout = target_data.getDataLayout();
-      Function::ArgumentListType& argList = function.getArgumentList();
-      PointerType* ptr8ty = Type::getInt8PtrTy(func_ctx);
-      ConstantInt* zero32 = ConstantInt::get(func_ctx, APInt(32, 0));
-      for (auto iter = argList.begin(); iter != argList.end(); iter++) {
-        // Prepare to access the argument as both a pointer and a value.
-        Value* argVal = &cast<Value>(*iter);
-        if (!argVal->getType()->isPointerTy())
-          continue;
-        uint64_t bytes_alloced = data_layout.getTypeStoreSize(argVal->getType());
-        if (bytes_alloced == 0)
-          continue;
-        Value* argPtr = new BitCastInst(argVal, ptr8ty, "argptr", new_entry);
-        argVal = new LoadInst(argVal, "arg", false, new_entry);
-
-        // Invoke bf_assoc_addresses_with_dstruct_stack() on the argument.
-        vector<Value*> arg_list;
-        Constant* alloc_name_var =
-          create_global_constant(*module, "bf_.stack._name", "stack");
-        StringRef varname = iter->getName();
-        string varname_name = string("bf_") + varname.str() + string("_name");
-        Constant* varname_name_var =
-          create_global_constant(*module, varname_name.c_str(), varname.data());
-        arg_list.push_back(alloc_name_var);
-        arg_list.push_back(argPtr);
-        arg_list.push_back(ConstantInt::get(func_ctx, APInt(64, bytes_alloced)));
-        arg_list.push_back(varname_name_var);
-        callinst_create(assoc_addrs_with_dstruct_stack, arg_list, new_entry);
-      }
     }
 
     // Branch to the original entry point.

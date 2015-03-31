@@ -36,7 +36,8 @@ public:
 
   Interval() { }
 
-  Interval(T ll, T ul) : lower(ll), upper(ul) { }
+  Interval(T ll, T ul) : lower(ll), upper(ul) {
+  }
 
   bool operator<(const Interval<T>& other) const {
     return upper < other.lower;
@@ -109,6 +110,7 @@ void DataStructCounters::generate_symbol_name (void)
 
   // Derive the symbol name from the allocation location and the specified
   // prefix.
+  string allocated_text(origin == "unknown" ? " accessed at " : " allocated at ");
 # ifdef USE_BFD
   // If we have the BFD library, use that to get a more precise
   // source-code location.
@@ -116,20 +118,20 @@ void DataStructCounters::generate_symbol_name (void)
   if (srcloc == nullptr) {
     // Location wasn't found -- use the address instead.
     char *alloc_loc = new char[100];
-    sprintf(alloc_loc, (string(var_prefix) + " allocated at %p").c_str(), alloc_addr);
+    sprintf(alloc_loc, (string(var_prefix) + allocated_text + "%p").c_str(), alloc_addr);
     name = demangled_name = alloc_loc;
     delete[] alloc_loc;
   }
   else {
     // Location was found -- format it and use it.
     stringstream locstr;
-    locstr << var_prefix << " allocated at "
+    locstr << var_prefix << allocated_text
            << srcloc->file_name << ':' << srcloc->line_number
            << ", function " << srcloc->function_name
            << ", address " << hex << alloc_addr << dec;
     name = locstr.str();
     locstr.str(string());
-    locstr << var_prefix << " allocated at "
+    locstr << var_prefix << allocated_text
            << srcloc->file_name << ':' << srcloc->line_number
            << ", function " << demangle_func_name(srcloc->function_name)
            << ", address " << hex << alloc_addr << dec;
@@ -140,17 +142,18 @@ void DataStructCounters::generate_symbol_name (void)
   if (!strcmp(alloc_loc, "??:0")) {
     // Location wasn't found -- use the address instead.
     char *alt_alloc_loc = new char[100];
-    sprintf(alt_alloc_loc, (string(var_prefix) + " allocated at %p").c_str(), alloc_addr);
+    sprintf(alt_alloc_loc, (string(var_prefix) + allocated_text + "%p").c_str(), alloc_addr);
     name = demangled_name = alt_alloc_loc;
     delete[] alt_alloc_loc;
   }
   else
     // Location was found -- use it.
-    name = demangled_name = string(var_prefix) + " allocated at " + alloc_loc;
+    name = demangled_name = string(var_prefix) + allocated_text + alloc_loc;
 # endif
 #endif
 }
 
+// Define this file's two main data structures.
 static CachedOrderedMap<Interval<uint64_t>, DataStructCounters*>* data_structs;  // Interval tree with information about each data structure
 static CachedUnorderedMap<void*, DataStructCounters*>* location_to_counters;  // Map from a source-code location to data-structure counters
 
@@ -226,18 +229,25 @@ void initialize_data_structures (void)
 #endif
 }
 
+  /*
+   * Most of this file requires HAVE_BACKTRACE.  Rather than check for
+   * that individually in each function, we check once here and stub
+   * all the functions that require backtrace(): everything dealing
+   * with dynamic (either heap- or stack-allocated) data structures.
+   */
+#ifdef HAVE_BACKTRACE
+
 // Disassociate a range of previously allocated addresses (given the address
 // at the beginning of the range) from the data structure to which it used to
-// belong.
-static uint64_t disassoc_addresses_with_dstruct (void* baseptr)
+// belong.  Return the address to the right of the disassociated range.
+static void* disassoc_addresses_with_dstruct (void* baseptr)
 {
-#ifdef HAVE_BACKTRACE
   // Find the address interval and set of counters.
   static Interval<uint64_t> search_addr(0, 0);
   search_addr.lower = search_addr.upper = uint64_t(uintptr_t(baseptr));
   auto iter = data_structs->find(search_addr);
   if (iter == data_structs->end())
-    return 0;  // Address was not previously allocated (or somehow snuck by us).
+    return (void*)((char*)baseptr + 1);  // Address was not previously allocated (or somehow snuck by us).
   Interval<uint64_t> interval = iter->first;
   DataStructCounters* counters = iter->second;
 
@@ -249,10 +259,7 @@ static uint64_t disassoc_addresses_with_dstruct (void* baseptr)
   uint64_t interval_length = interval.upper - interval.lower + 1;
   counters->current_size -= interval_length;
   data_structs->erase(interval);
-  return interval_length;
-#else
-  return 0;
-#endif
+  return (void *)(interval.upper + 1);
 }
 
 // For access from user code, wrap disassoc_addresses_with_dstruct() and
@@ -264,28 +271,14 @@ void bf_disassoc_addresses_with_dstruct (void* baseptr)
 }
 
 // Associate a range of addresses with a dynamically allocated data structure.
-static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
-                                          void* baseptr, uint64_t numaddrs,
-                                          const char* var_prefix)
+  static void assoc_addresses_with_dstruct (void *caller_addr, const char* origin,
+                                            void* old_baseptr, void* baseptr,
+                                            uint64_t numaddrs, const char* var_prefix)
 {
-#ifdef HAVE_BACKTRACE
-  // Ignore this data structure if we don't know where we're coming from.
-  void* caller_addr = bf_find_caller_address();
-  if (caller_addr == NULL)
-    return;
-
   // Find an existing set of counters for the same source-code location.  If no
   // such counters exist, allocate a new set.
   DataStructCounters* counters;      // Counters associated with the data structure
-  bool new_allocation = true;   // false==realloc; true=other allocation call
-  map<Interval<uint64_t>, DataStructCounters*>::iterator old_iter;  // Memory range to reallocate
-  if (old_baseptr != nullptr) {
-    static Interval<uint64_t> search_addr(0, 0);
-    search_addr.lower = search_addr.upper = uint64_t(uintptr_t(old_baseptr));
-    old_iter = data_structs->find(search_addr);
-    new_allocation = old_iter == data_structs->end();
-  }
-  if (new_allocation) {
+  if (old_baseptr == nullptr) {
     // Common case -- we haven't seen the old base address before (because it's
     // presumably the same as the new address, and that's what was just
     // allocated).
@@ -310,6 +303,9 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
   else {
     // Case of realloc -- reuse the old counters, but remove the old address
     // range, and subtract off the bytes previously allocated.
+    static Interval<uint64_t> search_addr(0, 0);
+    search_addr.lower = search_addr.upper = uint64_t(uintptr_t(old_baseptr));
+    auto old_iter = data_structs->find(search_addr);
     counters = old_iter->second;
     Interval<uint64_t> old_interval = old_iter->first;
     counters->current_size -= old_interval.upper - old_interval.lower + 1;
@@ -324,8 +320,8 @@ static void assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
   // Associate the new range of addresses with the old (or just created)
   // counters.
   uint64_t baseaddr = uint64_t(uintptr_t(baseptr));
-  (*data_structs)[Interval<uint64_t>(baseaddr, baseaddr + numaddrs - 1)] = counters;
-#endif
+  Interval<uint64_t> ival(baseaddr, baseaddr + numaddrs - 1);
+  (*data_structs)[ival] = counters;
 }
 
 // Associate a range of addresses with a dynamically allocated data structure.
@@ -333,7 +329,17 @@ extern "C"
 void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
                                       void* baseptr, uint64_t numaddrs)
 {
-  assoc_addresses_with_dstruct(origin, old_baseptr, baseptr, numaddrs, "Data");
+  // Ignore this data structure if it consumes no space.
+  if (numaddrs == 0)
+    return;
+
+  // Ignore this data structure if we don't know where we're coming from.
+  void* caller_addr = bf_find_caller_address();
+  if (caller_addr == NULL)
+    return;
+
+  // Associate the caller's address with the data structure.
+  assoc_addresses_with_dstruct(caller_addr, origin, old_baseptr, baseptr, numaddrs, "Data");
 }
 
 // Associate a range of addresses with a dynamically allocated data structure
@@ -342,10 +348,21 @@ extern "C"
 void bf_assoc_addresses_with_dstruct_pm (const char* origin, void* old_baseptr,
                                          void** baseptrptr, uint64_t numaddrs, int retcode)
 {
-#ifdef HAVE_BACKTRACE
-  if (retcode == 0)
-    assoc_addresses_with_dstruct(origin, old_baseptr, *baseptrptr, numaddrs, "Data");
-#endif
+  // Ignore this data structure if posix_memalign() failed.
+  if (retcode != 0)
+    return;
+
+  // Ignore this data structure if it consumes no space.
+  if (numaddrs == 0)
+    return;
+
+  // Ignore this data structure if we don't know where we're coming from.
+  void* caller_addr = bf_find_caller_address();
+  if (caller_addr == NULL)
+    return;
+
+  // Associate the caller's address with the data structure.
+  assoc_addresses_with_dstruct(caller_addr, origin, old_baseptr, *baseptrptr, numaddrs, "Data");
 }
 
 // Associate a range of addresses with a dynamically allocated data structure
@@ -354,42 +371,94 @@ extern "C"
 void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
                                             uint64_t numaddrs, const char* varname)
 {
+  // Ignore this data structure if it consumes no space.
+  if (numaddrs == 0)
+    return;
+
+  // Ignore this data structure if we don't know where we're coming from.
+  void* caller_addr = bf_find_caller_address();
+  if (caller_addr == NULL)
+    return;
+
   // Disassociate all overlapping data structures.  For example if a function
   // declares "int32_t x,y;" then returns, then another function delcares
   // "int64_t foo;" and gets the same base address as x, we'll need to
   // associate foo's address range with foo from now on, not with x and y.
-  for (uint64_t ofs = 0; ofs < numaddrs; ) {
-    uint64_t freed = disassoc_addresses_with_dstruct((char*)baseptr + ofs);
-    ofs += freed == 0 ? 1 : freed;
-  }
+  void* lastaddr = (void*)((char*)baseptr + numaddrs);
+  for (void* addr = baseptr;
+       addr < lastaddr;
+       addr = disassoc_addresses_with_dstruct(addr))
+    ;
 
-  // Establish the new association.
+  // Associate the caller's address with the data structure.
   string prefix(varname);
   prefix = prefix == "*UNNAMED*" ? "Compiler-generated variable" : string("Variable ") + prefix;
-  assoc_addresses_with_dstruct(origin, nullptr, baseptr, numaddrs, prefix.c_str());
+  assoc_addresses_with_dstruct(caller_addr, origin, nullptr, baseptr, numaddrs, prefix.c_str());
 }
+
+  /*
+   * If HAVE_BACKTRACE is not defined, stub all of the functions that
+   * keep track of dynamic data structures.
+   */
+#else
+
+extern "C"
+void bf_disassoc_addresses_with_dstruct (void* baseptr)
+{
+}
+
+extern "C"
+void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
+                                      void* baseptr, uint64_t numaddrs)
+{
+}
+
+extern "C"
+void bf_assoc_addresses_with_dstruct_pm (const char* origin, void* old_baseptr,
+                                         void** baseptrptr, uint64_t numaddrs, int retcode)
+{
+}
+
+extern "C"
+void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
+                                            uint64_t numaddrs, const char* varname)
+{
+}
+
+#endif
+
+  /* The rest of this file works either with or without HAVE_BACKTRACE. */
 
 // Increment access counts for a data structure.
 extern "C"
 void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0store1)
 {
   // Find the interval containing the base address.  Use a set of counts
-  // representing unknown data structures if we failed to find an interval
-  // (e.g., because the address represents a stack variable).
+  // representing unknown data structures if we failed to find an interval.
   static Interval<uint64_t> search_addr(0, 0);
   search_addr.lower = search_addr.upper = baseaddr;
   DataStructCounters* counters;
   auto iter = data_structs->find(search_addr);
   if (iter == data_structs->end()) {
     // The data structure wasn't found.  For example, it was allocated by a
-    // non-Byfl-instrumented function (say, strdup(), for example).
-    for (uint64_t ofs = 0; ofs < numaddrs; ) {
-      uint64_t freed = disassoc_addresses_with_dstruct((void*)uintptr_t(baseaddr + ofs));
-      ofs += freed == 0 ? 1 : freed;
-    }
-    assoc_addresses_with_dstruct("unknown", nullptr, (void*)uintptr_t(baseaddr),
+    // non-Byfl-instrumented function (say, strdup(), for example).  "Allocate"
+    // it so it'll be found the next time.
+#ifdef HAVE_BACKTRACE
+    void* caller_addr = bf_find_caller_address();
+    if (caller_addr == NULL)
+      return;  // Ignore this access if we don't know where we're coming from.
+    void* lastaddr = (void*)(baseaddr + numaddrs);
+    for (void* addr = (void*)(uintptr_t(baseaddr));
+         addr < lastaddr;
+         addr = disassoc_addresses_with_dstruct(addr))
+      ;
+    assoc_addresses_with_dstruct(caller_addr, "unknown", nullptr,
+                                 (void*)uintptr_t(baseaddr),
                                  numaddrs, "Unknown data structure");
     iter = data_structs->find(search_addr);
+#else
+    return;  // Ignore this access if we don't know where we're coming from.
+#endif
   }
   counters = iter->second;
 

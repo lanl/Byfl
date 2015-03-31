@@ -507,18 +507,11 @@ void bf_record_funcs2keys(uint32_t cnt, const uint64_t* keys,
 extern "C"
 void bf_push_function (const char* funcname, KeyType_t key)
 {
-  uint64_t depth = 1;
-
   bf_current_func_key = key;
-
-  const char* unique_combined_name = call_stack->push_function(funcname, key);
-  bf_func_and_parents = unique_combined_name;
-
-  depth <<= call_stack->depth();
+  bf_func_and_parents =  call_stack->push_function(funcname, key);
+  uint64_t depth = 1 << call_stack->depth();
   bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ key;
-
   bf_record_key(bf_func_and_parents, bf_func_and_parents_id);
-
   func_call_tallies()[bf_func_and_parents_id]++;
   func_call_tallies()[key] += 0;
 }
@@ -527,9 +520,7 @@ void bf_push_function (const char* funcname, KeyType_t key)
 extern "C"
 void bf_pop_function (void)
 {
-  uint64_t depth = 1;
-
-  depth <<= call_stack->depth();
+  uint64_t depth = 1 << call_stack->depth();
   CallStack::StackItem_t item = call_stack->pop_function();
   bf_func_and_parents = item.first;
   bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ bf_current_func_key;

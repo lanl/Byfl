@@ -735,4 +735,25 @@ size_t BytesFlops::bb_size(const BasicBlock& bb)
   return tally;
 }
 
+// Convert an LLVM value to an STL string.
+string BytesFlops::value_to_string(const Value* value)
+{
+  string valstr;
+  raw_string_ostream rso(valstr);
+  value->print(rso);
+  return valstr;
+}
+
+// Push a value onto an argument list as a string.
+void BytesFlops::push_value_string(Module& module, vector<Value*>& arg_list, Value* value)
+{
+  static MersenneTwister prng(1073741741);
+  string valstr = value_to_string(value);
+  stringstream valstr_name;
+  valstr_name << "bf_value_" << prng.next();
+  Constant* valstr_name_var =
+    create_global_constant(module, valstr_name.str().c_str(), valstr.c_str());
+  arg_list.push_back(valstr_name_var);
+}
+
 } // namespace bytesflops_pass

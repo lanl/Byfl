@@ -339,6 +339,12 @@ namespace bytesflops_pass {
     // Tally the number of "real" instructions in a basic block.
     size_t bb_size(const BasicBlock& bb);
 
+    // Convert an LLVM value to an STL string.
+    string value_to_string(const Value* value);
+
+    // Push a value onto an argument list as a string.
+    void push_value_string(Module& module, vector<Value*>& arg_list, Value* value);
+
     // Instrument Load and Store instructions.
     void instrument_load_store(Module* module,
                                StringRef function_name,
@@ -350,7 +356,7 @@ namespace bytesflops_pass {
 
     // Instrument Call instructions.
     void instrument_call(Module* module,
-                         Instruction* inst,
+                         BasicBlock::iterator& iter,
                          BasicBlock::iterator& insert_before,
                          int& must_clear);
 
