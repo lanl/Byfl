@@ -229,12 +229,19 @@ void initialize_data_structures (void)
 #endif
 }
 
+  /*
+   * Most of this file requires HAVE_BACKTRACE.  Rather than check for
+   * that individually in each function, we check once here and stub
+   * all the functions that require backtrace(): everything dealing
+   * with dynamic (either heap- or stack-allocated) data structures.
+   */
+#ifdef HAVE_BACKTRACE
+
 // Disassociate a range of previously allocated addresses (given the address
 // at the beginning of the range) from the data structure to which it used to
 // belong.  Return the address to the right of the disassociated range.
 static void* disassoc_addresses_with_dstruct (void* baseptr)
 {
-#ifdef HAVE_BACKTRACE
   // Find the address interval and set of counters.
   static Interval<uint64_t> search_addr(0, 0);
   search_addr.lower = search_addr.upper = uint64_t(uintptr_t(baseptr));
@@ -253,9 +260,6 @@ static void* disassoc_addresses_with_dstruct (void* baseptr)
   counters->current_size -= interval_length;
   data_structs->erase(interval);
   return (void *)(interval.upper + 1);
-#else
-  return (void*)((char*)baseptr + 1);
-#endif
 }
 
 // For access from user code, wrap disassoc_addresses_with_dstruct() and
@@ -271,7 +275,6 @@ void bf_disassoc_addresses_with_dstruct (void* baseptr)
                                             void* old_baseptr, void* baseptr,
                                             uint64_t numaddrs, const char* var_prefix)
 {
-#ifdef HAVE_BACKTRACE
   // Find an existing set of counters for the same source-code location.  If no
   // such counters exist, allocate a new set.
   DataStructCounters* counters;      // Counters associated with the data structure
@@ -319,7 +322,6 @@ void bf_disassoc_addresses_with_dstruct (void* baseptr)
   uint64_t baseaddr = uint64_t(uintptr_t(baseptr));
   Interval<uint64_t> ival(baseaddr, baseaddr + numaddrs - 1);
   (*data_structs)[ival] = counters;
-#endif
 }
 
 // Associate a range of addresses with a dynamically allocated data structure.
@@ -327,7 +329,6 @@ extern "C"
 void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
                                       void* baseptr, uint64_t numaddrs)
 {
-#ifdef HAVE_BACKTRACE
   // Ignore this data structure if it consumes no space.
   if (numaddrs == 0)
     return;
@@ -339,7 +340,6 @@ void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
 
   // Associate the caller's address with the data structure.
   assoc_addresses_with_dstruct(caller_addr, origin, old_baseptr, baseptr, numaddrs, "Data");
-#endif
 }
 
 // Associate a range of addresses with a dynamically allocated data structure
@@ -348,7 +348,6 @@ extern "C"
 void bf_assoc_addresses_with_dstruct_pm (const char* origin, void* old_baseptr,
                                          void** baseptrptr, uint64_t numaddrs, int retcode)
 {
-#ifdef HAVE_BACKTRACE
   // Ignore this data structure if posix_memalign() failed.
   if (retcode != 0)
     return;
@@ -364,7 +363,6 @@ void bf_assoc_addresses_with_dstruct_pm (const char* origin, void* old_baseptr,
 
   // Associate the caller's address with the data structure.
   assoc_addresses_with_dstruct(caller_addr, origin, old_baseptr, *baseptrptr, numaddrs, "Data");
-#endif
 }
 
 // Associate a range of addresses with a dynamically allocated data structure
@@ -373,7 +371,6 @@ extern "C"
 void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
                                             uint64_t numaddrs, const char* varname)
 {
-#ifdef HAVE_BACKTRACE
   // Ignore this data structure if it consumes no space.
   if (numaddrs == 0)
     return;
@@ -397,14 +394,45 @@ void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
   string prefix(varname);
   prefix = prefix == "*UNNAMED*" ? "Compiler-generated variable" : string("Variable ") + prefix;
   assoc_addresses_with_dstruct(caller_addr, origin, nullptr, baseptr, numaddrs, prefix.c_str());
-#endif
 }
+
+  /*
+   * If HAVE_BACKTRACE is not defined, stub all of the functions that
+   * keep track of dynamic data structures.
+   */
+#else
+
+extern "C"
+void bf_disassoc_addresses_with_dstruct (void* baseptr)
+{
+}
+
+extern "C"
+void bf_assoc_addresses_with_dstruct (const char* origin, void* old_baseptr,
+                                      void* baseptr, uint64_t numaddrs)
+{
+}
+
+extern "C"
+void bf_assoc_addresses_with_dstruct_pm (const char* origin, void* old_baseptr,
+                                         void** baseptrptr, uint64_t numaddrs, int retcode)
+{
+}
+
+extern "C"
+void bf_assoc_addresses_with_dstruct_stack (const char* origin, void* baseptr,
+                                            uint64_t numaddrs, const char* varname)
+{
+}
+
+#endif
+
+  /* The rest of this file works either with or without HAVE_BACKTRACE. */
 
 // Increment access counts for a data structure.
 extern "C"
 void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0store1)
 {
-#ifdef HAVE_BACKTRACE
   // Find the interval containing the base address.  Use a set of counts
   // representing unknown data structures if we failed to find an interval.
   static Interval<uint64_t> search_addr(0, 0);
@@ -415,6 +443,7 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
     // The data structure wasn't found.  For example, it was allocated by a
     // non-Byfl-instrumented function (say, strdup(), for example).  "Allocate"
     // it so it'll be found the next time.
+#ifdef HAVE_BACKTRACE
     void* caller_addr = bf_find_caller_address();
     if (caller_addr == NULL)
       return;  // Ignore this access if we don't know where we're coming from.
@@ -427,6 +456,9 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
                                  (void*)uintptr_t(baseaddr),
                                  numaddrs, "Unknown data structure");
     iter = data_structs->find(search_addr);
+#else
+    return;  // Ignore this access if we don't know where we're coming from.
+#endif
   }
   counters = iter->second;
 
@@ -441,7 +473,6 @@ void bf_access_data_struct (uint64_t baseaddr, uint64_t numaddrs, uint8_t load0s
     counters->store_ops++;
     counters->bytes_stored += numaddrs;
   }
-#endif
 }
 
 // Compare two counters with the intention of sorted them in decreasing

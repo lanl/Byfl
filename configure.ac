@@ -230,6 +230,7 @@ if test "x$ac_cv_func_asprintf" != xyes; then
   AC_MSG_WARN([Using an unsafe alternative to asprintf, which wasn't found])
 fi
 if test "x$ac_cv_header_execinfo_h" != xyes ; then
+  AC_MSG_WARN([Dynamic data structures cannot be tracked without access to the backtrace_symbols function])
   AC_MSG_WARN([Binary basic-block output cannot include addresses without access to the backtrace_symbols function])
 fi
 if test $USE_BFD = no ; then
