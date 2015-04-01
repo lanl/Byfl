@@ -1,5 +1,5 @@
 ############################################
-# Install wrappers for various GCC progams #
+# Install wrappers for various compilers   #
 # to facilitate compiling them with Byfl   #
 #					   #
 # By Scott Pakin <pakin@lanl.gov>	   #
@@ -22,6 +22,9 @@ SILENT_MAKE = $(SILENT_MAKE_$(V))
 SILENT_MAKE_ = $(SILENT_MAKE_$(AM_DEFAULT_VERBOSITY))
 SILENT_MAKE_0 = -s
 SILENT_MAKE_1 = NOECHO=""
+
+pkgconfigdir=$(libdir)/pkgconfig
+pkgconfig_DATA = byfl-clang.pc
 
 install-parser: $(srcdir)/ParseCompilerOpts.pm
 	$(INSTALL_DATA) -D "$(srcdir)/ParseCompilerOpts.pm" "$(DESTDIR)$(perlsitelibdir)/ParseCompilerOpts.pm"

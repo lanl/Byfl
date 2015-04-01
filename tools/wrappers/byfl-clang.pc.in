@@ -1,0 +1,21 @@
+########################################
+# pkg-config metadata for using Byfl   #
+# with the Clang and Clang++ compilers #
+#                                      #
+# By Scott Pakin <pakin@lanl.gov>      #
+########################################
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+plugindir=@plugindir@
+ldflags=@LDFLAGS@
+libs=-lbyfl @LIBS@ -lstdc++
+
+Name: byfl-clang
+Description: Instrument Clang-compiled programs with Byfl
+URL: https://github.com/losalamos/Byfl
+Version: @VERSION@
+Cflags: -Xclang -load -Xclang ${plugindir}/bytesflops.so
+Libs: -L${libdir} ${ldflags} ${libs}

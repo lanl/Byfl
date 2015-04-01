@@ -200,6 +200,7 @@ AC_CONFIG_FILES([lib/Makefile])
 AC_CONFIG_FILES([lib/byfl/Makefile])
 AC_CONFIG_FILES([lib/bytesflops/Makefile])
 AC_CONFIG_FILES([tools/Makefile])
+AC_CONFIG_FILES([tools/wrappers/byfl-clang.pc])
 AC_CONFIG_FILES([tools/postproc/Makefile])
 AC_CONFIG_FILES([tools/postproc/bfbin2py], [
     cat tools/postproc/bfbin2py | `$MAKE -s sed-command | $GREP sed` > tools/postproc/bfbin2py.tmp
