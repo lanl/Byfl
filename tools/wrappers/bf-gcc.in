@@ -14,8 +14,8 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use File::stat;
 use Getopt::Long qw(GetOptionsFromArray);
-use lib '@perlsitelibdir@';   # Find ParseGccOpts if installed in a non-standard location.
-use ParseGccOpts;
+use lib '@perlsitelibdir@';   # Find ParseCompilerOpts if installed in a non-standard location.
+use ParseCompilerOpts;
 use Switch;
 use warnings;
 use strict;
@@ -245,7 +245,7 @@ switch ($bf_disable) {
 @bf_options = grep {/^--?bf-/} @constructed_ARGV;
 @bf_options = map {s/^--/-/; $_} @bf_options;
 @bf_options = grep {!/^-bf-(verbose|static|dragonegg|libdir|disable)/} @bf_options;
-my @parse_info = parse_gcc_options(grep {!/^--?bf-/} @constructed_ARGV);
+my @parse_info = parse_compiler_options(grep {!/^--?bf-/} @constructed_ARGV);
 my %build_type = %{$parse_info[0]};
 my @target_filenames = @{$parse_info[1]};
 my @compiler_opts = @{$parse_info[2]};

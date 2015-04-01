@@ -1,17 +1,17 @@
 ###################################
 # Help the Byfl wrapper scripts   #
-# parse GCC options               #
+# parse GCC and Clang options     #
 #                                 #
 # By Scott Pakin <pakin@lanl.gov> #
 ###################################
 
 =head1 NAME
 
-ParseGccOpts - Parse GCC options into compiler and linker options
+ParseCompilerOpts - Parse GCC and Clang options into compiler and linker options
 
 =head1 SYNOPSIS
 
-  use ParseGccOpts;
+  use ParseCompilerOpts;
 
   @parse_info = parse_gcc_options @ARGV;
   %build_type = %{$parse_info[0]};
@@ -33,7 +33,7 @@ Scott Pakin <pakin@lanl.gov>
 
 ###########################################################################
 
-package ParseGccOpts;
+package ParseCompilerOpts;
 
 use Carp;
 use File::Basename;
@@ -46,14 +46,14 @@ BEGIN {
     our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
     $VERSION     = 1.00;
     @ISA         = qw(Exporter);
-    @EXPORT      = qw(parse_gcc_options);
+    @EXPORT      = qw(parse_compiler_options);
     %EXPORT_TAGS = ();
     @EXPORT_OK   = ();
 }
 our @EXPORT_OK;
 
 # Parse a list of options, typically @ARGV.
-sub parse_gcc_options (@)
+sub parse_compiler_options (@)
 {
     my @arg_list = @_;      # Copy of argument list
     my @compiler_opts;      # Options for the compiler
