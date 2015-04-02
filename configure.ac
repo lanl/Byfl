@@ -4,7 +4,7 @@ dnl ### By Scott Pakin <pakin@lanl.gov> ###
 dnl #######################################
 
 dnl Initialize Autoconf and friends.
-AC_INIT([byfl], [1.1], [pakin@lanl.gov])
+AC_INIT([byfl], [1.2], [pakin@lanl.gov])
 AC_CONFIG_SRCDIR([lib/byfl/byfl.h])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign])
@@ -183,15 +183,15 @@ if test "${DRAGONEGG:-no}" = no ; then
   done
   ])
   if test "$ax_cv_file_dragonegg_so" = no ; then
-    AC_MSG_WARN([Byfl's GCC wrapper scripts require DragonEgg and will fail without it])
+    dnl Define where dragonegg.so *ought* to be but isn't.
     DRAGONEGG="`$LLVM_CONFIG --libdir`/dragonegg.so"
   else
     DRAGONEGG="$ax_cv_file_dragonegg_so"
   fi
-elif test ! -e "$DRAGONEGG" ; then
-  # The location of the DragonEgg plugin was specified -- see if it exists.
-  AC_MSG_WARN([Did you specify an incorrect file for the DRAGONEGG variable ($DRAGONEGG)?])
+else
+  ax_cv_file_dragonegg_so="$DRAGONEGG"
 fi
+AM_CONDITIONAL([HAVE_DRAGONEGG], [test x$ax_cv_file_dragonegg_so != xno])
 
 dnl Generate all of the Byfl Makefiles and other files.
 AC_CONFIG_FILES([Makefile])
@@ -248,4 +248,8 @@ if test $BUILD_BFBIN2HDF5 = no ; then
 fi
 if test $BUILD_BFBIN2SQLITE3 = no ; then
   AC_MSG_WARN([Not building the bfbin2sqlite3 postprocessor because it requires SQLite3 (v3.7.15+)])
+fi
+if test x$ax_cv_file_dragonegg_so != xno -a ! -e "$DRAGONEGG" ; then
+  # The location of the DragonEgg plugin was specified but does not exist.
+  AC_MSG_WARN([$DRAGONEGG does not exist; did you specify an incorrect file for the DRAGONEGG variable?])
 fi
