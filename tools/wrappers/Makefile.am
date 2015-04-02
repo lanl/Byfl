@@ -7,10 +7,12 @@
 
 nodist_bin_SCRIPTS = \
 	bf-inst \
-	bf-gcc
+	bf-gcc \
+	bf-clang
 
 EXTRA_DIST = \
 	bf-gcc.in \
+	bf-clang.in \
 	bf-inst.in \
 	ParseCompilerOpts.pm \
 	make-bf-mpi
@@ -29,7 +31,9 @@ pkgconfig_DATA = byfl-clang.pc
 install-parser: $(srcdir)/ParseCompilerOpts.pm
 	$(INSTALL_DATA) -D "$(srcdir)/ParseCompilerOpts.pm" "$(DESTDIR)$(perlsitelibdir)/ParseCompilerOpts.pm"
 
-install-compiler-scripts: bf-gcc
+install-compiler-scripts: bf-gcc bf-clang
+	$(LN_S) -f bf-clang $(DESTDIR)$(bindir)/bf-clang
+	$(LN_S) -f bf-clang $(DESTDIR)$(bindir)/bf-clang++
 	$(LN_S) -f bf-gcc $(DESTDIR)$(bindir)/bf-g++
 	$(LN_S) -f bf-gcc $(DESTDIR)$(bindir)/bf-gfortran
 	$(LN_S) -f bf-gcc $(DESTDIR)$(bindir)/bf-gccgo
@@ -40,12 +44,19 @@ install-mpi-scripts: $(srcdir)/make-bf-mpi
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpif90 bf-gfortran OMPI_FC MPICH_F90 $(bindir) > $(DESTDIR)$(bindir)/bf-mpif90
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpif77 bf-gfortran OMPI_F77 MPICH_F77 $(bindir) > $(DESTDIR)$(bindir)/bf-mpif77
 
-install-man1-pages: bf-gcc
+install-man1-pages: bf-gcc bf-clang
 	$(INSTALL) -d "$(DESTDIR)$(mandir)/man1"
-	$(RM) "$(DESTDIR)$(mandir)/man1/bf-gcc.1" \
+	$(RM) "$(DESTDIR)$(mandir)/man1/bf-clang.1" \
+	      "$(DESTDIR)$(mandir)/man1/bf-clang++.1" \
+	      "$(DESTDIR)$(mandir)/man1/bf-gcc.1" \
 	      "$(DESTDIR)$(mandir)/man1/bf-g++.1" \
 	      "$(DESTDIR)$(mandir)/man1/bf-gfortran.1" \
 	      "$(DESTDIR)$(mandir)/man1/bf-gccgo.1"
+	$(AM_V_GEN) $(POD2MAN) --center="$(MAN_CATEGORY)" --release="$(MAN_RELEASE)" bf-clang > \
+	  "$(DESTDIR)$(mandir)/man1/bf-clang.1"
+	$(AM_V_GEN) cat "$(DESTDIR)$(mandir)/man1/bf-clang.1" | \
+	  $(PERL) -ne 's/clang/clang++/g; s/\bC (compiler|code)/C++ $$1/g; s/myprog\.c/myprog.cpp/g; s/BF_CLANG/BF_CLANGXX/g; print' > \
+	    "$(DESTDIR)$(mandir)/man1/bf-clang++.1"
 	$(AM_V_GEN) $(POD2MAN) --center="$(MAN_CATEGORY)" --release="$(MAN_RELEASE)" bf-gcc > \
 	  "$(DESTDIR)$(mandir)/man1/bf-gcc.1"
 	$(AM_V_GEN) cat "$(DESTDIR)$(mandir)/man1/bf-gcc.1" | \
@@ -66,7 +77,7 @@ install-man3-pages: $(srcdir)/ParseCompilerOpts.pm
 install-exec-local: install-parser install-compiler-scripts install-mpi-scripts install-man1-pages install-man3-pages
 
 uninstall-local:
-	for script in bf-gcc bf-g++ bf-gfortran bf-gccgo bf-mpicc bf-mpicxx bf-mpif90 bf-mpif77 ; do \
+	for script in bf-clang bf-clang++ bf-gcc bf-g++ bf-gfortran bf-gccgo bf-mpicc bf-mpicxx bf-mpif90 bf-mpif77 ; do \
 	  $(RM) "$(DESTDIR)$(bindir)/$${script}" ; \
 	  $(RM) "$(DESTDIR)$(mandir)/man1/$${script}.1" ; \
 	done

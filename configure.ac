@@ -215,6 +215,12 @@ AC_CONFIG_FILES([tools/wrappers/bf-gcc], [
   ],
   [MAKE="$MAKE"
    GREP="$GREP"])
+AC_CONFIG_FILES([tools/wrappers/bf-clang], [
+    cat tools/wrappers/bf-clang | `$MAKE -s sed-command | $GREP sed` > tools/wrappers/bf-clang.tmp
+    mv tools/wrappers/bf-clang.tmp tools/wrappers/bf-clang
+  ],
+  [MAKE="$MAKE"
+   GREP="$GREP"])
 AC_CONFIG_FILES([tools/wrappers/bf-inst], [
     cat tools/wrappers/bf-inst | `$MAKE -s sed-command | $GREP sed` > tools/wrappers/bf-inst.tmp
     mv tools/wrappers/bf-inst.tmp tools/wrappers/bf-inst],

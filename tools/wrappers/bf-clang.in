@@ -1,0 +1,587 @@
+#! /usr/bin/env perl
+
+####################################################
+# Wrap clang with options for ByFl instrumentation #
+# By Scott Pakin <pakin@lanl.gov>                  #
+####################################################
+
+use constant DEBUG => 0;
+
+use Cwd qw(abs_path);
+use File::Basename;
+use File::Copy;
+use File::Spec;
+use File::Temp qw(tempdir);
+use File::stat;
+use Getopt::Long qw(GetOptionsFromArray);
+use lib '@perlsitelibdir@';   # Find ParseCompilerOpts if installed in a non-standard location.
+use ParseCompilerOpts;
+use Switch;
+use warnings;
+use strict;
+
+# Specify some installation locations.
+my $byfl_plugin = '@plugindir@/bytesflops.so';
+my $byfl_libdir = '@libdir@';
+my $llvm_libdir = '@llvm_libdir@';
+
+# Store the name of this script and the name of the underlying compiler.
+my $progname = basename $0;
+my $compiler = substr($progname, 3);
+my $compiler_env_var = "BF_" . uc($compiler);
+$compiler_env_var =~ s/\W/X/g;   # "G++" --> "GXX", e.g.
+$compiler = $ENV{$compiler_env_var} if defined $ENV{$compiler_env_var};
+
+# Let the user increase this script's verbosity.
+my $verbosity = 0;
+
+# Optimization level requested on the command line via -O.  Note: Not
+# necessary numeric (e.g., "-Os").
+my $optimization_level = "0";
+
+# Take bytesflops options from the BF_OPTS environment variable.
+my @bf_options = split(" ", $ENV{"BF_OPTS"} || "");
+
+# Let the user disable either the bytesflops plugin or everything besides
+# command-line filtering.
+my $bf_disable = "none";
+
+# Define a function that optionally prints, then executes a system
+# command, aborting on failure.  If the first argument is "NO FAIL",
+# then return an error code rather than aborting.
+sub execute_command (@)
+{
+    my $die_on_fail = 1;
+    if ($_[0] eq "NO FAIL") {
+        $die_on_fail = 0;
+        shift;
+    }
+    my @command = @_;
+    if ($verbosity > 0) {
+        print STDERR join(" ", map {/\s/ ? "'$_'" : $_} @command), "\n";
+    }
+    return $? >> 8 if system(@command) == 0 || !$die_on_fail;
+    die "${progname}: Aborting\n";
+}
+
+# Define a function that removes a set of intermediate files.
+sub remove_files (@)
+{
+    my @deletable = map {-e $_ ? $_ : ()} @_;
+    # Remove intermediate files.
+    print STDERR "rm -f @deletable\n" if $verbosity > 0;
+    unlink(@deletable) || die "${progname}: $!\n";
+}
+
+# Define a subroutine that initializes the default and clang-specific
+# library search paths.
+my @default_lib_path;       # Linker's default search path
+my @clang_lib_path;           # Additional path elements clang passes to ld
+sub initialize_lib_paths ()
+{
+    # Find the default library path with the compiler and ld's help.
+    my $sysroot = "/";    # Directory to substitute for "=" in a SEARCH_DIR
+    if (!@default_lib_path) {
+        local $/ = undef;
+        open(CLANGINFO, "$compiler -v -Wl,--verbose 2>&1|") || die "${progname}: $!\n";
+        my $clanginfo = <CLANGINFO>;
+        close CLANGINFO;
+        $sysroot = $1 if $clanginfo =~ /\b--with-sysroot=(\S+)/s;
+        if ($clanginfo =~ /\bLIBRARY_PATH=([^\n]+)/gs) {
+            # Search path passed via -L flags from clang to ld
+            push @clang_lib_path, split ":", $1;
+        }
+        while ($clanginfo =~ /\bSEARCH_DIR\(\"(.*?)\"\);/gs) {
+            # Search path from the default linker script
+            my $dirname = $1;
+            $dirname =~ s/^=/$sysroot/;
+            push @default_lib_path, File::Spec->canonpath($dirname);
+        }
+    }
+}
+
+# Define a function that finds a .a file specified with "-l<libname>"
+# given <libname> and a search path (list of arguments to -L).
+sub find_archive_file ($@)
+{
+    # Search each path in turn for the given .a file.
+    my $aname = "lib" . $_[0] . ".a";
+    foreach my $dirname (@_[1..$#_], @clang_lib_path, @default_lib_path) {
+        my $filespec = File::Spec->catfile($dirname, $aname);
+        return $filespec if -e $filespec;
+    }
+    return undef;
+}
+
+# Define a function that extracts a .bc file from a .o file wrapper.
+# This function returns the new filename.
+sub extract_bitcode ($)
+{
+    # Quit early if we can.
+    my $ofile = $_[0];
+    my ($base, $dir, $suffix) = fileparse $ofile, "\\.[^.]+";
+    return $ofile if $suffix ne ".o";
+    my $bcfile = File::Spec->abs2rel(File::Spec->catfile($dir, $base . ".bc"));
+    return $bcfile if -e $bcfile;     # We've already extracted the .bc file.
+
+    # Extract the bitcode if we can.
+    return $ofile if execute_command("NO FAIL",
+                                     "objcopy", "--output-target=binary",
+                                     "--only-section=.bitcode",
+                                     $ofile, $bcfile) != 0;
+    if (-z $bcfile) {
+        # objcopy successfully found no .bitcode section and returned
+        # a zero-byte file -- delete it and pretend objcopy failed.
+        unlink $bcfile;
+        return $ofile;
+    }
+    return $bcfile;
+}
+
+# Define a function that converts a .a file containing LLVM bitcode
+# wrapped within a .o wrapper into a .bc file containing real LLVM
+# bitcode.  This function returns the new filename.
+sub convert_archive_file ($)
+{
+    # Quit early if we can.
+    my $afile = $_[0];
+    return $afile if -e $afile && !-w $afile;    # We can't write the file so it must not contain our bitcode wrappers.
+
+    # Create a work directory and cd into it.
+    my $workdir = tempdir($progname . "-XXXXXX",
+                          DIR => ".",
+                          CLEANUP => 1);
+    $afile = abs_path($afile);
+    chdir $workdir || die "${progname}: $!\n";
+    local $SIG{"__DIE__"} = sub ($) {
+        # Leave the work directory before aborting.
+        chdir "..";
+        die $_[0];
+    };
+
+    # Extract the contents of the .a file.
+    execute_command("ar", ($verbosity > 0 ? "xv" : "x"), $afile);
+
+    # Extract a .bc file from each .o file.
+    my @bcfiles;
+    foreach my $ofile (<*.o .*.o>) {
+        my $bcfile = extract_bitcode $ofile;
+        push @bcfiles, $bcfile if $bcfile ne $ofile;
+    }
+
+    # Convert each .bc file to a real .o file.
+    foreach my $bcfile (@bcfiles) {
+        execute_command("llc", $bcfile);
+        my $sfile = $bcfile;
+        $sfile =~ s/\.bc$/.s/;
+        my $ofile = $bcfile;
+        $ofile =~ s/\.bc$/.o/;
+        execute_command("as", "-o", $ofile, $sfile);
+    }
+
+    # Re-archive the real .o files into a single .a file.
+    execute_command("ar", $verbosity > 0 ? "rv" : "r", $afile, glob "*.o .*.o");
+
+    # Leave the work directory so it can be removed.
+    chdir "..";
+    return $afile;
+}
+
+###########################################################################
+
+# Parse the command line.
+my @constructed_ARGV = (@bf_options, @ARGV);
+my @ARGV_no_bf = grep {!m/^--?bf-/} @constructed_ARGV;
+Getopt::Long::Configure("pass_through");
+GetOptionsFromArray(\@constructed_ARGV,
+                    "bf-verbose+"     => \$verbosity,
+                    "bf-libdir=s"     => \$byfl_libdir,
+                    "bf-plugin=s"     => \$byfl_plugin,
+                    "bf-disable=s"    => \$bf_disable)
+    || die "${progname}: Failed to parse the command line\n";
+switch ($bf_disable) {
+    case "none" {
+        # Disable nothing; run normally.
+    }
+    case "byfl" {
+        # Disable the bytesflops plugin and just use the underlying compiler.
+        exit execute_command($compiler, @ARGV_no_bf);
+    }
+    else {
+        die "${progname}: I don't know how to disable \"$bf_disable\""
+            . ' (must be one of "none" or "byfl")' . "\n";
+    }
+}
+@bf_options = grep {/^--?bf-/} @constructed_ARGV;
+@bf_options = map {s/^--/-/; $_} @bf_options;
+@bf_options = grep {!/^-bf-(verbose|libdir|disable)/} @bf_options;
+my @parse_info = parse_compiler_options(@ARGV_no_bf);
+my %build_type = %{$parse_info[0]};
+my @target_filenames = @{$parse_info[1]};
+my @compiler_opts = @{$parse_info[2]};
+my @linker_opts = @{$parse_info[3]};
+my @leftover_values = @{$parse_info[4]};
+
+# Check if we're neither compiling nor linking.
+if (!defined $build_type{"compile"} && !defined $build_type{"link"}) {
+    # Preprocessing only -- pass all of our arguments to the compiler.
+    exit execute_command($compiler, @ARGV_no_bf);
+}
+die "${progname}: No input files specified.  Aborting.\n" if !@constructed_ARGV;
+
+# Start with the original command line but with the true compiler substituted.
+my @command_line = ($compiler, @ARGV_no_bf);
+
+# If we're compiling, add Clang options to invoke the Byfl plugin.
+if (defined $build_type{"compile"}) {
+    # Construct a command line.
+    push @command_line, ("-g",
+			 "-Xclang", "-load",
+			 "-Xclang", "$byfl_plugin");
+    foreach my $bf_opt (@bf_options) {
+	push @command_line, ("-mllvm", $bf_opt);
+    }
+}
+
+# If we're linking, and Clang options to link with the Byfl run-time library
+# and its dependencies.
+if (defined $build_type{"link"}) {
+    push @command_line, ("-L$byfl_libdir", "-L$llvm_libdir",
+                            "-Wl,--allow-multiple-definition", "-lm");
+    push @command_line, ("-rpath", $byfl_libdir, "-lbyfl", "-lstdc++");
+    push @command_line, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;
+    if ($compiler ne "clang++") {
+        push @command_line, "-lstdc++";
+    }
+}
+
+# Run the compiler and/or linker.
+execute_command(@command_line);
+
+###########################################################################
+
+__END__
+
+=head1 NAME
+
+bf-clang - Inject Byfl instrumentation while compiling a program
+
+=head1 SYNOPSIS
+
+bf-clang
+[B<-bf-by-func>]
+[B<-bf-call-stack>]
+[B<-bf-data-structs>]
+[B<-bf-types>]
+[B<-bf-inst-mix>]
+[B<-bf-vectors>]
+[B<-bf-unique-bytes>]
+[B<-bf-mem-footprint>]
+[B<-bf-every-bb>]
+[B<-bf-merge-bb>=I<count>]
+[B<-bf-include>=I<function>[,I<function>]...]
+[B<-bf-exclude>=I<function>[,I<function>]...]
+[B<-bf-thread-safe>]
+[B<-bf-verbose>]
+[B<-bf-libdir>=I<path/to/byfl/lib/>]
+[B<-bf-plugin>=I<path/to/bytesflops.so>]
+[B<-bf-disable>=I<feature>]
+[I<clang_options>...]
+[I<file>...]
+
+=head1 DESCRIPTION
+
+B<bf-clang> is the Byfl project's C compiler.  It compiles C code,
+instrumenting it to report various I<software> performance counters at
+execution time.  Software performance counters are analogous to the
+hardware performance counters provided by modern processors but
+measure program execution in a hardware-independent fashion.  That is,
+users can expect to observe the same measurements across different
+processor architectures.
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<-bf-by-func>
+
+Report performance counters for each function individually.
+
+=item B<-bf-call-stack>
+
+Report performance counters for each unique call stack.
+
+=item B<-bf-data-structs>
+
+Report loads and stores on a per-data-structure basis.
+
+=item B<-bf-types>
+
+Tally the number of times each data type is loaded or stored.
+
+=item B<-bf-inst-mix>
+
+Tally the number of times each instruction type was executed.
+
+=item B<-bf-vectors>
+
+Report information about the number and type of vector operations
+performed.
+
+=item B<-bf-unique-bytes>
+
+Report the number of unique memory addresses referenced.
+
+=item B<-bf-mem-footprint>
+
+Report the memory capacity requires to hold various percentages of the
+dynamic memory accesses.
+
+=item B<-bf-every-bb>
+
+Report performance counters at the basic-block level.
+
+=item B<-bf-merge-bb>=I<count>
+
+Aggregate basic blocks into groups of I<count> to reduce the output
+volume.
+
+=item B<-bf-include>=I<function>[,I<function>]...
+
+Instrument only the specified functions.
+
+=item B<-bf-exclude>=I<function>[,I<function>]...
+
+Do not instrument the specified functions.
+
+=item B<-bf-thread-safe>
+
+Prevent corruption caused by simultaneous accesses to the same set of
+performance counters.
+
+=item B<-bf-verbose>
+
+Make B<bf-clang> output all of the helper programs it calls.
+
+=item B<-bf-libdir>=I<path/to/byfl/lib/>
+
+Point B<bf-clang> to the directory containing the Byfl library
+(F<libbyfl.a> or F<libbyfl.so>).
+
+=item B<-bf-plugin>=I<path/to/bytesflops.so>
+
+Point B<bf-clang> to the Byfl plugin (C<bytesflops.so>).
+
+=item B<-bf-disable>=I<feature>
+
+Disable certain aspects of B<bf-clang>'s operation.
+
+=back
+
+In addition, B<bf-clang> accepts all of the common B<clang> options.
+
+=head1 EXAMPLES
+
+The simplest usage of B<bf-clang> is to compile just like with B<clang>:
+
+    bf-clang -O2 -g -o myprog myprog.c
+
+The resulting F<myprog> executable will output a basic set of
+performance information at the end of the run.
+
+More performance information can be requested -- at the cost of slower
+execution and a larger memory footprint:
+
+    bf-clang -bf-by-func -bf-types -bf-inst-mix -bf-vectors \
+      -bf-mem-footprint -O2 -g -o myprog myprog.c
+
+=head1 ENVIRONMENT
+
+=over 4
+
+=item C<BF_OPTS>
+
+Provide a space-separated list of B<bf-clang> command-line arguments.
+
+=item C<BF_PREFIX>
+
+Prefix each line of output with the contents of the C<BF_PREFIX>
+environment variable.
+
+=item C<BF_BINOUT>
+
+Specify the name of a C<.byfl> file to which to write detailed Byfl
+output in binary format.
+
+=item C<BF_CLANG>
+
+Wrap the specified compiler instead of B<clang>.
+
+=back
+
+C<BF_OPTS> is used at compile time.  Command-line arguments take
+precedence over those read from the C<BF_OPTS> environment variable.
+The advantage of using the environment variable, however, is that a
+user can rebuild a project with different sets of performance counters
+without having to modify the project's F<Makefile>s (or analogue in
+another build system) beyond an initial modification to use B<bf-clang>
+as the C compiler.
+
+C<BF_PREFIX> is used at run time.  An important characteristic of the
+C<BF_PREFIX> environment variable is that it honors POSIX shell-style
+variable expansions.  For example, if C<BF_PREFIX> is set to the
+string C<Rank ${OMPI_COMM_WORLD_RANK}>, then a line that would
+otherwise begin with C<BYFL_SUMMARY:> will instead begin with C<Rank 3
+BYFL_SUMMARY:>, assuming that the C<OMPI_COMM_WORLD_RANK> environment
+variable has the value C<3>.
+
+Although the characters C<|>, C<&>, C<;>, C<E<lt>>, C<E<gt>>, C<(>,
+C<)>, C<{>, and C<}> are not normally allowed within C<BF_PREFIX>,
+C<BF_PREFIX> does support backquoted-command evaluation, and the child
+command can contain those characters, as in
+
+    BF_PREFIX='`if true; then (echo YES; echo MAYBE); else echo NO; fi`'
+
+(which prefixes each line with C<YES MAYBE>).
+
+As a special case, if C<BF_PREFIX> expands to a string that begins
+with C</> or C<./>, it is treated not as a prefix but as a filename.
+The Byfl-instrumented executable will redirect all of its Byfl output
+to that file instead of to the standard output device.
+
+C<BF_BINOUT> is also used at run time.  Like C<BF_PREFIX>, it honors
+POSIX shell-style variable expansions.  If C<BF_BINOUT> is set to the
+empty string, no binary output file will be produced.
+
+=head1 NOTES
+
+=head2 Explanation of command-line options
+
+When B<-bf-call-stack> is specified, a function I<F> is reported
+separately when called from function I<A> and when called from
+function I<B>).  B<-bf-call-stack> overrides B<-bf-by-func>.
+
+For the purposes of B<-bf-data-structs>, Byfl defines a data structure
+as either a statically allocated block of memory (which has a name in
+the executable's symbol table) or a collection of data blocks
+dynamically allocated from the same program call point (i.e.,
+instruction address).  Byfl assigns the latter a name based on a
+textual description of the call point.
+
+The B<-bf-types> option tallies, for example, the number of loads of
+64-bit floating-point values as distinct from loads of 64-bit unsigned
+integer values.
+
+See the L<LLVM Language Reference
+Manual|http://llvm.org/docs/LangRef.html> for descriptions of the
+instructions that are tallied by B<-bf-inst-mix>.
+
+Use of B<-bf-unique-bytes> consumes one bit of memory per unique
+address referenced by the program.
+
+Use of B<-bf-mem-footprint> consumes S<8 bytes> of memory per unique
+address referenced by the program.
+
+A I<basic block> is a unit of code that can be entered only at the
+first instruction and that branches only at the last instruction.
+Because basic blocks tend to be small, B<-bf-every-bb> produces a
+substantial amount of output for typical programs.  It is recommended
+that B<-bf-every-bb> always be used in conjunction with
+B<-bf-merge-bb> to reduce the amount of information output.
+
+The B<-bf-disable> option is quite useful for troubleshooting.  Its
+option can be one of the following:
+
+=over 4
+
+=item C<none>
+
+Don't disable any features (the default).
+
+=item C<byfl>
+
+Disable the Byfl plugin (i.e., inject no instrumentation into the code).
+
+=back
+
+That is, if B<bf-clang> fails to compile or link an application, try
+disabling C<byfl> to see if the problem is truly with Byfl.
+
+The Byfl plugin proper (F<bytesflops.so>) honors all of the command-line
+options listed above except B<-bf-verbose> and B<-bf-disable>.  Those
+options are specific to the B<bf-clang> script.
+
+=head2 Selective instrumentation
+
+The simplest way to instrument only part of a program is at the module
+level.  That is, compile the "interesting" modules with B<bf-clang> and
+the rest with B<clang> (and link with B<bf-clang> to pull in the Byfl
+run-time library).  However, B<bf-clang> also supports inserting
+programmer-defined "calipers" into the code.  These can not only
+selectively enable and disable performance counters but can also
+distinguish blocks of code with a program-defined tag.  To enable this
+feature, an application must define a function with the following
+C-language prototype:
+
+    const char* bf_categorize_counters (void);
+
+That is, C<bf_categorize_counters()> takes no arguments and returns a
+short tag describing the current phase of the application.  A return
+value of C<NULL> disables logging of performance counters.
+
+Application developers should be aware of the following caveats
+regarding C<bf_categorize_counters()>:
+
+=over 4
+
+=item *
+
+C<bf_categorize_counters()> should be written to execute quickly
+because it will be invoked extremely frequently (once per basic
+block).  Consequently, a typical definition is for
+C<bf_categorize_counters()> simply to return a global variable and for
+the application to assign to that global variable at various points in
+the code.
+
+=item *
+
+C<bf_categorize_counters()> works only when B<-bf-every-bb> is
+specified.  (B<bf-clang> issues a warning message if the function is
+defined but the option is not specified.)  If the user is not
+interested in seeing per-basic-block counters, these can be
+effectively disabled by specified a large argument to B<-bf-merge-bb>
+(e.g., C<-bf-merge-bb=18446744073709551615>).
+
+=item *
+
+Because B<bf-clang> instruments code at compile time while
+C<bf_categorize_counters()> works at run time, the implication is that
+returning C<NULL> still pays a performance penalty relative to
+uninstrumented code.
+
+=back
+
+=head1 BUGS
+
+Thread safety is still quite premature.  Even with
+B<-bf-thread-safe>, instrumented code is likely to crash.
+
+At B<-O0>, the underlying B<clang> compiler aborts with the following message
+and a dump of internal compiler state:
+
+    Pass 'Bytes:flops instrumentation' is not initialized.
+    Verify if there is a pass dependency cycle.
+    Required Passes:
+	    Data Layout
+
+Until this is resolved, please always specify at least B<-O1> when compiling
+programs with B<bf-clang>.
+
+=head1 AUTHOR
+
+Scott Pakin, I<pakin@lanl.gov>
+
+=head1 SEE ALSO
+
+clang(1),
+L<the Byfl home page|https://github.com/losalamos/Byfl>

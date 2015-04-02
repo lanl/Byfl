@@ -50,7 +50,7 @@ Usage
 
 ### Basic usage
 
-Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc`, `bf-g++`, `bf-gfortran`, and `bf-gccgo` wrap, respectively, the GNU C, C++, Fortran, and Go compilers.  `bf-mpicc`, `bf-mpicxx`, `bf-mpif90`, and `bf-mpif77` further wrap the similarly named [Open MPI](http://www.open-mpi.org/) and [MPICH](http://www.mpich.org/) wrapper scripts to use the Byfl compiler scripts instead of the default C, C++, and Fortran compilers.  Use any of these scripts as you would the underlying compiler.  When you run your code, Byfl will output a sequence of `BYFL`-prefixed lines to the standard output device and a superset of the data to a binary file (called *filename*`.byfl` by default):
+Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-clang` and `bf-clang++` wrap, respectively, the Clang C and C++ compilers.  `bf-gcc`, `bf-g++`, `bf-gfortran`, and `bf-gccgo` wrap, respectively, the GNU C, C++, Fortran, and Go compilers.  `bf-mpicc`, `bf-mpicxx`, `bf-mpif90`, and `bf-mpif77` further wrap the similarly named [Open MPI](http://www.open-mpi.org/) and [MPICH](http://www.mpich.org/) wrapper scripts to use the Byfl compiler scripts instead of the default C, C++, and Fortran compilers.  Use any of these scripts as you would the underlying compiler.  When you run your code, Byfl will output a sequence of `BYFL`-prefixed lines to the standard output device and a superset of the data to a binary file (called *filename*`.byfl` by default):
 
     BYFL_INFO: Byfl command line:
     BYFL_SUMMARY: -----------------------------------------------------------------
@@ -79,7 +79,7 @@ Byfl comes with a set of wrapper scripts that simplify instrumentation.  `bf-gcc
 
 "Bits" are simply bytes*8.  "Flop bits" are the total number of bits in all inputs and outputs to each floating-point function.  As motivation, consider the operation `A = B + C`, where `A`, `B`, and `C` reside in memory.  This operation consumes 12 bytes per flop if the arguments are all single-precision but 24 bytes per flop if the arguments are all double-precision.  Similarly, `A = -B` consumes either 8 or 16 bytes per flop based on the argument type.  However, all of these examples consume one bit per flop bit regardless of numerical precision: every bit loaded or stored either enters or exits the floating-point unit.  Bit:flop-bit ratios above 1.0 imply that more memory is moved than fed into the floating-point unit; Bit:flop-bit ratios below 1.0 imply register reuse.
 
-The Byfl wrapper scripts accept a number of options to provide more information about your program at a cost of increased execution times.  These can be specified either on the command line or within the `BF_OPTS` environment variable.  (The former takes precedence.)  See the `bf-gcc`, `bf-g++`, `bf-gfortran`, or `bf-gccgo` man page for a description of all of the information Byfl can report.
+The Byfl wrapper scripts accept a number of options to provide more information about your program at a cost of increased execution times.  These can be specified either on the command line or within the `BF_OPTS` environment variable.  (The former takes precedence.)  See the `bf-clang`, `bf-clang++`, `bf-gcc`, `bf-g++`, `bf-gfortran`, or `bf-gccgo` man page for a description of all of the information Byfl can report.
 
 The following represents some sample output from a code instrumented with Byfl and most of the available options:
 
@@ -215,5 +215,6 @@ Authors
 
 Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)<br />
 Pat McCormick, [_pat@lanl.gov_](mailto:pat@lanl.gov)<br />
+Rob Aulwes [_rta@lanl.gov_](mailto:rta@lanl.gov)<br />
 Eric Anger, [_eanger@gmail.com_](mailto:eanger@gmail.com)<br />
 Christine Sweeney, [_cahrens@lanl.gov_](mailto:cahrens@lanl.gov)
