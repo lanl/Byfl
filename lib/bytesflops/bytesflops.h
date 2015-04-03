@@ -21,8 +21,8 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
-#include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -350,7 +350,6 @@ namespace bytesflops_pass {
                                StringRef function_name,
                                BasicBlock::iterator& iter,
                                LLVMContext& bbctx,
-                               const DataLayout& target_data,
                                BasicBlock::iterator& terminator_inst,
                                int& must_clear);
 
@@ -371,7 +370,6 @@ namespace bytesflops_pass {
                            StringRef function_name,
                            BasicBlock::iterator& iter,
                            LLVMContext& bbctx,
-                           const DataLayout& target_data,
                            BasicBlock::iterator& terminator_inst);
 
     // Instrument all instructions.

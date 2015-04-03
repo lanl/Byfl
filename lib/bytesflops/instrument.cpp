@@ -149,7 +149,6 @@ namespace bytesflops_pass {
                                          StringRef function_name,
                                          BasicBlock::iterator& iter,
                                          LLVMContext& bbctx,
-                                         const DataLayout& target_data,
                                          BasicBlock::iterator& insert_before,
                                          int& must_clear) {
     // Increment the byte counter for load and store
@@ -157,7 +156,8 @@ namespace bytesflops_pass {
     Instruction& inst = *iter;                // Current instruction
     unsigned int opcode = inst.getOpcode();   // Current instruction's opcode
     Value* mem_value = opcode == Instruction::Load ? &inst : cast<StoreInst>(inst).getValueOperand();
-    uint64_t byte_count = target_data.getTypeStoreSize(mem_value->getType());
+    const DataLayout* target_data = module->getDataLayout();
+    uint64_t byte_count = target_data->getTypeStoreSize(mem_value->getType());
     ConstantInt* num_bytes =
       ConstantInt::get(bbctx, APInt(64, byte_count));
     if (opcode == Instruction::Load) {
@@ -572,7 +572,6 @@ namespace bytesflops_pass {
                                      StringRef function_name,
                                      BasicBlock::iterator& iter,
                                      LLVMContext& bbctx,
-                                     const DataLayout& target_data,
                                      BasicBlock::iterator& insert_before) {
     if (TallyByDataStruct) {
       // Tell bf_assoc_addresses_with_dstruct_stack() the allocation size and
@@ -593,10 +592,11 @@ namespace bytesflops_pass {
 
         // Determine the number of bytes allocated.
         Type* alloc_type = ainst.getAllocatedType();
+        const DataLayout* target_data = module->getDataLayout();
         ConstantInt* bytes_per_elt =
-          ConstantInt::get(bbctx, APInt(64, target_data.getTypeStoreSize(alloc_type)));
+          ConstantInt::get(bbctx, APInt(64, target_data->getTypeStoreSize(alloc_type)));
         Value* elts_per_array = ainst.getArraySize();
-        if (target_data.getTypeSizeInBits(elts_per_array->getType()) < 64)
+        if (target_data->getTypeSizeInBits(elts_per_array->getType()) < 64)
           elts_per_array = new ZExtInst(ainst.getArraySize(),
                                         IntegerType::get(bbctx, 64),
                                         "nelts",
@@ -782,9 +782,6 @@ namespace bytesflops_pass {
     // Generate a unique key for the function and insert call to record it.
     FunctionKeyGen::KeyID keyval = record_func(function_name.str());
 
-    // Gain access to getTypeStoreSize().
-    DataLayoutPass& target_data = getAnalysis<DataLayoutPass>();
-
     // Iterate over each basic block in turn.
     for (Function::iterator func_iter = function.begin();
          func_iter != function.end();
@@ -834,8 +831,7 @@ namespace bytesflops_pass {
           case Instruction::Load:
           case Instruction::Store:
             instrument_load_store(module, function_name, iter, bbctx,
-                                  target_data.getDataLayout(), terminator_inst,
-                                  must_clear);
+                                  terminator_inst, must_clear);
             break;
 
           case Instruction::Call:
@@ -843,8 +839,7 @@ namespace bytesflops_pass {
             break;
 
           case Instruction::Alloca:
-            instrument_alloca(module, function_name, iter, bbctx,
-                              target_data.getDataLayout(), terminator_inst);
+            instrument_alloca(module, function_name, iter, bbctx, terminator_inst);
             break;
 
           default:
