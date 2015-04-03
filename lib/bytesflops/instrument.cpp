@@ -156,8 +156,8 @@ namespace bytesflops_pass {
     Instruction& inst = *iter;                // Current instruction
     unsigned int opcode = inst.getOpcode();   // Current instruction's opcode
     Value* mem_value = opcode == Instruction::Load ? &inst : cast<StoreInst>(inst).getValueOperand();
-    const DataLayout* target_data = module->getDataLayout();
-    uint64_t byte_count = target_data->getTypeStoreSize(mem_value->getType());
+    const DataLayout& target_data = module->getDataLayout();
+    uint64_t byte_count = target_data.getTypeStoreSize(mem_value->getType());
     ConstantInt* num_bytes =
       ConstantInt::get(bbctx, APInt(64, byte_count));
     if (opcode == Instruction::Load) {
@@ -592,11 +592,11 @@ namespace bytesflops_pass {
 
         // Determine the number of bytes allocated.
         Type* alloc_type = ainst.getAllocatedType();
-        const DataLayout* target_data = module->getDataLayout();
+        const DataLayout& target_data = module->getDataLayout();
         ConstantInt* bytes_per_elt =
-          ConstantInt::get(bbctx, APInt(64, target_data->getTypeStoreSize(alloc_type)));
+          ConstantInt::get(bbctx, APInt(64, target_data.getTypeStoreSize(alloc_type)));
         Value* elts_per_array = ainst.getArraySize();
-        if (target_data->getTypeSizeInBits(elts_per_array->getType()) < 64)
+        if (target_data.getTypeSizeInBits(elts_per_array->getType()) < 64)
           elts_per_array = new ZExtInst(ainst.getArraySize(),
                                         IntegerType::get(bbctx, 64),
                                         "nelts",
@@ -946,7 +946,7 @@ namespace bytesflops_pass {
           const_ptr_indices.push_back(const_int32);
           const_ptr_indices.push_back(const_int32);
           Constant *
-          const_ptr = ConstantExpr::getGetElementPtr(gvar_array_str, const_ptr_indices);
+	    const_ptr = ConstantExpr::getGetElementPtr(gvar_array_str->getType(), gvar_array_str, const_ptr_indices);
 
           const_fname_elems.push_back(const_ptr);
 
@@ -973,7 +973,7 @@ namespace bytesflops_pass {
       getelementptr_indexes.push_back(zero);
       getelementptr_indexes.push_back(zero);
       Constant* array_key_pointer =
-      ConstantExpr::getGetElementPtr(gvar_key_data, getelementptr_indexes);
+	ConstantExpr::getGetElementPtr(gvar_key_data->getType(), gvar_key_data, getelementptr_indexes);
 
       GlobalVariable *
       gvar_array_key = new GlobalVariable(/*Module=*/module,
@@ -1004,7 +1004,7 @@ namespace bytesflops_pass {
       fnames_indexes.push_back(zero);
       fnames_indexes.push_back(zero);
       Constant* array_fnames_pointer =
-      ConstantExpr::getGetElementPtr(gvar_fnames_data, fnames_indexes);
+	ConstantExpr::getGetElementPtr(gvar_fnames_data->getType(), gvar_fnames_data, fnames_indexes);
 
       GlobalVariable*
       gvar_fnames = new GlobalVariable(/*Module=*/module,

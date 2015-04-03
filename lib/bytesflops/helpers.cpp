@@ -153,7 +153,7 @@ void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
   load_array->setAlignment(8);
 
   // %2 = getelementptr inbounds i64* %1, i64 %idx
-  GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(load_array, idx, "idx_ptr", insert_before);
+  GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(load_array->getType(), load_array, idx, "idx_ptr", insert_before);
 
   // %3 = load i64* %2, align 8
   LoadInst* idx_val = new LoadInst(idx_ptr, "idx_val", false, insert_before);
@@ -266,7 +266,7 @@ Constant* BytesFlops::create_global_constant(Module& module,
   getelementptr_indexes.push_back(zero);
   getelementptr_indexes.push_back(zero);
   Constant* array_pointer =
-    ConstantExpr::getGetElementPtr(string_contents, getelementptr_indexes);
+    ConstantExpr::getGetElementPtr(string_contents->getType(), string_contents, getelementptr_indexes);
   PointerType* pointer_type = PointerType::get(Type::getInt8Ty(globctx), 0);
   GlobalVariable* new_constant =
     new GlobalVariable(module, pointer_type, true,
@@ -435,7 +435,7 @@ Constant* BytesFlops::map_func_name_to_arg (Module* module, StringRef funcname)
   getelementptr_indices.push_back(zero_index);
   getelementptr_indices.push_back(zero_index);
   string_argument =
-    ConstantExpr::getGetElementPtr(const_char_ptr, getelementptr_indices);
+    ConstantExpr::getGetElementPtr(const_char_ptr->getType(), const_char_ptr, getelementptr_indices);
   func_name_to_arg[funcname] = string_argument;
   return string_argument;
 }
