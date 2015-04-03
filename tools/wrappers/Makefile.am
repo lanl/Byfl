@@ -32,7 +32,6 @@ install-parser: $(srcdir)/ParseCompilerOpts.pm
 	$(INSTALL_DATA) -D "$(srcdir)/ParseCompilerOpts.pm" "$(DESTDIR)$(perlsitelibdir)/ParseCompilerOpts.pm"
 
 install-compiler-scripts: bf-gcc bf-clang
-	$(LN_S) -f bf-clang $(DESTDIR)$(bindir)/bf-clang
 	$(LN_S) -f bf-clang $(DESTDIR)$(bindir)/bf-clang++
 if HAVE_DRAGONEGG
 	$(LN_S) -f bf-gcc $(DESTDIR)$(bindir)/bf-g++
