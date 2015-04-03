@@ -20,7 +20,9 @@ ProcessSymbolTable::ProcessSymbolTable (void) : valid(false), bfd_self(nullptr),
   bfd_self = bfd_openr("/proc/self/exe", NULL);
   if (bfd_self == NULL)
     return;
+#ifdef BFD_DECOMPRESS
   bfd_self->flags |= BFD_DECOMPRESS;
+#endif
   char **matching = NULL;
   if (!bfd_check_format_matches (bfd_self, bfd_object, &matching)) {
     free(matching);
@@ -80,10 +82,17 @@ SourceCodeLocation* ProcessSymbolTable::find_address_in_sym_table (uint64_t addr
     const char *function_name;
     unsigned int line_number;
     unsigned int discriminator;
+#if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
     if (!bfd_find_nearest_line_discriminator(bfd_self, sec, symtable, addr - vma,
                                              &file_name, &function_name,
                                              &line_number, &discriminator))
       return NULL;
+#else
+    if (!bfd_find_nearest_line(bfd_self, sec, symtable, addr - vma,
+                               &file_name, &function_name, &line_number))
+      return NULL;
+    discriminator = 0;
+#endif
     return new SourceCodeLocation(file_name == nullptr ? "??" : file_name,
                                   function_name == nullptr ? "??" : function_name,
                                   line_number,
@@ -125,7 +134,7 @@ SourceCodeLocation* ProcessSymbolTable::find_address (uint64_t addr)
 
 // Return the raw BFD information the symbol table represents.
 void ProcessSymbolTable::get_raw_bfd_data (bfd** abfd, asymbol*** syms,
-					   ssize_t* nsyms)
+                                           ssize_t* nsyms)
 {
   *abfd = bfd_self;
   *syms = symtable;

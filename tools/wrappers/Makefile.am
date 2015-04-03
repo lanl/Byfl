@@ -5,10 +5,15 @@
 # By Scott Pakin <pakin@lanl.gov>	   #
 ############################################
 
+
+if HAVE_DRAGONEGG
+BF_GCC=bf-gcc
+endif
+
 nodist_bin_SCRIPTS = \
-	bf-inst \
-	bf-gcc \
-	bf-clang
+	$(BF_GCC) \
+	bf-clang \
+	bf-inst
 
 EXTRA_DIST = \
 	bf-gcc.in \
