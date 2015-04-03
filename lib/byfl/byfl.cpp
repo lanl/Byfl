@@ -778,7 +778,11 @@ static void report_bb_tallies (uint64_t bb_merge)
       *bfbin << uint8_t(BINOUT_COL_STRING) << "File name"
              << uint8_t(BINOUT_COL_STRING) << "Function name"
              << uint8_t(BINOUT_COL_UINT64) << "Line number"
+#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
              << uint8_t(BINOUT_COL_UINT64) << "Line-number discriminator";
+#  else
+             ;
+#  endif
 # else
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Symbolic location";
 # endif
@@ -841,7 +845,11 @@ static void report_bb_tallies (uint64_t bb_merge)
         *bfbin << srcloc->file_name
                << srcloc->function_name
                << srcloc->line_number
+#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
                << srcloc->discriminator;
+#  else
+               ;
+#  endif
 # else
       *bfbin << bf_address_to_location_string(caller_addr);
 # endif

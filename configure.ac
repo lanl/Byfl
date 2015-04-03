@@ -91,17 +91,26 @@ AC_CHECK_FUNC([backtrace_symbols],
     [AC_DEFINE([HAVE_BACKTRACE], [1],
       [Define to 1 if the GNU `backtrace' and `backtrace_symbols' functions are available.])])])
 
-dnl Record if we have the BFD library.
+dnl Record if we have the BFD library.  We need to have bfd.h, at least
+dnl one of bfd_find_nearest_line_discriminator() and
+dnl bfd_find_nearest_line(), and bf_init().
 if test -z ${USE_BFD+set} ; then
   USE_BFD=no
   AC_CHECK_HEADER([bfd.h],
-    [AC_CHECK_DECL([bfd_find_nearest_line_discriminator],
-      [AC_CHECK_LIB([bfd], [bfd_init])
+    [ax_nearest_line=no
+     AC_CHECK_DECLS([bfd_find_nearest_line_discriminator],
+       [ax_nearest_line=yes],
+       [AC_CHECK_DECLS([bfd_find_nearest_line],
+         [ax_nearest_line=yes],
+         ,
+         [#include <bfd.h>])],
+       [#include <bfd.h>])
+     if test $ax_nearest_line = yes ; then
+       AC_CHECK_LIB([bfd], [bfd_init])
        if test "x$ac_cv_lib_bfd_bfd_init" = xyes ; then
-         USE_BFD=yes
-       fi],
-      [],
-      [#include <bfd.h>])])
+	 USE_BFD=yes
+       fi
+     fi])
 fi
 if test "x$USE_BFD" = xyes ; then
   AC_DEFINE([USE_BFD], [1],
