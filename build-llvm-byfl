@@ -1,12 +1,11 @@
 #! /bin/bash
 
-######################################
-# Automatically do a clean build of  #
-# LLVM trunk, Clang trunk, DragonEgg #
-# trunk and then of Byfl head        #
-#                                    #
-# By Scott Pakin <pakin@lanl.gov>    #
-######################################
+################################################
+# Automatically do a clean build of LLVM trunk #
+# and Clang trunk and then of Byfl head        #
+#                                              #
+# By Scott Pakin <pakin@lanl.gov>              #
+################################################
 
 # Ensure we have a version of bash that can parse the rest of this
 # file (specifically, the coproc statement).
@@ -33,7 +32,6 @@ configure=yes
 compile=yes
 llvm_revision=HEAD
 use_byfl=yes
-use_dragonegg=yes
 use_llvm=yes
 destdir=
 while getopts j:b:r:tdcCD:x: opt; do
@@ -48,7 +46,7 @@ while getopts j:b:r:tdcCD:x: opt; do
             builddir="$OPTARG"
             ;;
         r)
-            # LLVM/Clang/DragonEgg revision to use
+            # LLVM/Clang revision to use
             llvm_revision="$OPTARG"
             ;;
         t)
@@ -108,21 +106,6 @@ fi
 # Honor the user's preferred C and C++ compilers.
 CC=${CC:-gcc}
 CXX=${CXX:-g++}
-
-# Ensure we have a version of GCC that works with DragonEgg.
-if [ "$use_dragonegg" = yes ] ; then
-    gcc_version=`$CC --version | awk 'NR==1 {sub(/\([^\)]*\)/, ""); print $2}'`
-    if `echo $gcc_version | awk '!/^4\.[5-8]\./ {exit 1}'` ; then
-        :
-    else
-        echo "${0}: DragonEgg requires GCC version 4.5, 4.6, 4.7, or 4.8; version $gcc_version almost certainly won't work" 1>&2
-        exit 1
-    fi
-    if [ `$CC -print-file-name=plugin` = plugin ] ; then
-        echo "${0}: DragonEgg requires the GCC plugin development files (e.g., auto-host.h) corresponding to `$CC --version | head -1`" 1>&2
-        exit 1
-    fi
-fi
 
 # Prepare the GUI.
 if [ "$gui" = yes ] ; then
@@ -194,16 +177,12 @@ cd "$builddir"
 rm -rf build-logs
 mkdir build-logs
 
-# Download LLVM, Clang, DragonEgg, and Byfl.
+# Download LLVM, Clang, and Byfl.
 if [ "$download" = yes ] ; then
     # Delete old files before downloading the new ones.
     if [ "$use_byfl" = yes ] ; then
         echo "# Removing old versions of Byfl from $builddir" 1>&4
         run_with_progress cleanup-byfl 300 rm -rfv byfl
-    fi
-    if [ "$use_dragonegg" = yes ] ; then
-        echo "# Removing old versions of DragonEgg from $builddir" 1>&4
-        run_with_progress cleanup-dregg 1300 rm -rfv dragonegg
     fi
     if [ "$use_llvm" = yes ] ; then
         echo "# Removing old versions of LLVM and Clang from $builddir" 1>&4
@@ -231,12 +210,6 @@ if [ "$download" = yes ] ; then
         run_with_progress rts-dl 1800 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/compiler-rt/trunk llvm/projects/compiler-rt
     fi
 
-    # Download DragonEgg.
-    if [ "$use_dragonegg" = yes ] ; then
-        echo "# Downloading DragonEgg revision $llvm_revision into $builddir" 1>&4
-        run_with_progress dregg-dl 400 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/dragonegg/trunk dragonegg
-    fi
-
     # Download Byfl.
     if [ "$use_byfl" = yes ] ; then
         echo "# Downloading Byfl into $builddir" 1>&4
@@ -244,14 +217,14 @@ if [ "$download" = yes ] ; then
     fi
 
     # Say what we did.
-    if [ "$use_llvm" = yes -a "$use_dragonegg" = yes -a "$use_byfl" = yes ] ; then
-        echo "Downloaded LLVM, Clang, DragonEgg, and Byfl into $builddir."
+    if [ "$use_llvm" = yes -a "$use_byfl" = yes ] ; then
+        echo "Downloaded LLVM, Clang, and Byfl into $builddir."
     else
-        echo "Downloaded a subset of LLVM, Clang, DragonEgg, and Byfl into $builddir."
+        echo "Downloaded a subset of LLVM, Clang, and Byfl into $builddir."
     fi
     if [ "$gui" = yes -a "$compile" = no ] ; then
         kill $zenity_pid
-        zenity --info --title="Finished downloading" --text="Downloaded LLVM, Clang, DragonEgg,\nand Byfl into $builddir."
+        zenity --info --title="Finished downloading" --text="Downloaded LLVM, Clang,\nand Byfl into $builddir."
     fi
 fi
 
@@ -276,18 +249,6 @@ if [ "$compile" = yes ] ; then
     fi
     export PATH="$destdir$installdir/bin:$PATH"
 
-    if [ "$use_dragonegg" = yes ] ; then
-        # Build DragonEgg.
-        cd dragonegg
-        echo "# Compiling DragonEgg" 1>&4
-        run_with_progress dregg-build 380 make -j$numprocs
-
-        # Install DragonEgg.
-        echo "# Installing DragonEgg into $destdir$installdir" 1>&4
-        run_with_progress dregg-inst 2 cp -v dragonegg.so "$destdir$installdir/lib/"
-        cd ..
-    fi
-
     if [ "$use_byfl" = yes ] ; then
         # Configure Byfl.
         echo "# Configuring Byfl" 1>&4
@@ -298,16 +259,16 @@ if [ "$compile" = yes ] ; then
         test -e build || mkdir build
         cd build
         if [ $configure = yes -o ! -e config.log ] ; then
-            run_with_progress byfl-config 130 ../configure DRAGONEGG="$installdir/lib/dragonegg.so" --prefix="$installdir"
+            run_with_progress byfl-config 130 ../configure --prefix="$installdir"
         fi
 
         # Build Byfl.
         echo "# Compiling Byfl" 1>&4
-        run_with_progress byfl-build 180 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" -j$numprocs
+        run_with_progress byfl-build 180 make -j$numprocs
 
         # Install Byfl.
         echo "# Installing Byfl into $destdir$installdir" 1>&4
-        run_with_progress byfl-inst 210 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" DESTDIR="$destdir" install
+        run_with_progress byfl-inst 210 make DESTDIR="$destdir" install
     fi
 
     # Test the installation
@@ -322,15 +283,15 @@ int main (void) {
   return 0;
 }
 CFILE
-    bf-gcc -bf-libdir="$destdir$installdir/lib" -bf-dragonegg="$destdir$installdir/lib/dragonegg.so" $cfile -o $exefile
+    bf-clang -bf-libdir="$destdir$installdir/lib" $cfile -o $exefile
     run_with_progress byfl-test 22 $exefile
     rm -f $cfile $exefile
 
     # Say what we did.
-    echo "Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir."
+    echo "Successfully installed LLVM, Clang, and Byfl into $installdir."
     echo "It is now safe to delete $builddir."
     if [ "$gui" = yes ] ; then
         kill $zenity_pid
-        zenity --info --title="Finished installation" --text="Successfully installed LLVM, Clang, DragonEgg, and Byfl into $installdir.\n\nIt is now safe to delete $builddir."
+        zenity --info --title="Finished installation" --text="Successfully installed LLVM, Clang, and Byfl into $installdir.\n\nIt is now safe to delete $builddir."
     fi
 fi
