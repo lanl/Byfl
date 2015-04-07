@@ -82,6 +82,7 @@ namespace bytesflops {
   extern uint64_t bf_tally_unique_addresses(void);
   extern "C" const char* bf_string_to_symbol(const char *nonunique);
   extern void initialize_byfl(void);
+  extern void initialize_bblocks(void);
   extern void initialize_reuse(void);
   extern void initialize_symtable(void);
   extern void initialize_tallybytes(void);
@@ -90,6 +91,7 @@ namespace bytesflops {
   extern void initialize_vectors(void);
   extern void initialize_data_structures(void);
   extern void initialize_cache(void);
+  extern void finalize_bblocks(void);
   extern uint64_t bf_get_private_cache_accesses(void);
   extern vector<unordered_map<uint64_t,uint64_t> > bf_get_private_cache_hits(void);
   extern uint64_t bf_get_private_cold_misses(void);
@@ -99,12 +101,103 @@ namespace bytesflops {
   extern uint64_t bf_get_shared_cold_misses(void);
   extern uint64_t bf_get_shared_misaligned_mem_ops(void);
   extern vector<unordered_map<uint64_t,uint64_t> > bf_get_remote_shared_cache_hits(void);
+// Determine if we should suppress output from this process.
+  extern bool suppress_output(void);
+#ifdef HAVE_BACKTRACE
+  extern void* bf_find_caller_address(void);
+#endif
 
   // The following library variables are used in files other than the
   // one in which they're defined.
   extern const char* bf_func_and_parents;   // Name of the current function and its parents
   extern string bf_output_prefix;           // Prefix appearing before each line of output
   extern const char* opcode2name[];         // Map from an LLVM opcode to its name
+  extern KeyType_t bf_func_and_parents_id;  // Top of the complete_call_stack stack
+
+  // Encapsulate of all of our basic-block counters into a single structure.
+  class ByteFlopCounters {
+  public:
+    uint64_t mem_insts[NUM_MEM_INSTS];  // Number of memory instructions by type
+    uint64_t inst_mix_histo[NUM_OPCODES];   // Histogram of instruction mix
+    uint64_t terminators[BF_END_BB_NUM];    // Tally of basic-block terminator types
+    uint64_t mem_intrinsics[BF_NUM_MEM_INTRIN];  // Tallies of data movement performed by memory intrinsics
+    uint64_t loads;                     // Number of bytes loaded
+    uint64_t stores;                    // Number of bytes stored
+    uint64_t load_ins;                  // Number of load instructions executed
+    uint64_t store_ins;                 // Number of store instructions executed
+    uint64_t call_ins;                  // Number of function calls executed
+    uint64_t flops;                     // Number of floating-point operations performed
+    uint64_t fp_bits;                   // Number of bits consumed or produced by all FP operations
+    uint64_t ops;                       // Number of operations of any type performed
+    uint64_t op_bits;                   // Number of bits consumed or produced by any operation except loads/stores
+
+  // Initialize all of the counters.
+  ByteFlopCounters (uint64_t* initial_mem_insts=NULL,
+                    uint64_t* initial_inst_mix_histo=NULL,
+                    uint64_t* initial_terminators=NULL,
+                    uint64_t* initial_mem_intrinsics=NULL,
+                    uint64_t initial_loads=0,
+                    uint64_t initial_stores=0,
+                    uint64_t initial_load_ins=0,
+                    uint64_t initial_store_ins=0,
+                    uint64_t initial_call_ins=0,
+                    uint64_t initial_flops=0,
+                    uint64_t initial_fp_bits=0,
+                    uint64_t initial_ops=0,
+                    uint64_t initial_op_bits=0);
+
+  // Assign new values into our counters.
+  void assign (uint64_t* new_mem_insts,
+               uint64_t* new_inst_mix_histo,
+               uint64_t* new_terminators,
+               uint64_t* new_mem_intrinsics,
+               uint64_t new_loads,
+               uint64_t new_stores,
+               uint64_t new_load_ins,
+               uint64_t new_store_ins,
+               uint64_t new_call_ins,
+               uint64_t new_flops,
+               uint64_t new_fp_bits,
+               uint64_t new_ops,
+               uint64_t new_op_bits);
+
+  // Accumulate new values into our counters.
+  void accumulate (uint64_t* more_mem_insts,
+                   uint64_t* more_inst_mix_histo,
+                   uint64_t* more_terminators,
+                   uint64_t* more_mem_intrinsics,
+                   uint64_t more_loads,
+                   uint64_t more_stores,
+                   uint64_t more_load_ins,
+                   uint64_t more_store_ins,
+                   uint64_t more_call_ins,
+                   uint64_t more_flops,
+                   uint64_t more_fp_bits,
+                   uint64_t more_ops,
+                   uint64_t more_op_bits);
+
+  // Accumulate another counter's values into our counters.
+  void accumulate (ByteFlopCounters* other);
+
+  // Return the difference of our counters and another set of counters.
+  ByteFlopCounters* difference (ByteFlopCounters* other, ByteFlopCounters* target=nullptr);
+
+  // Reset all of our counters to zero.
+  void reset (void);
+};
+
+// Define datatypes for tracking basic blocks on a per-function basis.
+typedef const char* MapKey_t;
+typedef CachedUnorderedMap<KeyType_t, ByteFlopCounters*> key2bfc_t;
+typedef CachedUnorderedMap<MapKey_t, ByteFlopCounters*> str2bfc_t;
+typedef str2bfc_t::iterator counter_iterator;
+
+// The following library variables are used in files other than the one in
+// which they're defined.
+extern ByteFlopCounters global_totals;    // Global tallies of all of our counters
+extern key2bfc_t& per_func_totals(void);
+extern str2bfc_t& user_defined_totals(void);
+
 }
 
 #endif

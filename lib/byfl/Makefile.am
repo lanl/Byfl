@@ -7,6 +7,7 @@
 lib_LTLIBRARIES = libbyfl.la
 libbyfl_la_SOURCES = \
 	byfl.cpp \
+	basicblocks.cpp \
 	reuse-dist.cpp \
 	symtable.cpp \
 	threading.cpp \
