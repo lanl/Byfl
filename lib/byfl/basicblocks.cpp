@@ -16,13 +16,6 @@ namespace bytesflops {}
 using namespace bytesflops;
 using namespace std;
 
-// Define the different ways a basic block can terminate.
-typedef enum {
-  BB_NOT_END=0,       // Basic block has not actually terminated.
-  BB_END_UNCOND=1,    // Basic block terminated with an unconditional branch.
-  BB_END_COND=2       // Basic block terminated with a conditional branch.
-} bb_end_t;
-
 // The following values get reset at the end of every basic block.
 uint64_t  bf_load_count       = 0;    // Tally of the number of bytes loaded
 uint64_t  bf_store_count      = 0;    // Tally of the number of bytes stored
@@ -53,6 +46,16 @@ extern BinaryOStream* bfbin;
 extern ProcessSymbolTable* procsymtab;  // The calling process's symbol table
 #endif
 
+// Define a structure to keep track of dynamic basic-block accesss.
+struct BBAccessInfo {
+  uint64_t tally;      // Number of times the basic block was executed
+  uint64_t num_insts;  // Static code size in instructions
+  void* address;       // Virtual-memory address of the basic block
+};
+
+// Map a basic-block ID to an access tally.
+static CachedUnorderedMap<uint64_t, BBAccessInfo*>* bb_accesses;
+
 // Initialize some of our variables at first use.
 void initialize_bblocks (void)
 {
@@ -72,6 +75,8 @@ void initialize_bblocks (void)
   bf_mem_intrin_count = new uint64_t[BF_NUM_MEM_INTRIN];
   for (unsigned int i = 0; i < BF_NUM_MEM_INTRIN; i++)
     bf_mem_intrin_count[i] = 0;
+  if (bf_every_bb)
+    bb_accesses = new CachedUnorderedMap<uint64_t, BBAccessInfo*>;
 }
 
 // Initialize all of the basic-block counters.
@@ -365,6 +370,99 @@ extern "C"
 void bf_reset_bb_tallies (void)
 {
   bb_totals.reset();
+}
+
+// Keep track of dynamic basic-block accesses given a unique identifier and
+// static basic-block size in instructions.
+extern "C"
+void bf_tally_bb_execution (uint64_t bb_id, uint64_t num_insts)
+{
+  BBAccessInfo* bb_info;
+  auto iter = bb_accesses->find(bb_id);
+  if (iter == bb_accesses->end()) {
+    // Not found -- create a new entry.
+    bb_info = new BBAccessInfo;
+    bb_info->tally = 0;
+    bb_info->num_insts = num_insts;
+#ifdef HAVE_BACKTRACE
+    bb_info->address = bf_find_caller_address();
+#endif
+    (*bb_accesses)[bb_id] = bb_info;
+  }
+  else
+    bb_info = iter->second;
+  bb_info->tally++;
+}
+
+// Compare two basic blocks, reporting which was called more times.  Break ties
+// by comparing instruction counts.
+static bool compare_bb_accesses (const BBAccessInfo* one,
+                                 const BBAccessInfo* two)
+{
+  if (one->tally != two->tally)
+    return one->tally > two->tally;
+  return one->num_insts > two->num_insts;
+}
+
+// Output the number of accesses to each basic block.
+void bf_report_bb_execution (void)
+{
+  // Write a header to the binary output file.
+  *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic-block accesses";
+  *bfbin << uint8_t(BINOUT_COL_UINT64) << "Invocations"
+         << uint8_t(BINOUT_COL_UINT64) << "Instructions";
+#ifdef HAVE_BACKTRACE
+  *bfbin << uint8_t(BINOUT_COL_UINT64) << "Address";
+# ifdef USE_BFD
+  *bfbin << uint8_t(BINOUT_COL_STRING) << "File name"
+         << uint8_t(BINOUT_COL_STRING) << "Mangled function name"
+         << uint8_t(BINOUT_COL_STRING) << "Demangled function name"
+         << uint8_t(BINOUT_COL_UINT64) << "Line number"
+#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
+         << uint8_t(BINOUT_COL_UINT64) << "Line-number discriminator";
+#  else
+         ;
+#  endif
+# else
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Symbolic location";
+# endif
+#endif
+  *bfbin << uint8_t(BINOUT_COL_NONE);
+
+  // Sort the list of basic blocks in decreasing order of access count.
+  vector<BBAccessInfo*> unique_bbs;
+  for (auto iter = bb_accesses->begin(); iter != bb_accesses->end(); iter++)
+    unique_bbs.push_back(iter->second);
+  sort(unique_bbs.begin(), unique_bbs.end(), compare_bb_accesses);
+
+  // Output each basic block in turn.
+  for (auto iter = unique_bbs.begin(); iter != unique_bbs.end(); iter++) {
+    BBAccessInfo* bb_info = *iter;
+    *bfbin << uint8_t(BINOUT_ROW_DATA)
+           << bb_info->tally
+           << bb_info->num_insts;
+#ifdef HAVE_BACKTRACE
+    *bfbin << (uint64_t) uintptr_t(bb_info->address);
+# ifdef USE_BFD
+    SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t(bb_info->address)));
+    if (srcloc == nullptr)
+      *bfbin << "" << "" << UINT64_C(0) << UINT64_C(0);
+    else
+      *bfbin << srcloc->file_name
+             << srcloc->function_name
+             << demangle_func_name(srcloc->function_name)
+             << srcloc->line_number
+#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
+             << srcloc->discriminator;
+#  else
+             ;
+#  endif
+# else
+    *bfbin << bf_address_to_location_string(bb_info->address);
+# endif
+#endif
+  }
+  *bfbin << uint8_t(BINOUT_ROW_NONE);
 }
 
 // Report what we've measured for the current basic block.

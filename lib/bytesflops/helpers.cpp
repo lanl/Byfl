@@ -488,7 +488,7 @@ void BytesFlops::insert_zero_array_code(Module* module,
 
 // Insert code at the end of a basic block.
 void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
-                                     int& must_clear,
+                                     uint64_t num_insts, int& must_clear,
                                      BasicBlock::iterator& insert_before)
 {
   // Keep track of how the basic block terminated.
@@ -560,8 +560,14 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
                          one);
 
   // If we're instrumenting every basic block, insert calls to
-  // bf_accumulate_bb_tallies() and bf_report_bb_tallies().
+  // bf_tally_bb_execution(), bf_accumulate_bb_tallies(), and
+  // bf_report_bb_tallies().
   if (InstrumentEveryBB) {
+    static MersenneTwister bb_rng(2655817);
+    vector<Value*> arg_list;
+    arg_list.push_back(ConstantInt::get(globctx, APInt(64, uint64_t(bb_rng.next()))));
+    arg_list.push_back(ConstantInt::get(globctx, APInt(64, num_insts)));
+    callinst_create(tally_bb_exec, arg_list, insert_before);
     callinst_create(accum_bb_tallies, insert_before);
     callinst_create(report_bb_tallies, insert_before);
   }

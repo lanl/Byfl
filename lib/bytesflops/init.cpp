@@ -254,11 +254,24 @@ namespace bytesflops_pass {
     init_if_necessary = declare_thunk(&module, "bf_initialize_if_necessary");
 
     // Inject external declarations for bf_accumulate_bb_tallies(),
-    // bf_reset_bb_tallies(), and bf_report_bb_tallies().
+    // bf_reset_bb_tallies(), bf_report_bb_tallies(), and
+    // bf_tally_bb_execution().
     if (InstrumentEveryBB) {
+      // Declare the zero-argument functions first.
       accum_bb_tallies = declare_thunk(&module, "bf_accumulate_bb_tallies");
       reset_bb_tallies = declare_thunk(&module, "bf_reset_bb_tallies");
       report_bb_tallies = declare_thunk(&module, "bf_report_bb_tallies");
+
+      // Declare the two-argument bf_tally_bb_execution().
+      vector<Type*> func_args;
+      func_args.push_back(uint64_arg);
+      func_args.push_back(uint64_arg);
+      FunctionType* void_func_result =
+        FunctionType::get(Type::getVoidTy(globctx), func_args, false);
+      tally_bb_exec =
+        declare_extern_c(void_func_result,
+                         "bf_tally_bb_execution",
+                         &module);
     }
 
     // Inject an external declarations for bf_increment_func_tally().
@@ -292,17 +305,14 @@ namespace bytesflops_pass {
                          "bf_incr_func_tally",
                          &module);
 
-      if ( TrackCallStack )
-      {
-          // Inject external declarations for bf_push_function() and
-          // bf_pop_function().
-          // bf_push_function()
-          push_function =
-                  declare_extern_c(void_str_int_func_result,
-                                   "bf_push_function",
-                                   &module);
-          // bf_pop_function()
-          pop_function = declare_thunk(&module, "bf_pop_function");
+      if (TrackCallStack) {
+        // Inject external declarations for bf_push_function() and
+        // bf_pop_function().
+        push_function =
+          declare_extern_c(void_str_int_func_result,
+                           "bf_push_function",
+                           &module);
+        pop_function = declare_thunk(&module, "bf_pop_function");
       }
     }
 
