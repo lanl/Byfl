@@ -422,12 +422,6 @@ namespace bytesflops_pass {
     } inner_loop_info_t;
     unordered_map<string, inner_loop_info_t*> loc_to_loop_info;
 
-    // Indicate that we need access to DataLayoutPass and LoopInfo.
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<DataLayoutPass>();
-      AU.addRequired<LoopInfo>();
-    }
-
     void initializeKeyMap(Module& module);
 
     void create_func_map_ctor(Module & module, uint32_t nkeys,
