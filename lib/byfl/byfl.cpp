@@ -1266,6 +1266,10 @@ public:
     // Complete the basic-block table.
     finalize_bblocks();
 
+    // Report the number of times each basic block was executed.
+    if (bf_every_bb)
+      bf_report_bb_execution();
+
     // Report per-function counter totals.
     if (bf_per_func)
       report_by_function();

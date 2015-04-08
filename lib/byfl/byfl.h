@@ -76,6 +76,7 @@ namespace bytesflops {
   extern void bf_abend(void) __attribute__ ((noreturn));
   extern void bf_report_vector_operations(size_t call_stack_depth);
   extern void bf_report_data_struct_counts(void);
+  extern void bf_report_bb_execution(void);
   extern uint64_t bf_tally_unique_addresses(const char* funcname);
   extern uint64_t bf_tally_unique_addresses_tb(const char* funcname);
   extern uint64_t bf_tally_unique_addresses_tb(void);

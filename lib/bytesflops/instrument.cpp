@@ -151,8 +151,8 @@ namespace bytesflops_pass {
                                          LLVMContext& bbctx,
                                          BasicBlock::iterator& insert_before,
                                          int& must_clear) {
-    // Increment the byte counter for load and store
-    // instructions (any datatype).
+    // Increment the byte counter for load and store instructions (any
+    // datatype).
     Instruction& inst = *iter;                // Current instruction
     unsigned int opcode = inst.getOpcode();   // Current instruction's opcode
     Value* mem_value = opcode == Instruction::Load ? &inst : cast<StoreInst>(inst).getValueOperand();
@@ -792,6 +792,7 @@ namespace bytesflops_pass {
       BasicBlock::iterator terminator_inst = bb.end();
       terminator_inst--;
       int must_clear = 0;   // Keep track of which counters we need to clear.
+      uint64_t num_insts = bb.size();
 
       // Insert an "unreachable" instruction as a sentinel before the
       // real terminator instruction.  New code is inserted before the
@@ -851,7 +852,7 @@ namespace bytesflops_pass {
 
       // Add one last bit of code then release the mega-lock and elide
       // the sentinel terminator.
-      insert_end_bb_code(module, keyval, must_clear, terminator_inst);
+      insert_end_bb_code(module, keyval, num_insts, must_clear, terminator_inst);
       if (ThreadSafety)
         callinst_create(release_mega_lock, terminator_inst);
       unreachable->eraseFromParent();
