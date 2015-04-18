@@ -211,21 +211,21 @@ if [ "$download" = yes ] ; then
     # Delete old files before downloading the new ones.
     if [ "$use_byfl" = yes ] ; then
         echo "# Removing old versions of Byfl from $builddir" 1>&4
-        run_with_progress cleanup-byfl 300 rm -rfv byfl
+        run_with_progress cleanup-byfl 310 rm -rfv byfl
     fi
     if [ "$use_dragonegg" = yes ] ; then
         echo "# Removing old versions of DragonEgg from $builddir" 1>&4
-        run_with_progress cleanup-dregg 1300 rm -rfv dragonegg
+        run_with_progress cleanup-dregg 980 rm -rfv dragonegg
     fi
     if [ "$use_llvm" = yes ] ; then
         echo "# Removing old versions of LLVM and Clang from $builddir" 1>&4
-        run_with_progress cleanup-llvm 97000 rm -rfv llvm
+        run_with_progress cleanup-llvm 60000 rm -rfv llvm
     fi
 
     # Download LLVM.
     if [ "$use_llvm" = yes ] ; then
         echo "# Downloading LLVM revision $llvm_revision on $llvm_branch into $builddir" 1>&4
-        run_with_progress llvm-dl 17000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/$llvm_branch llvm
+        run_with_progress llvm-dl 16000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/$llvm_branch llvm
     fi
     cd llvm
     llvm_revision=`svn info | awk '/^Revision: / {print $2}'`
@@ -234,7 +234,7 @@ if [ "$download" = yes ] ; then
     # Download Clang.
     if [ "$use_llvm" = yes ] ; then
         echo "# Downloading Clang revision $llvm_revision into $builddir" 1>&4
-        run_with_progress clang-dl 13000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/$llvm_branch llvm/tools/clang
+        run_with_progress clang-dl 12000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/$llvm_branch llvm/tools/clang
     fi
 
     # Download the Clang run-time system.
@@ -279,12 +279,12 @@ if [ "$compile" = yes ] ; then
 
         # Build LLVM and Clang.
         echo "# Compiling LLVM and Clang" 1>&4
-        run_with_progress llvm-build 3500 make -j$numprocs
+        run_with_progress llvm-build 3700 make -j$numprocs
 
         # Install LLVM and Clang.  Out of the goodness of our heart we also
         # install the Clang static analyzer.
         echo "# Installing LLVM and Clang into $destdir$installdir" 1>&4
-        run_with_progress llvm-inst 810 make DESTDIR="$destdir" install
+        run_with_progress llvm-inst 820 make DESTDIR="$destdir" install
 	cp -p tools/clang/tools/scan-view/scan-view "$destdir$installdir/bin/scan-view"
 	cp -p tools/clang/tools/scan-build/scan-build "$destdir$installdir/bin/scan-build"
         cd ..
@@ -295,7 +295,7 @@ if [ "$compile" = yes ] ; then
         # Build DragonEgg.
         cd dragonegg
         echo "# Compiling DragonEgg" 1>&4
-        run_with_progress dregg-build 380 make -j$numprocs
+        run_with_progress dregg-build 310 make -j$numprocs
 
         # Install DragonEgg.
         echo "# Installing DragonEgg into $destdir$installdir" 1>&4
@@ -308,21 +308,21 @@ if [ "$compile" = yes ] ; then
         echo "# Configuring Byfl" 1>&4
         cd byfl
         if [ $configure = yes -o ! -e config.log ] ; then
-            run_with_progress byfl-autogen 20 autoreconf -v -f -i
+            run_with_progress byfl-autogen 21 autoreconf -v -f -i
         fi
         test -e build || mkdir build
         cd build
         if [ $configure = yes -o ! -e config.log ] ; then
-            run_with_progress byfl-config 130 ../configure DRAGONEGG="$installdir/lib/dragonegg.so" --prefix="$installdir"
+            run_with_progress byfl-config 140 ../configure DRAGONEGG="$installdir/lib/dragonegg.so" --prefix="$installdir"
         fi
 
         # Build Byfl.
         echo "# Compiling Byfl" 1>&4
-        run_with_progress byfl-build 180 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" -j$numprocs
+        run_with_progress byfl-build 190 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" -j$numprocs
 
         # Install Byfl.
         echo "# Installing Byfl into $destdir$installdir" 1>&4
-        run_with_progress byfl-inst 210 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" DESTDIR="$destdir" install
+        run_with_progress byfl-inst 220 make DRAGONEGG="$destdir$installdir/lib/dragonegg.so" DESTDIR="$destdir" install
     fi
 
     # Test the installation
