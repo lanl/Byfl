@@ -199,13 +199,13 @@ if [ "$download" = yes ] ; then
     fi
     if [ "$use_llvm" = yes ] ; then
         echo "# Removing old versions of LLVM and Clang from $builddir" 1>&4
-        run_with_progress cleanup-llvm 60000 rm -rfv llvm
+        run_with_progress cleanup-llvm 64000 rm -rfv llvm
     fi
 
     # Download LLVM.
     if [ "$use_llvm" = yes ] ; then
         echo "# Downloading LLVM revision $llvm_revision on $llvm_branch into $builddir" 1>&4
-        run_with_progress llvm-dl 16000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/$llvm_branch llvm
+        run_with_progress llvm-dl 17000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/llvm/$llvm_branch llvm
     fi
     cd llvm
     llvm_revision=`svn info | awk '/^Revision: / {print $2}'`
@@ -214,7 +214,7 @@ if [ "$download" = yes ] ; then
     # Download Clang.
     if [ "$use_llvm" = yes ] ; then
         echo "# Downloading Clang revision $llvm_revision into $builddir" 1>&4
-        run_with_progress clang-dl 12000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/$llvm_branch llvm/tools/clang
+        run_with_progress clang-dl 13000 svn checkout -r $llvm_revision http://llvm.org/svn/llvm-project/cfe/$llvm_branch llvm/tools/clang
     fi
 
     # Download the Clang run-time system.
@@ -253,12 +253,12 @@ if [ "$compile" = yes ] ; then
 
         # Build LLVM and Clang.
         echo "# Compiling LLVM and Clang" 1>&4
-        run_with_progress llvm-build 3700 make -j$numprocs
+        run_with_progress llvm-build 3500 make -j$numprocs
 
         # Install LLVM and Clang.  Out of the goodness of our heart we also
         # install the Clang static analyzer.
         echo "# Installing LLVM and Clang into $destdir$installdir" 1>&4
-        run_with_progress llvm-inst 820 make DESTDIR="$destdir" install
+        run_with_progress llvm-inst 810 make DESTDIR="$destdir" install
 	cp -p tools/clang/tools/scan-view/scan-view "$destdir$installdir/bin/scan-view"
 	cp -p tools/clang/tools/scan-build/scan-build "$destdir$installdir/bin/scan-build"
         cd ..
@@ -300,7 +300,7 @@ int main (void) {
 }
 CFILE
     bf-clang -O2 -bf-libdir="$destdir$installdir/lib" $cfile -o $exefile
-    run_with_progress byfl-test 22 $exefile
+    run_with_progress byfl-test 19 $exefile
     rm -f $cfile $exefile
 
     # Say what we did.
