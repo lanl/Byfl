@@ -192,6 +192,7 @@ namespace bytesflops_pass {
     Function* reuse_dist_prog;   // Pointer to bf_reuse_dist_addrs_prog()
     Function* memset_intrinsic;  // Pointer to LLVM's memset() intrinsic
     Function* access_cache;      // Pointer to bf_touch_cache()
+    Function* tally_bb_exec;     // Pointer to bf_tally_bb_execution()
     StringMap<Constant*> func_name_to_arg;   // Map from a function name to an IR function argument
     set<string>* instrument_only;   // Set of functions to instrument; NULL=all
     set<string>* dont_instrument;   // Set of functions not to instrument; NULL=none
@@ -315,7 +316,7 @@ namespace bytesflops_pass {
                                 BasicBlock::iterator& insert_before);
 
     // Insert code at the end of a basic block.
-    void insert_end_bb_code (Module* module, KeyType_t funcKey,
+    void insert_end_bb_code (Module* module, KeyType_t funcKey, uint64_t num_insts,
                              int& must_clear, BasicBlock::iterator& insert_before);
 
     // Wrap CallInst::Create() with code to acquire and release the
@@ -420,12 +421,6 @@ namespace bytesflops_pass {
       uint64_t instructions;   // Number of instructions in the loop
     } inner_loop_info_t;
     unordered_map<string, inner_loop_info_t*> loc_to_loop_info;
-
-    // Indicate that we need access to DataLayout and LoopInfo.
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<DataLayoutPass>();
-      AU.addRequired<LoopInfo>();
-    }
 
     void initializeKeyMap(Module& module);
 

@@ -153,7 +153,7 @@ void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
   load_array->setAlignment(8);
 
   // %2 = getelementptr inbounds i64* %1, i64 %idx
-  GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(load_array, idx, "idx_ptr", insert_before);
+  GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(load_array->getType(), load_array, idx, "idx_ptr", insert_before);
 
   // %3 = load i64* %2, align 8
   LoadInst* idx_val = new LoadInst(idx_ptr, "idx_val", false, insert_before);
@@ -266,7 +266,7 @@ Constant* BytesFlops::create_global_constant(Module& module,
   getelementptr_indexes.push_back(zero);
   getelementptr_indexes.push_back(zero);
   Constant* array_pointer =
-    ConstantExpr::getGetElementPtr(string_contents, getelementptr_indexes);
+    ConstantExpr::getGetElementPtr(string_contents->getType(), string_contents, getelementptr_indexes);
   PointerType* pointer_type = PointerType::get(Type::getInt8Ty(globctx), 0);
   GlobalVariable* new_constant =
     new GlobalVariable(module, pointer_type, true,
@@ -435,7 +435,7 @@ Constant* BytesFlops::map_func_name_to_arg (Module* module, StringRef funcname)
   getelementptr_indices.push_back(zero_index);
   getelementptr_indices.push_back(zero_index);
   string_argument =
-    ConstantExpr::getGetElementPtr(const_char_ptr, getelementptr_indices);
+    ConstantExpr::getGetElementPtr(const_char_ptr->getType(), const_char_ptr, getelementptr_indices);
   func_name_to_arg[funcname] = string_argument;
   return string_argument;
 }
@@ -488,7 +488,7 @@ void BytesFlops::insert_zero_array_code(Module* module,
 
 // Insert code at the end of a basic block.
 void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
-                                     int& must_clear,
+                                     uint64_t num_insts, int& must_clear,
                                      BasicBlock::iterator& insert_before)
 {
   // Keep track of how the basic block terminated.
@@ -560,8 +560,14 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
                          one);
 
   // If we're instrumenting every basic block, insert calls to
-  // bf_accumulate_bb_tallies() and bf_report_bb_tallies().
+  // bf_tally_bb_execution(), bf_accumulate_bb_tallies(), and
+  // bf_report_bb_tallies().
   if (InstrumentEveryBB) {
+    static MersenneTwister bb_rng(2655817);
+    vector<Value*> arg_list;
+    arg_list.push_back(ConstantInt::get(globctx, APInt(64, uint64_t(bb_rng.next()))));
+    arg_list.push_back(ConstantInt::get(globctx, APInt(64, num_insts)));
+    callinst_create(tally_bb_exec, arg_list, insert_before);
     callinst_create(accum_bb_tallies, insert_before);
     callinst_create(report_bb_tallies, insert_before);
   }
