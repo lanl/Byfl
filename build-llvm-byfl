@@ -35,8 +35,8 @@ llvm_revision=HEAD
 use_byfl=yes
 use_llvm=yes
 destdir=
-byfl_branch=llvm-3.6
-llvm_branch=tags/RELEASE_360/final
+byfl_branch=master
+llvm_branch=trunk
 while getopts j:b:r:tdcCD:x:B:L: opt; do
     case $opt in
         j)
