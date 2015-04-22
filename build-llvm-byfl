@@ -2,8 +2,8 @@
 
 ######################################
 # Automatically do a clean build of  #
-# LLVM trunk and Clang trunk and     #
-# then of Byfl head                  #
+# LLVM 3.6 and Clang 3.6 and then of #
+# Byfl's llvm-3.6 branch             #
 #                                    #
 # By Scott Pakin <pakin@lanl.gov>    #
 ######################################
