@@ -18,10 +18,6 @@ namespace bytesflops {
 
 extern ostream* bfout;
 extern BinaryOStream* bfbin;
-#ifdef HAVE_BACKTRACE
-extern void* bf_find_caller_address (void);
-extern const char* bf_address_to_location_string (void* addrp);
-#endif
 #ifdef USE_BFD
 extern ProcessSymbolTable* procsymtab;  // The calling process's symbol table
 #endif

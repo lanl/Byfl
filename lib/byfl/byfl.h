@@ -106,6 +106,7 @@ namespace bytesflops {
   extern bool suppress_output(void);
 #ifdef HAVE_BACKTRACE
   extern void* bf_find_caller_address(void);
+  extern const char* bf_address_to_location_string(void* addrp);
 #endif
 
   // The following library variables are used in files other than the
