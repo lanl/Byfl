@@ -7,6 +7,7 @@
 #include <sqlite3.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 #include "bfbin.h"
 
 using namespace std;
@@ -28,6 +29,7 @@ class LocalState
 {
 private:
   string replace_extension (const string oldfilename, const string newext);
+  void show_usage (ostream& os);
 
 public:
   sqlite3* db;                // Handle to database
@@ -41,24 +43,86 @@ public:
   const size_t rows_per_transaction = 1000000;   // Maximum number of rows per transaction
   int column;                 // Current column number
   bool issued_overflow_warning;  // true=an integer already overflowed in the current table; false=not yet
+  bool live_data;             // true=wait for more data to arrive; false=fail if data aren't available
 
-  LocalState(int argc, const char *argv[]);
+  LocalState(int argc, char *argv[]);
   ~LocalState();
 };
 
+// Output a usage string.
+void LocalState::show_usage (ostream& os)
+{
+  os << "Usage: " << progname
+     << " [--output=<filename.db>]"
+     << " [--live-data]"
+     << " <filename.byfl>\n";
+}
+
 // Parse the command line and open the database file.
-LocalState::LocalState (int argc, const char *argv[])
+LocalState::LocalState (int argc, char *argv[])
 {
   // Initialize our local state.
   db = nullptr;
+  live_data = false;
 
-  // Parse the command line.
-  if (argc < 2 || argc > 3)
-    cerr << "Usage: " << progname << " <input.byfl> [<output.db>]\n" << die;
-  byflfilename = argv[1];
-  if (argc > 2)
-    sqlite3filename = argv[2];
-  else
+  // Walk the command line and process each option we encounter.
+  static struct option cmd_line_options[] = {
+    { "help",            no_argument,       NULL, 'h' },
+    { "output",          required_argument, NULL, 'o' },
+    { "live-data",       no_argument,       NULL, 'l' },
+    { NULL,              0,                 NULL, 0 }
+  };
+  int opt_index = 0;
+  while (true) {
+    int c = getopt_long(argc, argv, "ho:l", cmd_line_options, &opt_index);
+    if (c == -1)
+      break;
+    switch (c) {
+      case 'h':
+        show_usage(cout);
+        exit(0);
+        break;
+
+      case 'o':
+        sqlite3filename = string(optarg);
+        break;
+
+      case 'l':
+        live_data = true;
+        break;
+
+      case 0:
+        cerr << progname << ": Internal error in " << __FILE__
+             << ", line " << __LINE__ << '\n' << die;
+        break;
+
+      default:
+        show_usage(cout);
+        exit(1);
+        break;
+    }
+  }
+
+  // Parse the remaining non-option, if any.
+  switch (argc - optind) {
+    case 1:
+      // Exactly one argument: Store it as the input file name.
+      byflfilename = string(argv[optind]);
+      break;
+
+    case 0:
+      // No arguments: Complain.
+      cerr << progname << ": The name of a Byfl binary file must be specified\n" << die;
+      break;
+
+    default:
+      // More than one argument: Complain.
+      cerr << progname << ": Only a single input file is allowed to be specified\n" << die;
+      break;
+  }
+
+  // Choose a name for the output file if not specified explicitly.
+  if (sqlite3filename == "")
     sqlite3filename = replace_extension(byflfilename, ".db");
 
   // Create a new database file.
@@ -283,7 +347,7 @@ static void end_row (void* state)
 
   // Periodically commit the current transaction and begin a new one.
   lstate->num_rows++;
-  if (lstate->num_rows == lstate->rows_per_transaction) {
+  if (lstate->live_data || lstate->num_rows == lstate->rows_per_transaction) {
     execute_sql_statement(lstate, "END TRANSACTION;",
                           "Failed to commit a transaction for table \"" + lstate->tablename + '"');
     execute_sql_statement(lstate, "BEGIN IMMEDIATE TRANSACTION;",
@@ -302,7 +366,7 @@ static void end_any_table (void* state)
                      lstate, "Failed to finalize the insertion template for");
 }
 
-int main (int argc, const char *argv[])
+int main (int argc, char *argv[])
 {
   // Store the base filename of the current executable in progname.
   progname = argv[0];
@@ -332,6 +396,6 @@ int main (int argc, const char *argv[])
   callbacks.table_end_keyval_cb = end_any_table;
 
   // Process the input file.
-  bf_process_byfl_file(state.byflfilename.c_str(), &callbacks, &state);
+  bf_process_byfl_file(state.byflfilename.c_str(), &callbacks, &state, int(state.live_data));
   return 0;
 }

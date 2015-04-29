@@ -55,6 +55,7 @@ public:
   bool suppress_table;     // true=skip the current table; false=show it
   bitset<SHOW_NUM> show;   // Table elements to output
   bool one_val_per_line;   // true=machine-parseable output (one value per output line); false=human-readable output
+  bool live_data;          // true=wait for more data to arrive; false=fail if data aren't available
 
   LocalState (int argc, char* argv[]);
   ~LocalState();
@@ -72,6 +73,7 @@ void LocalState::show_usage (ostream& os)
      << " [--no-column-names]"
      << " [--no-data]"
      << " [--flat-output]"
+     << " [--live-data]"
      << " <filename.byfl>\n";
 }
 
@@ -89,6 +91,7 @@ LocalState::LocalState (int argc, char* argv[])
   suppress_table = false;
   show.set();
   one_val_per_line = false;
+  live_data = false;
 
   // Walk the command line and process each option we encounter.
   static struct option cmd_line_options[] = {
@@ -101,11 +104,12 @@ LocalState::LocalState (int argc, char* argv[])
     { "no-column-names", no_argument,       NULL, 'C' },
     { "no-data",         no_argument,       NULL, 'D' },
     { "flat-output",     no_argument,       NULL, 'f' },
+    { "live-data",       no_argument,       NULL, 'l' },
     { NULL,              0,                 NULL, 0 }
   };
   int opt_index = 0;
   while (true) {
-    int c = getopt_long(argc, argv, "ho:c:i:e:TCDf", cmd_line_options, &opt_index);
+    int c = getopt_long(argc, argv, "ho:c:i:e:TCDfl", cmd_line_options, &opt_index);
     if (c == -1)
       break;
     switch (c) {
@@ -145,6 +149,10 @@ LocalState::LocalState (int argc, char* argv[])
 
       case 'f':
         one_val_per_line = true;
+        break;
+
+      case 'l':
+        live_data = true;
         break;
 
       case 0:
@@ -472,6 +480,6 @@ int main (int argc, char *argv[])
   callbacks.row_end_cb = end_row;
 
   // Process the input file.
-  bf_process_byfl_file(state.infilename.c_str(), &callbacks, &state);
+  bf_process_byfl_file(state.infilename.c_str(), &callbacks, &state, int(state.live_data));
   return 0;
 }

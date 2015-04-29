@@ -36,7 +36,8 @@ extern "C" {
 extern void
 bf_process_byfl_file (const char *byfl_filename,
                       bfbin_callback_t *callback_list,
-                      void *user_data);
+                      void *user_data,
+                      int live_input);
 #ifdef __cplusplus
 }
 #endif

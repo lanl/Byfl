@@ -64,6 +64,7 @@ typedef struct {
   int channel[2];         /* Channel for interthread communication */
   char *filename;         /* Byfl filename */
   pthread_t tid;          /* ID for library thread */
+  int patient;            /* 1=wait at EOF; 0=fail at EOF */
 #endif
 } parse_state_t;
 
@@ -71,7 +72,7 @@ typedef struct {
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern parse_state_t *bf_open_byfl_file (const char *byfl_filename);
+  extern parse_state_t *bf_open_byfl_file (const char *byfl_filename, int live_data);
 extern table_item_t bf_read_byfl_item (parse_state_t *state);
 extern void bf_close_byfl_file (parse_state_t *state);
 #ifdef __cplusplus

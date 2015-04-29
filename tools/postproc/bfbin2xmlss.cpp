@@ -380,9 +380,10 @@ int main (int argc, char *argv[])
   callbacks.data_bool_cb = write_bool_value;
   callbacks.row_end_cb = end_row;
 
-  // Process the input file.
+  // Process the input file.  We currently assume that the input file is
+  // complete, not being generated as we run.
   write_xml_header(&state);
-  bf_process_byfl_file(state.infilename.c_str(), &callbacks, &state);
+  bf_process_byfl_file(state.infilename.c_str(), &callbacks, &state, 0);
   write_xml_trailer(&state);
   return 0;
 }
