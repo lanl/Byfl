@@ -13,6 +13,7 @@ B<bfbin2csv>
 [B<--no-column-names>]
 [B<--no-data>]
 [B<--flat-output>]
+[B<--live-data>]
 I<filename.byfl>
 
 B<bfbin2csv>
@@ -76,7 +77,17 @@ form "I<table_name>,I<row_number>,I<column_name>,I<value>", where the
 first three of those columns together uniquely identify a single
 measurement.
 
+=item B<-l>, B<--live-data>
+
+Indicate that the input file is being generated concurrently with
+B<bfbin2csv>'s execution.  When B<--live-data> is specified, a
+premature end of file causes B<bfbin2csv> to wait for more data to
+arrive instead of immediately producing an error message and aborting.
+
 =back
+
+In addition, the name of a binary F<.byfl> input file must be provided
+on the command line.
 
 =head1 EXAMPLES
 

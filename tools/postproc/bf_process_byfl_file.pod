@@ -7,8 +7,9 @@ bf_process_byfl_file - parse a Byfl binary output file
     #include <byfl/bfbin.h>
 
     void bf_process_byfl_file (const char *byfl_filename,
-			       bfbin_callback_t *callback_list,
-			       void *user_data);
+                               bfbin_callback_t *callback_list,
+                               void *user_data,
+                               int live_input);
 
 Link with I<-lbfbin>.
 
@@ -76,9 +77,16 @@ I<bfbin_callback_t>, which is declared as follows:
       void (*row_end_cb)(void *user_data);
     } bfbin_callback_t;
 
-Finally, the I<user_data> argument is an arbitrary pointer that will
+The I<user_data> argument is an arbitrary pointer that will
 be passed to each callback function.  Client programs will typically
 point I<user_data> to a structure of local state information.
+
+Finally, I<live_data> is a Boolean that indicates what
+B<bf_process_byfl_file()> should do upon encountering a premature end
+of file.  If I<live_data> is 0, B<bf_process_byfl_file()> invokes the
+I<error_cb> callback and aborts processing the F<.byfl> file.  If
+I<live_data> is 1, B<bf_process_byfl_file()> waits until more data are
+written to the F<.byfl> file then continues processing the file.
 
 =head2 Callbacks
 
@@ -174,9 +182,9 @@ the F<.byfl> file.
 
 =head1 SEE ALSO
 
-bfbin2hdf5(1), bfbin2csv(1), bfbin2sqlite3(1), bf-clang(1),
-bf-clang++(1), bf-gcc(1), bf-g++(1), bf-gfortran(1), bf-gccgo(1),
-L<the Byfl home page|https://github.com/losalamos/Byfl>
+bfbin2hdf5(1), bfbin2csv(1), bfbin2sqlite3(1), bfbin2xmlss(1),
+bf-clang(1), bf-clang++(1), bf-gcc(1), bf-g++(1), bf-gfortran(1),
+bf-gccgo(1), L<the Byfl home page|https://github.com/losalamos/Byfl>
 
 =head1 AUTHOR
 
