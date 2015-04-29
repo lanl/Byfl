@@ -293,8 +293,9 @@ static void convert_byfl_to_hdf5 (string byflfilename, string hdf5filename)
   program_state_t state;
   state.hdf5file = hdf5file;
 
-  // Convert a Byfl binary output file to an HDF5 file.
-  bf_process_byfl_file(byflfilename.c_str(), &callbacks, &state);
+  // Convert a Byfl binary output file to an HDF5 file.  We currently assume
+  // that the input file is complete, not being generated as we run.
+  bf_process_byfl_file(byflfilename.c_str(), &callbacks, &state, 0);
 }
 
 int main (int argc, const char *argv[])

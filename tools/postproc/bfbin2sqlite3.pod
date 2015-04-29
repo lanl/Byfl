@@ -4,24 +4,50 @@ bfbin2sqlite3 - convert Byfl output to a SQLite3 database file
 
 =head1 SYNOPSIS
 
-B<bfbin2sqlite3> I<input_file.byfl> [I<output_file.db>]
+B<bfbin2sqlite3>
+[B<--output>=I<filename.db>]
+[B<--live-data>]
+I<filename.byfl>
+
+B<bfbin2sqlite3>
+B<--help>
 
 =head1 DESCRIPTION
 
 By default, applications instrumented with Byfl write measurement data
 to a binary F<.byfl> file.  B<bfbin2sqlite3> converts such files to
 SQLite3 database files.  These can be loaded directly into the
-B<sqlite3> command-line database tool or converted into other
-spreadsheet formats.
+B<sqlite3> command-line database tool or converted into other database
+formats.
 
 =head1 OPTIONS
 
-B<bfbin2sqlite3> has no command-line options.  The program accepts the
-name of a F<.byfl> file to read and a SQLite3 database file to create.
-If not specified, the name of the database file will be the same as
-that of the input file but with F<.byfl> replaced with F<.db>.  (If the
-file name does not end in F<.byfl> then F<.db> will be appended to the
-file name.)
+B<bfbin2sqlite3> accepts the following command-line options:
+
+=over 8
+
+=item B<-h>, B<--help>
+
+Output a brief usage message.
+
+=item B<-o> I<filename.db>, B<--output>=I<filename.db>
+
+Specify the name of the output file.  If this option is not specified,
+the name of the database file will be the same as that of the input
+file but with F<.byfl> replaced with F<.db>.  (If the file name does
+not end in F<.byfl> then F<.db> will be appended to the file name.)
+
+=item B<-l>, B<--live-data>
+
+Indicate that the input file is being generated concurrently with
+B<bfbin2sqlite3>'s execution.  When B<--live-data> is specified, a
+premature end of file causes B<bfbin2sqlite3> to wait for more data to
+arrive instead of immediately producing an error message and aborting.
+
+=back
+
+In addition, the name of a binary F<.byfl> input file must be provided
+on the command line.
 
 =head1 EXAMPLES
 

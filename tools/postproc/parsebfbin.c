@@ -12,6 +12,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <fcntl.h>
 #include <setjmp.h>
 #include "bfbin.h"
@@ -67,6 +68,7 @@ typedef struct {
   jmp_buf stack_env;                 /* Stack context for error handling */
   void *last_value;                  /* Storage for data to pass to a callback */
   size_t value_space;                /* Number of bytes allocated for last_value */
+  int patient;                       /* 1=wait for data; 0=fail if data are not available */
 } parse_state_t;
 
 #ifndef HAVE_ASPRINTF
@@ -92,6 +94,37 @@ static int asprintf (char **strp, const char *fmt, ...)
 }
 #endif
 
+/* Call fread(), optionally waiting until it succeeds. */
+static size_t patient_fread (int patient, void *ptr, size_t size, size_t nmemb, FILE *stream)
+{
+  size_t total_read = 0;   /* Bytes read so far */
+  struct timespec delay;   /* Time to wait between attempts */
+  time_t min_delay = 1;    /* Minimum time in seconds between attempts */
+  time_t max_delay = 32;   /* Maximum time in seconds between attempts */
+
+  /* Fall back to regular fread() if we're told not to be patient. */
+  if (!patient)
+    return fread(ptr, size, nmemb, stream);
+
+  /* Keep reading until no data remains to be read. */
+  total_read = 0;
+  while (1) {
+    total_read += fread(ptr, size, nmemb - total_read, stream);
+    if (total_read == nmemb || ferror(stream))
+      /* We either finished successfully or failed in an unrecoverable
+       * manner. */
+      return total_read;
+
+    /* Wait (with exponential backoff), then try again. */
+    delay.tv_sec = min_delay;
+    delay.tv_nsec = 0;
+    (void) nanosleep(&delay, NULL);
+    delay.tv_sec *= 2;
+    if (delay.tv_sec > max_delay)
+      delay.tv_sec = max_delay;
+  }
+}
+
 /* Open the Byfl binary-output file and enable a fair amount of
  * buffering.  Invoke the caller-provided callback function on
  * error. */
@@ -116,7 +149,7 @@ static void open_binary_file (parse_state_t *state)
   }
 
   /* Read and validate the magic header sequence. */
-  if (fread(header, sizeof(char), 7, state->fd) != 7)
+  if (patient_fread(state->patient, header, sizeof(char), 7, state->fd) != 7)
     THROW_ERROR("Failed to read the file header from %s (%s)",
                 state->filename, strerror(errno));
   if (memcmp(header, "BYFLBIN", 7) != 0)
@@ -133,7 +166,7 @@ static void read_big_endian (parse_state_t *state, size_t word_size)
   /* Read big-endian data. */
   for (i = 0; i < word_size; i++) {
     uint8_t c;
-    if (fread(&c, sizeof(uint8_t), 1, state->fd) != 1) {
+    if (patient_fread(state->patient, &c, sizeof(uint8_t), 1, state->fd) != 1) {
       char *syserr = strerror(errno);
       THROW_ERROR("Failed to read a byte from %s at position %ld (%s)",
                   state->filename, ftell(state->fd), syserr);
@@ -184,7 +217,7 @@ static void read_string (parse_state_t *state)
   }
 
   /* Read the string and null-terminate it. */
-  if (fread(state->last_value, sizeof(char), string_len, state->fd) != string_len)
+  if (patient_fread(state->patient, state->last_value, sizeof(char), string_len, state->fd) != string_len)
     THROW_ERROR("Failed to read a %u-byte string from %s (%s)",
                 string_len, state->filename, strerror(errno));
   ((char *)state->last_value)[string_len] = '\0';
@@ -453,7 +486,8 @@ static int process_byfl_table (parse_state_t *state)
  * point for the library. */
 void bf_process_byfl_file (const char *byfl_filename,
                            bfbin_callback_t *callback_list,
-                           void *user_data)
+                           void *user_data,
+                           int live_input)
 {
   parse_state_t local_state;  /* Local state information for parsing the input file */
 
@@ -462,6 +496,7 @@ void bf_process_byfl_file (const char *byfl_filename,
   local_state.callback_list = callback_list;
   local_state.user_data = user_data;
   local_state.filename = byfl_filename;
+  local_state.patient = live_input;
 
   /* Establish an error handler. */
   if (setjmp(local_state.stack_env) != 0) {

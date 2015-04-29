@@ -189,7 +189,7 @@ static void *parse_byfl_file (void *state)
   return_string_value((parse_state_t *)state, FILE_BEGIN, lstate->filename);
 
   /* Invoke the Byfl library function to parse the entire file. */
-  bf_process_byfl_file(lstate->filename, &callback_list, state);
+  bf_process_byfl_file(lstate->filename, &callback_list, state, lstate->patient);
 
   /* Indicate that we've finished parsing. */
   return_null_value(lstate, FILE_END);
@@ -198,7 +198,7 @@ static void *parse_byfl_file (void *state)
 
 /* Create, initialize, and return new parsing state.  Return NULL on
  * failure. */
-parse_state_t *bf_open_byfl_file (const char *byfl_filename)
+parse_state_t *bf_open_byfl_file (const char *byfl_filename, int live_data)
 {
   parse_state_t *state;
 
@@ -212,7 +212,8 @@ parse_state_t *bf_open_byfl_file (const char *byfl_filename)
   if (pipe(state->channel) == -1)
     return NULL;
   state->filename = strdup(byfl_filename);
-  state->data.item_type = FILE_BEGIN;    /* Must not be ERROR or FILE_END, or bf_read_byfl_item will lock onto that. */
+  state->data.item_type = FILE_BEGIN;    /* Must be anything other than ERROR or FILE_END, or bf_read_byfl_item will lock onto that. */
+  state->patient = live_data;
 
   /* Process the file in the background. */
   if (pthread_create(&state->tid, NULL, parse_byfl_file, state) != 0) {
