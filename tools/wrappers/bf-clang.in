@@ -274,6 +274,7 @@ bf-clang
 [B<-bf-data-structs>]
 [B<-bf-types>]
 [B<-bf-inst-mix>]
+[B<-bf-inst-deps>]
 [B<-bf-vectors>]
 [B<-bf-unique-bytes>]
 [B<-bf-mem-footprint>]
@@ -322,6 +323,10 @@ Tally the number of times each data type is loaded or stored.
 =item B<-bf-inst-mix>
 
 Tally the number of times each instruction type was executed.
+
+=item B<-bf-inst-deps>
+
+Tally what instructions feed into what other instructions.
 
 =item B<-bf-vectors>
 
@@ -475,6 +480,12 @@ integer values.
 See the L<LLVM Language Reference
 Manual|http://llvm.org/docs/LangRef.html> for descriptions of the
 instructions that are tallied by B<-bf-inst-mix>.
+
+B<-bf-inst-deps> tallies each instruction with the instructions that
+produced its first two operands.  For example, C<Xor(Add, Mul)>
+represents an exclusive OR with one operand being the result of a
+previous integer addition and one being the result of a previous
+integer multiplication (i.e., C<A = (B + C) XOR (D * E)>).
 
 Use of B<-bf-unique-bytes> consumes one bit of memory per unique
 address referenced by the program.
