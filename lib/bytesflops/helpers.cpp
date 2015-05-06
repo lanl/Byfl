@@ -184,7 +184,7 @@ void BytesFlops::increment_global_3D_array(BasicBlock::iterator& insert_before,
   gep_indices.push_back(idx2);
   gep_indices.push_back(idx3);
   GetElementPtrInst* gep_inst =
-    GetElementPtrInst::Create(array3d_var, gep_indices, "idx3_ptr", insert_before);
+    GetElementPtrInst::Create(array3d_var->getType(), array3d_var, gep_indices, "idx3_ptr", insert_before);
 
   // %2 = load i64* %1, align 8
   LoadInst* load_inst = new LoadInst(gep_inst, "idx3_val", false, insert_before);
