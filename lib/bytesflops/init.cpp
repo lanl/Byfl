@@ -137,11 +137,10 @@ namespace bytesflops_pass {
     LLVMContext& globctx = module.getContext();
     IntegerType* i64type = Type::getInt64Ty(globctx);
     PointerType* i64ptrtype = Type::getInt64PtrTy(globctx);
-
-    mem_insts_var      = declare_global_var(module, i64ptrtype, "bf_mem_insts_count", true);
-    inst_mix_histo_var = declare_global_var(module, i64ptrtype, "bf_inst_mix_histo", true);
-    terminator_var     = declare_global_var(module, i64ptrtype, "bf_terminator_count", true);
-    mem_intrinsics_var = declare_global_var(module, i64ptrtype, "bf_mem_intrin_count", true);
+    mem_insts_var       = declare_global_var(module, i64ptrtype, "bf_mem_insts_count", true);
+    inst_mix_histo_var  = declare_global_var(module, i64ptrtype, "bf_inst_mix_histo", true);
+    terminator_var      = declare_global_var(module, i64ptrtype, "bf_terminator_count", true);
+    mem_intrinsics_var  = declare_global_var(module, i64ptrtype, "bf_mem_intrin_count", true);
     load_var        = declare_global_var(module, i64type, "bf_load_count");
     store_var       = declare_global_var(module, i64type, "bf_store_count");
     load_inst_var   = declare_global_var(module, i64type, "bf_load_ins_count");
@@ -152,6 +151,12 @@ namespace bytesflops_pass {
     op_var          = declare_global_var(module, i64type, "bf_op_count");
     op_bits_var     = declare_global_var(module, i64type, "bf_op_bits_count");
     call_inst_var   = declare_global_var(module, i64type, "bf_call_ins_count");
+
+    // bf_inst_deps_histo is a bit tricky because it's a 3D array.
+    ArrayType* i64array1Dtype = ArrayType::get(i64type, NUM_LLVM_OPCODES_POW2);
+    ArrayType* i64array2Dtype = ArrayType::get(i64array1Dtype, NUM_LLVM_OPCODES_POW2);
+    ArrayType* i64array3Dtype = ArrayType::get(i64array2Dtype, NUM_LLVM_OPCODES_POW2);
+    inst_deps_histo_var = declare_global_var(module, i64array3Dtype, "bf_inst_deps_histo", false);
 
     // Assign a few constant values.
     not_end_of_bb = ConstantInt::get(globctx, APInt(32, 0));
@@ -183,6 +188,9 @@ namespace bytesflops_pass {
 
     // Assign a value to bf_tally_inst_mix (instruction mix).
     create_global_constant(module, "bf_tally_inst_mix", bool(TallyInstMix));
+
+    // Assign a value to bf_tally_inst_deps (instruction dependencies).
+    create_global_constant(module, "bf_tally_inst_deps", bool(TallyInstDeps));
 
     // Assign a value to bf_per_func.
     create_global_constant(module, "bf_per_func", bool(TallyByFunction));

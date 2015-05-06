@@ -99,6 +99,9 @@ extern "C" {
 KeyType_t bf_categorize_counters_id = 10; // Should be unlikely that this is a duplicate.
 extern char** environ;
 
+// Define a mapping from an instruction's opcode to its arguments' opcodes to a
+// tally.  We ignore instructions with more than two arguments.
+uint64_t bf_inst_deps_histo[NUM_LLVM_OPCODES_POW2][NUM_LLVM_OPCODES_POW2][NUM_LLVM_OPCODES_POW2] = {0};
 
 namespace bytesflops {
 
@@ -113,7 +116,7 @@ bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
 #ifdef USE_BFD
 ProcessSymbolTable* procsymtab = NULL;  // The calling process's symbol table
 #endif
-static CallStack* call_stack = NULL;
+static CallStack* call_stack = NULL;    // The calling process's current call stack
 
 // As a kludge, set a global variable indicating that all of the
 // constructors in this file have been called.  Because of the "C++
@@ -648,6 +651,145 @@ private:
     *bfbin << uint8_t(BINOUT_ROW_NONE);
   }
 
+  // Report the number of times each instruction type was executed.  Return the
+  // total number of instructions executed.
+  uint64_t report_instruction_mix (const char* partition, ByteFlopCounters& counter_totals, string& tag) {
+    // Sort the histogram by decreasing opcode tally.
+    uint64_t total_insts = 0;
+    vector<name_tally> sorted_inst_mix;
+    size_t maxopnamelen = 0;
+    for (uint64_t i = 0; i < NUM_LLVM_OPCODES; i++)
+      if (counter_totals.inst_mix_histo[i] != 0) {
+        sorted_inst_mix.push_back(name_tally(opcode2name[i],
+                                             counter_totals.inst_mix_histo[i]));
+        size_t opnamelen = strlen(opcode2name[i]);
+        if (opnamelen > maxopnamelen)
+          maxopnamelen = opnamelen;
+      }
+    sort(sorted_inst_mix.begin(), sorted_inst_mix.end(), compare_name_tallies);
+
+    // Output the sorted results.
+    string inst_mix_table_name("Instruction mix");
+    if (partition)
+      inst_mix_table_name += string(" for tag ") + string(partition);
+    *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << inst_mix_table_name;
+    for (auto ntiter = sorted_inst_mix.cbegin();
+         ntiter != sorted_inst_mix.cend();
+         ntiter++) {
+      total_insts += ntiter->second;
+      *bfout << tag << ": " << setw(25) << ntiter->second << ' '
+             << setw(maxopnamelen) << left
+             << ntiter->first << " instructions executed\n"
+             << right;
+      *bfbin << uint8_t(BINOUT_COL_UINT64)
+             << ntiter->first << ntiter->second;
+    }
+    *bfout << tag << ": " << setw(25) << total_insts << ' '
+           << setw(maxopnamelen) << left
+           << "TOTAL" << " instructions executed\n"
+           << right
+           << tag << ": " << separator << '\n';
+    *bfbin << uint8_t(BINOUT_COL_NONE);
+    return total_insts;
+  }
+
+  // Report the number of times each {instruction, operand1, operand2} triple
+  // type was executed.
+  void report_instruction_deps (string& tag) {
+    // Convert the matrix to a histogram and sort it in decreasing order of
+    // tally.
+    struct InstInfo {
+      int opcodes[3];     // Opcodes for the instruction and its first two arguments
+      string name;        // Pretty-printed version of opcodes[]
+      uint64_t tally;     // Number of dynamic executions observed
+      InstInfo(int op, int arg1, int arg2, uint64_t n) {
+        opcodes[0] = op;
+        opcodes[1] = arg1;
+        opcodes[2] = arg2;
+        tally = n;
+      }
+      bool operator<(InstInfo& other) {
+        if (tally != other.tally)
+          return tally > other.tally;
+        for (int i = 0; i < 3; i++)
+          if (opcodes[i] != other.opcodes[i])
+            return opcodes[i] < other.opcodes[i];
+        return false;
+      }
+    };
+    vector<InstInfo> deps_histo;   // Histogram of instruction-dependency tallies
+    for (int i = 0; i < NUM_LLVM_OPCODES; i++)
+      for (int j = 0; j < NUM_LLVM_OPCODES; j++)
+        for (int k = 0; k < NUM_LLVM_OPCODES; k++)
+          if (bf_inst_deps_histo[i][j][k] > 0)
+            deps_histo.push_back(InstInfo(i, j, k, bf_inst_deps_histo[i][j][k]));
+    if (deps_histo.size() == 0)
+      return;   // No work to do
+    sort(deps_histo.begin(), deps_histo.end());
+
+    // Find what opcode number LLVM has assigned to Unreachable (meaning no
+    // operand).
+    int unreachable = 0;
+    for (int i = 0; i < NUM_LLVM_OPCODES; i++)
+      if (strcmp(opcode2name[i], "Unreachable") == 0) {
+        unreachable = i;
+        break;
+      }
+
+    // Store a pretty-printed version of each dependency.  As side effects,
+    // keep track of the maximum length of those and the total tally.
+    size_t max_str_len = 0;
+    uint64_t total_deps = 0;
+    for (auto iter = deps_histo.begin(); iter != deps_histo.end(); iter++) {
+      InstInfo& info = *iter;
+      stringstream depstr;
+      depstr << opcode2name[info.opcodes[0]] << '(';
+      if (info.opcodes[1] != unreachable) {
+        depstr << opcode2name[info.opcodes[1]];
+        if (info.opcodes[2] != unreachable)
+          depstr << ", " << opcode2name[info.opcodes[2]];
+      }
+      depstr << ')';
+      info.name = depstr.str();
+      if (info.name.size() > max_str_len)
+        max_str_len = info.name.size();
+      total_deps += info.tally;
+    }
+
+    // Report in textual format the top ten instruction+arguments triples.
+    int nOut = 0;
+    uint64_t partial_total_deps = 0;
+    for (auto iter = deps_histo.begin(); iter != deps_histo.end() && nOut < 10; iter++, nOut++) {
+      InstInfo& info = *iter;
+      *bfout << tag << ": "
+             << setw(25) << info.tally << ' '
+             << setw(max_str_len) << left << info.name << right
+             << " dependencies executed\n";
+      partial_total_deps += info.tally;
+    }
+    *bfout << tag << ": "
+           << setw(25) << total_deps - partial_total_deps << ' '
+           << setw(max_str_len) << ""
+           << " additional dependencies executed\n";
+    *bfout << tag << ": " << separator << '\n';
+
+    // Report in binary format all instruction+arguments triples.
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Instruction dependencies";
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Instruction"
+           << uint8_t(BINOUT_COL_STRING) << "Dependency 1"
+           << uint8_t(BINOUT_COL_STRING) << "Dependency 2"
+           << uint8_t(BINOUT_COL_UINT64) << "Tally"
+           << uint8_t(BINOUT_COL_NONE);
+    for (auto iter = deps_histo.begin(); iter != deps_histo.end(); iter++) {
+      InstInfo& info = *iter;
+      *bfbin << uint8_t(BINOUT_ROW_DATA);
+      for (int o = 0; o < 3; o++)
+        *bfbin << (info.opcodes[o] == unreachable ? "" : opcode2name[info.opcodes[o]]);
+      *bfbin << info.tally;
+    }
+    *bfbin << uint8_t(BINOUT_ROW_NONE);
+  }
+
   // Report the total counter values across all basic blocks.
   void report_totals (const char* partition, ByteFlopCounters& counter_totals) {
     uint64_t global_bytes = counter_totals.loads + counter_totals.stores;
@@ -944,46 +1086,16 @@ private:
       *bfbin << uint8_t(BINOUT_COL_NONE);
     }
 
-    // Pretty-print the histogram of instructions executed in both
-    // textual and binary formats.
+    // Pretty-print the histogram of instructions executed in both textual and
+    // binary formats.
     uint64_t total_insts = 0;
-    if (bf_tally_inst_mix) {
-      // Sort the histogram by decreasing opcode tally.
-      vector<name_tally> sorted_inst_mix;
-      size_t maxopnamelen = 0;
-      for (uint64_t i = 0; i < NUM_OPCODES; i++)
-        if (counter_totals.inst_mix_histo[i] != 0) {
-          sorted_inst_mix.push_back(name_tally(opcode2name[i],
-                                               counter_totals.inst_mix_histo[i]));
-          size_t opnamelen = strlen(opcode2name[i]);
-          if (opnamelen > maxopnamelen)
-            maxopnamelen = opnamelen;
-        }
-      sort(sorted_inst_mix.begin(), sorted_inst_mix.end(), compare_name_tallies);
+    if (bf_tally_inst_mix)
+      total_insts = report_instruction_mix(partition, counter_totals, tag);
 
-      // Output the sorted results.
-      string inst_mix_table_name("Instruction mix");
-      if (partition)
-        inst_mix_table_name += string(" for tag ") + string(partition);
-      *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << inst_mix_table_name;
-      for (auto ntiter = sorted_inst_mix.cbegin();
-           ntiter != sorted_inst_mix.cend();
-           ntiter++) {
-        total_insts += ntiter->second;
-        *bfout << tag << ": " << setw(25) << ntiter->second << ' '
-               << setw(maxopnamelen) << left
-               << ntiter->first << " instructions executed\n"
-               << right;
-        *bfbin << uint8_t(BINOUT_COL_UINT64)
-               << ntiter->first << ntiter->second;
-      }
-      *bfout << tag << ": " << setw(25) << total_insts << ' '
-             << setw(maxopnamelen) << left
-             << "TOTAL" << " instructions executed\n"
-             << right
-             << tag << ": " << separator << '\n';
-      *bfbin << uint8_t(BINOUT_COL_NONE);
-    }
+    // Pretty-print the histogram of instruction dependencies in both textual
+    // and binary formats.
+    if (bf_tally_inst_deps)
+      report_instruction_deps(tag);
 
     // Output quantiles of working-set sizes.
     if (bf_mem_footprint && !partition) {

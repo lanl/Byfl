@@ -85,6 +85,24 @@ if test "$ac_cv_header_llvm_IR_Instruction_def" != yes ; then
   AC_MSG_ERROR([Byfl requires the llvm/IR/Instruction.def C++ header file])
 fi
 
+dnl Tally the number of LLVM opcodes.
+AC_CACHE_CHECK([the number of opcodes defined by llvm/IR/Instruction.def],
+  [ax_cv_llvm_opcodes],
+  [ax_cv_llvm_opcodes=`"$PERL" "$srcdir/gen_opcode2name" "$CPP $CPPFLAGS" NUM`])
+if test -z "$ax_cv_llvm_opcodes" ; then
+   AC_MSG_ERROR([Failed to run $PERL and/or $CPP $CPPFLAGS])
+fi
+AC_DEFINE_UNQUOTED([NUM_LLVM_OPCODES], [$ax_cv_llvm_opcodes],
+  [Define as one more than the maximum-valued opcode in the LLVM IR.])
+AC_CACHE_CHECK([how to round up $ax_cv_llvm_opcodes opcodes to a power of two],
+  [ax_cv_llvm_opcodes_pow2],
+  [ax_cv_llvm_opcodes_pow2=`"$PERL" "$srcdir/gen_opcode2name" "$CPP $CPPFLAGS" NUM_POW2`])
+if test -z "$ax_cv_llvm_opcodes_pow2" ; then
+   AC_MSG_ERROR([Failed to run $PERL and/or $CPP $CPPFLAGS])
+fi
+AC_DEFINE_UNQUOTED([NUM_LLVM_OPCODES_POW2], [$ax_cv_llvm_opcodes_pow2],
+  [Define as NUM_LLVM_OPCODES rounded up to a power of two.])
+
 dnl Record if we have the GNU backtrace_symbols() function.
 AC_CHECK_FUNC([backtrace_symbols],
   [AC_CHECK_HEADER([execinfo.h],

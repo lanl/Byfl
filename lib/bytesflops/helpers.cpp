@@ -141,8 +141,8 @@ void BytesFlops::increment_global_variable(BasicBlock::iterator& insert_before,
   new StoreInst(inc_var, global_var, false, insert_before);
 }
 
-// Insert before a given instruction some code to increment an
-// element of a global array.
+// Insert before a given instruction some code to increment an element of a
+// global array (really, a pointer to a vector).
 void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
                                         Constant* global_var,
                                         Value* idx,
@@ -159,12 +159,43 @@ void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
   LoadInst* idx_val = new LoadInst(idx_ptr, "idx_val", false, insert_before);
   idx_val->setAlignment(8);
 
-  // %4 = add i64 %3, %increment
+  // %4 = add i64 %3, <increment>
   BinaryOperator* inc_elt =
     BinaryOperator::Create(Instruction::Add, idx_val, increment, "new_val", insert_before);
 
   // store i64 %4, i64* %2, align 8
   StoreInst* store_inst = new StoreInst(inc_elt, idx_ptr, false, insert_before);
+  store_inst->setAlignment(8);
+}
+
+// Insert before a given instruction some code to increment an element of a
+// global 3-D array.
+void BytesFlops::increment_global_3D_array(BasicBlock::iterator& insert_before,
+                                           GlobalVariable* array3d_var,
+                                           Value* idx1,
+                                           Value* idx2,
+                                           Value* idx3,
+                                           Value* increment)
+{
+  // %1 = getelementptr inbounds [<D1> x [<D1> x [<D3> x i64]]]* @<global_var>, i64 0, i64 <idx1>, i64 <idx2>, i64 <idx3>
+  std::vector<Value*> gep_indices;
+  gep_indices.push_back(zero);
+  gep_indices.push_back(idx1);
+  gep_indices.push_back(idx2);
+  gep_indices.push_back(idx3);
+  GetElementPtrInst* gep_inst =
+    GetElementPtrInst::Create(array3d_var, gep_indices, "idx3_ptr", insert_before);
+
+  // %2 = load i64* %1, align 8
+  LoadInst* load_inst = new LoadInst(gep_inst, "idx3_val", false, insert_before);
+  load_inst->setAlignment(8);
+
+  // %3 = add i64 %2, <increment>
+  BinaryOperator* add_inst =
+    BinaryOperator::Create(Instruction::Add, load_inst, increment, "new_val", insert_before);
+
+  // store i64 %3, i64* %1, align 8
+  StoreInst* store_inst = new StoreInst(add_inst, gep_inst, false, insert_before);
   store_inst->setAlignment(8);
 }
 

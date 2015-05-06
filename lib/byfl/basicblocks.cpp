@@ -65,8 +65,8 @@ void initialize_bblocks (void)
       bf_mem_insts_count[i] = 0;
   }
   if (bf_tally_inst_mix) {
-    bf_inst_mix_histo = new uint64_t[NUM_OPCODES];
-    for (unsigned int i = 0; i < NUM_OPCODES; i++)
+    bf_inst_mix_histo = new uint64_t[NUM_LLVM_OPCODES];
+    for (unsigned int i = 0; i < NUM_LLVM_OPCODES; i++)
       bf_inst_mix_histo[i] = 0;
   }
   bf_terminator_count = new uint64_t[BF_END_BB_NUM];
@@ -107,10 +107,10 @@ ByteFlopCounters::ByteFlopCounters (uint64_t* initial_mem_insts,
   // Initialize inst_mix_histo only if -bf-inst-mix was specified.
   if (bf_tally_inst_mix) {
     if (initial_inst_mix_histo == NULL)
-      for (size_t i = 0; i < NUM_OPCODES; i++)
+      for (size_t i = 0; i < NUM_LLVM_OPCODES; i++)
         inst_mix_histo[i] = 0;
     else
-      for (size_t i = 0; i < NUM_OPCODES; i++)
+      for (size_t i = 0; i < NUM_LLVM_OPCODES; i++)
         inst_mix_histo[i] = initial_inst_mix_histo[i];
   }
 
@@ -160,7 +160,7 @@ void ByteFlopCounters::assign (uint64_t* new_mem_insts,
 
   // Assign inst_mix_histo only if -bf-inst-mix was specified.
   if (bf_tally_inst_mix)
-    for (size_t i = 0; i < NUM_OPCODES; i++)
+    for (size_t i = 0; i < NUM_LLVM_OPCODES; i++)
       inst_mix_histo[i] = new_inst_mix_histo[i];
 
   // Unconditionally assign everything else.
@@ -201,7 +201,7 @@ void ByteFlopCounters::accumulate (uint64_t* more_mem_insts,
 
   // Accumulate inst_mix_histo only if -bf-inst-mix was specified.
   if (bf_tally_inst_mix)
-    for (size_t i = 0; i < NUM_OPCODES; i++)
+    for (size_t i = 0; i < NUM_LLVM_OPCODES; i++)
       inst_mix_histo[i] += more_inst_mix_histo[i];
 
   // Unconditionally accumulate everything else.
@@ -230,7 +230,7 @@ void ByteFlopCounters::accumulate (ByteFlopCounters* other)
 
   // Accumulate inst_mix_histo only if -bf-inst-mix was specified.
   if (bf_tally_inst_mix)
-    for (size_t i = 0; i < NUM_OPCODES; i++)
+    for (size_t i = 0; i < NUM_LLVM_OPCODES; i++)
       inst_mix_histo[i] += other->inst_mix_histo[i];
 
   // Unconditionally accumulate everything else.
@@ -260,9 +260,9 @@ ByteFlopCounters* ByteFlopCounters::difference (ByteFlopCounters* other,
       delta_mem_insts[i] = mem_insts[i] - other->mem_insts[i];
 
   // Take the difference of inst_mix_histo only if -bf-inst-mix was specified.
-  uint64_t delta_inst_mix_histo[NUM_OPCODES];
+  uint64_t delta_inst_mix_histo[NUM_LLVM_OPCODES];
   if (bf_tally_inst_mix)
-    for (size_t i = 0; i < NUM_OPCODES; i++)
+    for (size_t i = 0; i < NUM_LLVM_OPCODES; i++)
       delta_inst_mix_histo[i] = inst_mix_histo[i] - other->inst_mix_histo[i];
 
   // Unconditionally take the difference of everything else.
@@ -314,7 +314,7 @@ void ByteFlopCounters::reset (void)
 
   // Reset inst_mix_histo only if -bf-inst-mix was specified.
   if (bf_tally_inst_mix)
-    for (size_t i = 0; i < NUM_OPCODES; i++)
+    for (size_t i = 0; i < NUM_LLVM_OPCODES; i++)
       inst_mix_histo[i] = 0;
 
   // Unconditionally reset everything else.

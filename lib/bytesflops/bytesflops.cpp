@@ -35,13 +35,13 @@ namespace bytesflops_pass {
   // Define a command-line option for keeping track of unique bytes
   cl::opt<bool>
   FindMemFootprint("bf-mem-footprint", cl::init(false), cl::NotHidden,
-		   cl::desc("Tabulate the minimum amount of memory needed for various cache hit rates"));
+                   cl::desc("Tabulate the minimum amount of memory needed for various cache hit rates"));
 
   // Define a command-line option for tallying loads and stored by
   // data structure.
   cl::opt<bool>
   TallyByDataStruct("bf-data-structs", cl::init(false), cl::NotHidden,
-		    cl::desc("Tally loads and stores by data structure"));
+                    cl::desc("Tally loads and stores by data structure"));
 
   // Define a command-line option for tallying load/store operations
   // based on various data types (note this also implies --bf-all-ops).
@@ -53,6 +53,11 @@ namespace bytesflops_pass {
   cl::opt<bool>
   TallyInstMix("bf-inst-mix", cl::init(false), cl::NotHidden,
                cl::desc("Tally total count for each individual instruction (instruction mix)."));
+
+  // Define a command-line option for tallying instruction dependencies.
+  cl::opt<bool>
+  TallyInstDeps("bf-inst-deps", cl::init(false), cl::NotHidden,
+                cl::desc("Tally inter-instruction dependencies."));
 
   // Define a command-line option for merging basic-block measurements
   // to reduce the output volume.

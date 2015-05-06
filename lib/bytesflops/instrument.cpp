@@ -827,6 +827,36 @@ namespace bytesflops_pass {
           increment_global_array(terminator_inst, inst_mix_histo_var, opCodeIdx, one);
         }
 
+        // Maintain a histogram of dependencies from each opcode to its
+        // operand's opcodes.
+        if (TallyInstDeps) {
+          unsigned int opcodes[3];  // Opcode of instruction and first two non-constant arguments
+          int o;                    // Index into the above
+
+          // Use Unreachable as a placeholder to mean "no (non-constant)
+          // operand".
+          opcodes[0] = inst.getOpcode();
+          opcodes[1] = Instruction::Unreachable;
+          opcodes[2] = Instruction::Unreachable;
+
+          // Store the opcodes for the instruction's first two non-constant
+          // operands.
+          o = 1;
+          for (auto oiter = inst.op_begin(); oiter != inst.op_end() && o < 3; oiter++) {
+            Instruction* oinst = dyn_cast<Instruction>(*oiter);
+            if (oinst != nullptr)
+              opcodes[o++] = oinst->getOpcode();
+          }
+
+          // Increment the appropriate 3-D array value.
+          increment_global_3D_array(terminator_inst,
+                                    inst_deps_histo_var,
+                                    ConstantInt::get(bbctx, APInt(64, opcodes[0])),
+                                    ConstantInt::get(bbctx, APInt(64, opcodes[1])),
+                                    ConstantInt::get(bbctx, APInt(64, opcodes[2])),
+                                    one);
+        }
+
         // Process the current instruction.
         switch (opcode) {
           case Instruction::Load:
