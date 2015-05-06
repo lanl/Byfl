@@ -79,6 +79,9 @@ namespace bytesflops_pass {
   // instruction mix.
   extern cl::opt<bool> TallyInstMix;
 
+  // Define a command-line option for tallying instruction dependencies.
+  extern cl::opt<bool> TallyInstDeps;
+
   // Define a command-line option for merging basic-block measurements
   // to reduce the output volume.
   extern cl::opt<unsigned long long> BBMergeCount;
@@ -156,7 +159,8 @@ namespace bytesflops_pass {
     GlobalVariable* load_inst_var;              // Global reference to bf_load_ins_count, a 64-bit load-instruction counter
     GlobalVariable* store_inst_var;             // Global reference to bf_store_ins_count, a 64-bit store-instruction counter
     GlobalVariable* mem_insts_var;              // Global reference to bf_mem_insts, a set of 64-bit memory instruction counters
-    GlobalVariable* inst_mix_histo_var;         // Global reference to bf_inst_mix_histo, an array representing histogram of specific instruction counts.
+    GlobalVariable* inst_mix_histo_var;         // Global reference to bf_inst_mix_histo, an array representing a histogram of specific instruction counts.
+    GlobalVariable* inst_deps_histo_var;        // Global reference to bf_inst_deps_histo, an array representing histogram of instruction dependencies.
     GlobalVariable* terminator_var;             // Global reference to bf_terminator_count, an array of terminator tallies
     GlobalVariable* mem_intrinsics_var;         // Global reference to bf_mem_intrin_count, tallies of memory intrinsics
     GlobalVariable* flop_var;  // Global reference to bf_flop_count, a 64-bit flop counter
@@ -244,6 +248,15 @@ namespace bytesflops_pass {
                                 Constant* global_var,
                                 Value* idx,
                                 Value* increment);
+
+    // Insert before a given instruction some code to increment an element of a
+    // global 3-D array.
+    void increment_global_3D_array(BasicBlock::iterator& insert_before,
+				   GlobalVariable* global_var,
+				   Value* idx1,
+				   Value* idx2,
+				   Value* idx3,
+				   Value* increment);
 
     // Mark a variable as "used" (not eligible for dead-code elimination).
     void mark_as_used(Module& module, Constant* protected_var);

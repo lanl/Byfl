@@ -14,8 +14,10 @@ use strict;
 
 # Parse the command line.
 my $progname = basename $0;
-die "Usage: $progname <cpp> <output.cpp> <output.h>\n" if $#ARGV != 2;
-my ($cpp, $out_cpp, $out_h) = @ARGV;
+my $usagestr = "Usage: $progname <cpp>  CPP | NUM | NUM_POW2\n";
+die $usagestr if $#ARGV != 1;
+my ($cpp, $want) = @ARGV;
+die $usagestr if $want !~ /^(CPP|NUM|NUM_POW2)$/;
 
 # Find Instruction.def.
 open(INST_DEF, "/bin/echo '#include <llvm/IR/Instruction.def>' | $cpp - |") || die "${progname}: $!\n";
@@ -50,15 +52,34 @@ while (my $oneline = <PREPROC>) {
 }
 close PREPROC || die "${progname}: $!\n";
 
-# Output C++ code with a static array of name mappings.
-open(CXXFILE, ">", $out_cpp) || die "${progname}: open(\"$out_cpp\"): $!\n";
-print CXXFILE <<"BOILERPLATE";
+# If the user requested "NUM", output the number of opcodes.
+my $num_names = @opcode_names;
+if ($want eq "NUM") {
+    print $num_names, "\n";
+    exit;
+}
+
+# If the user requested "NUM_POW2", output the number of opcodes rounded up to
+# a power of 2.
+if ($want eq "NUM_POW2") {
+    my $num_names_pow2 = $num_names - 1;
+    for (my $i = 1; $i <= 32; $i <<= 1) {
+	$num_names_pow2 |= $num_names_pow2 >> 1;
+    }
+    $num_names_pow2++;
+    print $num_names_pow2, "\n";
+    exit;
+}
+
+# If the user requested "CPP", output C++ code with a static array of name
+# mappings.
+print <<"BOILERPLATE";
 /*
  * Helper library for computing bytes:flops ratios
  * (mapping from opcodes to names)
  *
  * WARNING: This is a generated file.  DO NOT EDIT.
- * Edit $0 instead.
+ * Edit $progname instead.
  *
  * By Scott Pakin <pakin\@lanl.gov>
  */
@@ -78,31 +99,7 @@ foreach my $num (0 .. $#opcode_names) {
 	$comment .= " (should never be used)";
     }
     my $string = sprintf "    \"%s\"%s", $name, $num < $#opcode_names ? "," : "";
-    printf CXXFILE "%-25.25s  // %s\n", $string, $comment;
+    printf "%-25.25s  // %s\n", $string, $comment;
 }
-print CXXFILE "  };\n\n";
-print CXXFILE "}  // namespace bytesflops\n";
-close CXXFILE;
-
-# Output a C++ header file that defines the number of entries in the
-# static array.
-open(HFILE, ">", $out_h) || die "${progname}: open(\"$out_h\"): $!\n";
-print HFILE <<"BOILERPLATE2";
-/*
- * Helper library for computing bytes:flops ratios
- * (header file for the mapping from opcodes to names)
- *
- * WARNING: This is a generated file.  DO NOT EDIT.
- * Edit $0 instead.
- *
- * By Scott Pakin <pakin\@lanl.gov>
- */
-
-#ifndef __OPCODE2NAME_H__
-#define __OPCODE2NAME_H__
-
-BOILERPLATE2
-;
-printf HFILE "#define NUM_OPCODES %d\n\n", 1+$#opcode_names;
-print HFILE "#endif\n";
-close HFILE;
+print "  };\n\n";
+print "}  // namespace bytesflops\n";
