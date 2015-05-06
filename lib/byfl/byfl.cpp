@@ -708,7 +708,7 @@ private:
         opcodes[2] = arg2;
         tally = n;
       }
-      bool operator<(InstInfo& other) {
+      bool operator<(const InstInfo& other) const {
         if (tally != other.tally)
           return tally > other.tally;
         for (int i = 0; i < 3; i++)
