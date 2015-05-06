@@ -59,10 +59,10 @@ if ($want eq "NUM") {
     exit;
 }
 
-# If the user requested "NUM_POW2", output the number of opcodes rounded up to
-# a power of 2.
+# If the user requested "NUM_POW2", output the number of opcodes plus two
+# (adding "constant argument" and "no argument") rounded up to a power of 2.
 if ($want eq "NUM_POW2") {
-    my $num_names_pow2 = $num_names - 1;
+    my $num_names_pow2 = $num_names + 2 - 1;
     for (my $i = 1; $i <= 32; $i <<= 1) {
 	$num_names_pow2 |= $num_names_pow2 >> 1;
     }
@@ -72,7 +72,9 @@ if ($want eq "NUM_POW2") {
 }
 
 # If the user requested "CPP", output C++ code with a static array of name
-# mappings.
+# mappings.  We include two additional pseudo-opcodes, "constant operand" and
+# "no operand".
+push @opcode_names, ("[Constant]", "[Missing]");
 print <<"BOILERPLATE";
 /*
  * Helper library for computing bytes:flops ratios

@@ -833,19 +833,19 @@ namespace bytesflops_pass {
           unsigned int opcodes[3];  // Opcode of instruction and first two non-constant arguments
           int o;                    // Index into the above
 
-          // Use Unreachable as a placeholder to mean "no (non-constant)
-          // operand".
+          // Assume, by default, no arguments.
           opcodes[0] = inst.getOpcode();
-          opcodes[1] = Instruction::Unreachable;
-          opcodes[2] = Instruction::Unreachable;
+          opcodes[1] = BF_NO_ARG;
+          opcodes[2] = BF_NO_ARG;
 
-          // Store the opcodes for the instruction's first two non-constant
-          // operands.
+          // Store the opcodes for the instruction's first two operands.
           o = 1;
-          for (auto oiter = inst.op_begin(); oiter != inst.op_end() && o < 3; oiter++) {
+          for (auto oiter = inst.op_begin(); oiter != inst.op_end() && o < 3; oiter++, o++) {
             Instruction* oinst = dyn_cast<Instruction>(*oiter);
-            if (oinst != nullptr)
-              opcodes[o++] = oinst->getOpcode();
+            if (oinst == nullptr)
+              opcodes[o] = BF_CONST_ARG;
+            else
+              opcodes[o] = oinst->getOpcode();
           }
 
           // Increment the appropriate 3-D array value.

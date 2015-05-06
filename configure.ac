@@ -60,6 +60,9 @@ AC_CHECK_PROGS([LLVM_CONFIG], [llvm-config], [no])
 if test "$LLVM_CONFIG" = no ; then
    AC_MSG_ERROR([Byfl can't build without the llvm-config tool])
 fi
+AC_MSG_CHECKING([the LLVM version using $LLVM_CONFIG])
+llvm_version="`$LLVM_CONFIG --version`"
+AC_MSG_RESULT([$llvm_version])
 if test "${CPPFLAGS:-undefined}" = undefined ; then
    CPPFLAGS=`${LLVM_CONFIG} --cppflags`
    echo "$CPPFLAGS" | $GREP -- -D_GNU_SOURCE >/dev/null 2>&1 || CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE"
@@ -94,14 +97,14 @@ if test -z "$ax_cv_llvm_opcodes" ; then
 fi
 AC_DEFINE_UNQUOTED([NUM_LLVM_OPCODES], [$ax_cv_llvm_opcodes],
   [Define as one more than the maximum-valued opcode in the LLVM IR.])
-AC_CACHE_CHECK([how to round up $ax_cv_llvm_opcodes opcodes to a power of two],
+AC_CACHE_CHECK([how to round up $ax_cv_llvm_opcodes+2 opcodes to a power of two],
   [ax_cv_llvm_opcodes_pow2],
   [ax_cv_llvm_opcodes_pow2=`"$PERL" "$srcdir/gen_opcode2name" "$CPP $CPPFLAGS" NUM_POW2`])
 if test -z "$ax_cv_llvm_opcodes_pow2" ; then
    AC_MSG_ERROR([Failed to run $PERL and/or $CPP $CPPFLAGS])
 fi
 AC_DEFINE_UNQUOTED([NUM_LLVM_OPCODES_POW2], [$ax_cv_llvm_opcodes_pow2],
-  [Define as NUM_LLVM_OPCODES rounded up to a power of two.])
+  [Define as NUM_LLVM_OPCODES+2 rounded up to a power of two.])
 
 dnl Record if we have the GNU backtrace_symbols() function.
 AC_CHECK_FUNC([backtrace_symbols],

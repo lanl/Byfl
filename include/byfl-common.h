@@ -80,6 +80,13 @@ enum {
   BF_NUM_MEM_INTRIN
 };
 
+// Define constants for "constant operand" and "no operand" for
+// instruction-dependency reporting.
+enum {
+  BF_CONST_ARG = NUM_LLVM_OPCODES,      // Constant operand
+  BF_NO_ARG    = NUM_LLVM_OPCODES + 1   // No operand
+};
+
 // Map a memory-access type to an index into bf_mem_insts_count[].
 static inline uint64_t
 mem_type_to_index(uint64_t memop,

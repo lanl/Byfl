@@ -718,23 +718,14 @@ private:
       }
     };
     vector<InstInfo> deps_histo;   // Histogram of instruction-dependency tallies
-    for (int i = 0; i < NUM_LLVM_OPCODES; i++)
-      for (int j = 0; j < NUM_LLVM_OPCODES; j++)
-        for (int k = 0; k < NUM_LLVM_OPCODES; k++)
+    for (int i = 0; i < NUM_LLVM_OPCODES+2; i++)
+      for (int j = 0; j < NUM_LLVM_OPCODES+2; j++)
+        for (int k = 0; k < NUM_LLVM_OPCODES+2; k++)
           if (bf_inst_deps_histo[i][j][k] > 0)
             deps_histo.push_back(InstInfo(i, j, k, bf_inst_deps_histo[i][j][k]));
     if (deps_histo.size() == 0)
       return;   // No work to do
     sort(deps_histo.begin(), deps_histo.end());
-
-    // Find what opcode number LLVM has assigned to Unreachable (meaning no
-    // operand).
-    int unreachable = 0;
-    for (int i = 0; i < NUM_LLVM_OPCODES; i++)
-      if (strcmp(opcode2name[i], "Unreachable") == 0) {
-        unreachable = i;
-        break;
-      }
 
     // Store a pretty-printed version of each dependency.  As side effects,
     // keep track of the maximum length of those and the total tally.
@@ -744,9 +735,9 @@ private:
       InstInfo& info = *iter;
       stringstream depstr;
       depstr << opcode2name[info.opcodes[0]] << '(';
-      if (info.opcodes[1] != unreachable) {
+      if (info.opcodes[1] != BF_NO_ARG) {
         depstr << opcode2name[info.opcodes[1]];
-        if (info.opcodes[2] != unreachable)
+        if (info.opcodes[2] != BF_NO_ARG)
           depstr << ", " << opcode2name[info.opcodes[2]];
       }
       depstr << ')';
@@ -784,7 +775,7 @@ private:
       InstInfo& info = *iter;
       *bfbin << uint8_t(BINOUT_ROW_DATA);
       for (int o = 0; o < 3; o++)
-        *bfbin << (info.opcodes[o] == unreachable ? "" : opcode2name[info.opcodes[o]]);
+        *bfbin << (info.opcodes[o] == BF_NO_ARG ? "" : opcode2name[info.opcodes[o]]);
       *bfbin << info.tally;
     }
     *bfbin << uint8_t(BINOUT_ROW_NONE);
