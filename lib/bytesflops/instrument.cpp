@@ -848,12 +848,13 @@ namespace bytesflops_pass {
               opcodes[o] = oinst->getOpcode();
           }
 
-          // Increment the appropriate 3-D array value.
-          increment_global_3D_array(terminator_inst,
+          // Increment the appropriate 4-D array value.
+          increment_global_4D_array(terminator_inst,
                                     inst_deps_histo_var,
                                     ConstantInt::get(bbctx, APInt(64, opcodes[0])),
                                     ConstantInt::get(bbctx, APInt(64, opcodes[1])),
                                     ConstantInt::get(bbctx, APInt(64, opcodes[2])),
+                                    inst.getNumOperands() > 2 ? one : zero,
                                     one);
         }
 

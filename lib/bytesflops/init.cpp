@@ -153,10 +153,11 @@ namespace bytesflops_pass {
     call_inst_var   = declare_global_var(module, i64type, "bf_call_ins_count");
 
     // bf_inst_deps_histo is a bit tricky because it's a 3D array.
-    ArrayType* i64array1Dtype = ArrayType::get(i64type, NUM_LLVM_OPCODES_POW2);
+    ArrayType* i64array1Dtype = ArrayType::get(i64type, 2);
     ArrayType* i64array2Dtype = ArrayType::get(i64array1Dtype, NUM_LLVM_OPCODES_POW2);
     ArrayType* i64array3Dtype = ArrayType::get(i64array2Dtype, NUM_LLVM_OPCODES_POW2);
-    inst_deps_histo_var = declare_global_var(module, i64array3Dtype, "bf_inst_deps_histo", false);
+    ArrayType* i64array4Dtype = ArrayType::get(i64array3Dtype, NUM_LLVM_OPCODES_POW2);
+    inst_deps_histo_var = declare_global_var(module, i64array4Dtype, "bf_inst_deps_histo", false);
 
     // Assign a few constant values.
     not_end_of_bb = ConstantInt::get(globctx, APInt(32, 0));

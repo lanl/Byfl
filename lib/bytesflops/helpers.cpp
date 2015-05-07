@@ -169,25 +169,27 @@ void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
 }
 
 // Insert before a given instruction some code to increment an element of a
-// global 3-D array.
-void BytesFlops::increment_global_3D_array(BasicBlock::iterator& insert_before,
-                                           GlobalVariable* array3d_var,
+// global 4-D array.
+void BytesFlops::increment_global_4D_array(BasicBlock::iterator& insert_before,
+                                           GlobalVariable* array4d_var,
                                            Value* idx1,
                                            Value* idx2,
                                            Value* idx3,
+					   Value* idx4,
                                            Value* increment)
 {
-  // %1 = getelementptr inbounds [<D1> x [<D1> x [<D3> x i64]]]* @<global_var>, i64 0, i64 <idx1>, i64 <idx2>, i64 <idx3>
+  // %1 = getelementptr inbounds [<D1> x [<D1> x [<D3> x [<D4> x i64]]]]* @<global_var>, i64 0, i64 <idx1>, i64 <idx2>, i64 <idx3>, i64 <idx4>
   std::vector<Value*> gep_indices;
   gep_indices.push_back(zero);
   gep_indices.push_back(idx1);
   gep_indices.push_back(idx2);
   gep_indices.push_back(idx3);
+  gep_indices.push_back(idx4);
   GetElementPtrInst* gep_inst =
-    GetElementPtrInst::Create(array3d_var, gep_indices, "idx3_ptr", insert_before);
+    GetElementPtrInst::Create(array4d_var, gep_indices, "idx4_ptr", insert_before);
 
   // %2 = load i64* %1, align 8
-  LoadInst* load_inst = new LoadInst(gep_inst, "idx3_val", false, insert_before);
+  LoadInst* load_inst = new LoadInst(gep_inst, "idx4_val", false, insert_before);
   load_inst->setAlignment(8);
 
   // %3 = add i64 %2, <increment>

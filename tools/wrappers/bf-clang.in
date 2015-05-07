@@ -482,10 +482,11 @@ Manual|http://llvm.org/docs/LangRef.html> for descriptions of the
 instructions that are tallied by B<-bf-inst-mix>.
 
 B<-bf-inst-deps> tallies each instruction with the instructions that
-produced its first two operands.  For example, C<Xor(Add, Mul)>
-represents an exclusive OR with one operand being the result of a
-previous integer addition and one being the result of a previous
-integer multiplication (i.e., C<A = (B + C) XOR (D * E)>).
+produced its first two operands.  (Ellipses are used to indicate that
+the instruction takes more than two operands.)  For example,
+C<Xor(Add, Mul)> represents an exclusive OR with one operand being the
+result of a previous integer addition and one being the result of a
+previous integer multiplication (i.e., C<A = (B + C) XOR (D * E)>).
 
 Use of B<-bf-unique-bytes> consumes one bit of memory per unique
 address referenced by the program.

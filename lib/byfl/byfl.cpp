@@ -101,7 +101,7 @@ extern char** environ;
 
 // Define a mapping from an instruction's opcode to its arguments' opcodes to a
 // tally.  We ignore instructions with more than two arguments.
-uint64_t bf_inst_deps_histo[NUM_LLVM_OPCODES_POW2][NUM_LLVM_OPCODES_POW2][NUM_LLVM_OPCODES_POW2] = {0};
+uint64_t bf_inst_deps_histo[NUM_LLVM_OPCODES_POW2][NUM_LLVM_OPCODES_POW2][NUM_LLVM_OPCODES_POW2][2] = {0};
 
 namespace bytesflops {
 
@@ -700,12 +700,14 @@ private:
     // tally.
     struct InstInfo {
       int opcodes[3];     // Opcodes for the instruction and its first two arguments
+      bool more;          // true=more than two arguments; false=two or fewer
       string name;        // Pretty-printed version of opcodes[]
       uint64_t tally;     // Number of dynamic executions observed
-      InstInfo(int op, int arg1, int arg2, uint64_t n) {
+      InstInfo(int op, int arg1, int arg2, bool more_args, uint64_t n) {
         opcodes[0] = op;
         opcodes[1] = arg1;
         opcodes[2] = arg2;
+        more = more_args;
         tally = n;
       }
       bool operator<(const InstInfo& other) const {
@@ -714,6 +716,8 @@ private:
         for (int i = 0; i < 3; i++)
           if (opcodes[i] != other.opcodes[i])
             return opcodes[i] < other.opcodes[i];
+        if (more != other.more)
+          return more < other.more;
         return false;
       }
     };
@@ -721,8 +725,9 @@ private:
     for (int i = 0; i < NUM_LLVM_OPCODES+2; i++)
       for (int j = 0; j < NUM_LLVM_OPCODES+2; j++)
         for (int k = 0; k < NUM_LLVM_OPCODES+2; k++)
-          if (bf_inst_deps_histo[i][j][k] > 0)
-            deps_histo.push_back(InstInfo(i, j, k, bf_inst_deps_histo[i][j][k]));
+          for (int l = 0; l < 2; l++)
+            if (bf_inst_deps_histo[i][j][k][l] > 0)
+              deps_histo.push_back(InstInfo(i, j, k, bool(l), bf_inst_deps_histo[i][j][k][l]));
     if (deps_histo.size() == 0)
       return;   // No work to do
     sort(deps_histo.begin(), deps_histo.end());
@@ -737,8 +742,11 @@ private:
       depstr << opcode2name[info.opcodes[0]] << '(';
       if (info.opcodes[1] != BF_NO_ARG) {
         depstr << opcode2name[info.opcodes[1]];
-        if (info.opcodes[2] != BF_NO_ARG)
+        if (info.opcodes[2] != BF_NO_ARG) {
           depstr << ", " << opcode2name[info.opcodes[2]];
+          if (info.more)
+            depstr << ", ...";
+        }
       }
       depstr << ')';
       info.name = depstr.str();
@@ -769,6 +777,7 @@ private:
     *bfbin << uint8_t(BINOUT_COL_STRING) << "Instruction"
            << uint8_t(BINOUT_COL_STRING) << "Dependency 1"
            << uint8_t(BINOUT_COL_STRING) << "Dependency 2"
+           << uint8_t(BINOUT_COL_BOOL)   << "More dependencies"
            << uint8_t(BINOUT_COL_UINT64) << "Tally"
            << uint8_t(BINOUT_COL_NONE);
     for (auto iter = deps_histo.begin(); iter != deps_histo.end(); iter++) {
@@ -776,7 +785,8 @@ private:
       *bfbin << uint8_t(BINOUT_ROW_DATA);
       for (int o = 0; o < 3; o++)
         *bfbin << (info.opcodes[o] == BF_NO_ARG ? "" : opcode2name[info.opcodes[o]]);
-      *bfbin << info.tally;
+      *bfbin << info.more
+             << info.tally;
     }
     *bfbin << uint8_t(BINOUT_ROW_NONE);
   }

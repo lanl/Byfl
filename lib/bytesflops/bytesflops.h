@@ -250,13 +250,14 @@ namespace bytesflops_pass {
                                 Value* increment);
 
     // Insert before a given instruction some code to increment an element of a
-    // global 3-D array.
-    void increment_global_3D_array(BasicBlock::iterator& insert_before,
-				   GlobalVariable* global_var,
-				   Value* idx1,
-				   Value* idx2,
-				   Value* idx3,
-				   Value* increment);
+    // global 4-D array.
+    void increment_global_4D_array(BasicBlock::iterator& insert_before,
+                                   GlobalVariable* global_var,
+                                   Value* idx1,
+                                   Value* idx2,
+                                   Value* idx3,
+                                   Value* idx4,
+                                   Value* increment);
 
     // Mark a variable as "used" (not eligible for dead-code elimination).
     void mark_as_used(Module& module, Constant* protected_var);
