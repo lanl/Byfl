@@ -54,6 +54,7 @@ else
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicc bf-clang OMPI_CC MPICH_CC $(bindir) > $(DESTDIR)$(bindir)/bf-mpicc
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicxx bf-clang++ OMPI_CXX MPICH_CXX $(bindir) > $(DESTDIR)$(bindir)/bf-mpicxx
 endif
+	chmod +x $(DESTDIR)$(bindir)/bf-mpi*
 
 install-man1-pages: bf-gcc bf-clang bf-inst
 	$(INSTALL) -d "$(DESTDIR)$(mandir)/man1"
