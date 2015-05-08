@@ -55,7 +55,7 @@ else
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicxx bf-clang++ OMPI_CXX MPICH_CXX $(bindir) > $(DESTDIR)$(bindir)/bf-mpicxx
 endif
 
-install-man1-pages: bf-gcc bf-clang
+install-man1-pages: bf-gcc bf-clang bf-inst
 	$(INSTALL) -d "$(DESTDIR)$(mandir)/man1"
 	$(RM) "$(DESTDIR)$(mandir)/man1/bf-clang.1" \
 	      "$(DESTDIR)$(mandir)/man1/bf-clang++.1"
@@ -64,6 +64,8 @@ install-man1-pages: bf-gcc bf-clang
 	$(AM_V_GEN) cat "$(DESTDIR)$(mandir)/man1/bf-clang.1" | \
 	  $(PERL) -ne 's/clang/clang++/g; s/\bC (compiler|code)/C++ $$1/g; s/myprog\.c/myprog.cpp/g; s/BF_CLANG/BF_CLANGXX/g; print' > \
 	    "$(DESTDIR)$(mandir)/man1/bf-clang++.1"
+	$(AM_V_GEN) $(POD2MAN) --center="$(MAN_CATEGORY)" --release="$(MAN_RELEASE)" bf-inst > \
+	  "$(DESTDIR)$(mandir)/man1/bf-inst.1"
 if HAVE_DRAGONEGG
 	$(RM) "$(DESTDIR)$(mandir)/man1/bf-gcc.1" \
 	      "$(DESTDIR)$(mandir)/man1/bf-g++.1" \

@@ -316,8 +316,8 @@ programs to invoke Byfl themselves.
 =back
 
 B<bf-inst> passes any additional options, such as B<-bf-by-func>, to
-LLVM's B<opt> program.  The Byfl F<README> file is currently the only
-place to find documentation for Byfl-specific options.
+LLVM's B<opt> program.  The other Byfl wrapper-script man pages (e.g.,
+bf-clang(1)) document all of the Byfl-specific options.
 
 The command line ends with a list of bitcode files.  These may be in
 binary (F<.bc>) or ASCII (F<.ll>) format and can even be renamed
