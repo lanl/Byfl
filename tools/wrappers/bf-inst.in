@@ -155,7 +155,7 @@ sub apply_byfl ($$)
                         $tempfiles[$#tempfiles-1],"-o", $tempfiles[$#tempfiles]);
     }
 
-    # Rename the result to the target filename, convering from binary
+    # Rename the result to the target filename, converting from binary
     # to ASCII if necessary.
     if ($intype eq "ll") {
         # Have binary; want ASCII
@@ -316,8 +316,8 @@ programs to invoke Byfl themselves.
 =back
 
 B<bf-inst> passes any additional options, such as B<-bf-by-func>, to
-LLVM's B<opt> program.  The Byfl F<README> file is currently the only
-place to find documentation for Byfl-specific options.
+LLVM's B<opt> program.  The other Byfl wrapper-script man pages (e.g.,
+bf-clang(1)) document all of the Byfl-specific options.
 
 The command line ends with a list of bitcode files.  These may be in
 binary (F<.bc>) or ASCII (F<.ll>) format and can even be renamed
@@ -362,5 +362,5 @@ Scott Pakin, I<pakin@lanl.gov>
 
 =head1 SEE ALSO
 
-ar(1), bf-gcc(1), clang(1), opt(1),
+ar(1), bf-clang(1), clang(1), opt(1),
 the Byfl README file (L<https://github.com/losalamos/Byfl/blob/master/README.md>)
