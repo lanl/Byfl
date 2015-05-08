@@ -92,7 +92,7 @@ install-man3-pages: $(srcdir)/ParseCompilerOpts.pm
 install-exec-local: install-parser install-compiler-scripts install-mpi-scripts install-man1-pages install-man3-pages
 
 uninstall-local:
-	for script in bf-clang bf-clang++ bf-gcc bf-g++ bf-gfortran bf-gccgo bf-mpicc bf-mpicxx bf-mpif90 bf-mpif77 ; do \
+	for script in bf-clang bf-clang++ bf-gcc bf-g++ bf-gfortran bf-gccgo bf-mpicc bf-mpicxx bf-mpif90 bf-mpif77 bf-inst ; do \
 	  $(RM) "$(DESTDIR)$(bindir)/$${script}" ; \
 	  $(RM) "$(DESTDIR)$(mandir)/man1/$${script}.1" ; \
 	done
