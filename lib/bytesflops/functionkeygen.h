@@ -3,6 +3,7 @@
  * generate unique function IDs (interface)
  *
  * By Rob Aulwes <rta@lanl.gov>
+ *    Scott Pakin <pakin@lanl.gov>
  */
 
 #ifndef _FUNCTIONKEYGEN_H_
@@ -17,17 +18,16 @@ namespace bytesflops_pass
     {
     public:
         typedef MersenneTwister::Value_t    KeyID;
-        typedef MersenneTwister::Value_t    Seed_t;
 
         /**
          * Use this constructor if you will use random keys and
          * want to initialize the RNG with a seed.
          */
-        FunctionKeyGen(const Seed_t &);
+        FunctionKeyGen(const std::string&);
 
         KeyID nextRandomKey();
 
-        KeyID generateKey(const std::string &);
+        KeyID generateKey(const std::string&);
 
     private:
         MersenneTwister     m_rng;

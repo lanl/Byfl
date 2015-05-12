@@ -503,17 +503,8 @@ namespace bytesflops_pass {
     }
 
     // Initialize the function key generator.
-    FunctionKeyGen::Seed_t seed;
-    std::hash<std::string> hash_key;
-    struct timespec now;
-    (void) clock_gettime(CLOCK_REALTIME, &now);
-    seed = (hash_key(module.getModuleIdentifier())*UINT64_C(281474976710677) +
-            getpid()*UINT64_C(4294967311) +
-            now.tv_sec*UINT64_C(65537) +
-            now.tv_nsec);
-    m_keygen = std::unique_ptr<FunctionKeyGen>(new FunctionKeyGen(seed));
-
-
+    string salt(module.getModuleIdentifier());
+    m_keygen = std::unique_ptr<FunctionKeyGen>(new FunctionKeyGen(salt));
     return true;
   }
 
