@@ -446,7 +446,12 @@ void bf_report_bb_execution (void)
 # ifdef USE_BFD
     SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t(bb_info->address)));
     if (srcloc == nullptr)
-      *bfbin << "" << "" << UINT64_C(0) << UINT64_C(0);
+      *bfbin << "Unknown" << "Unknown" << "Unknown" << UINT64_C(0)
+#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
+             << UINT64_C(0);
+#  else
+             ;
+#  endif
     else
       *bfbin << srcloc->file_name
              << srcloc->function_name
@@ -551,7 +556,12 @@ static void report_bb_tallies (uint64_t bb_merge)
 # ifdef USE_BFD
       SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t)caller_addr);
       if (srcloc == nullptr)
-        *bfbin << "" << "" << UINT64_C(0) << UINT64_C(0);
+        *bfbin << "Unknown" << "Unknown" << UINT64_C(0) << UINT64_C(0)
+#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
+               << UINT64_C(0);
+#  else
+               ;
+#  endif
       else
         *bfbin << srcloc->file_name
                << srcloc->function_name

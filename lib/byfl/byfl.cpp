@@ -360,9 +360,9 @@ void* bf_find_caller_address (void)
         discard_num = DEPTH_UNKNOWN;   // Assume we don't find anything.
         for (size_t i = 0; i < stack_depth; i++) {
           char* name = symnames[i];
-          if (!strstr(name, "byfl") &&
-              !strstr(name, "bf_") &&
-              !strstr(name, "bytesflops")) {
+          if (!strstr(name, "bf_") &&
+              !strstr(name, "bytesflops") &&
+              !strstr(name, "libbyfl")) {
             discard_num = i;
             break;
           }
