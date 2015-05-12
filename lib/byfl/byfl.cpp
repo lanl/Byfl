@@ -376,10 +376,9 @@ void* bf_find_caller_address (void)
     default:
       // Temporary
       {
-        size_t stack_depth = backtrace(stack_addrs, max_stack_depth);
         static void* prev_caller = nullptr;
+        size_t stack_depth = backtrace(stack_addrs, max_stack_depth);
         if (stack_addrs[stack_depth - 1] != prev_caller) {
-          prev_caller = stack_addrs[stack_depth - 1];
           char** symnames = backtrace_symbols(stack_addrs, stack_depth);
           cerr << "*** CALL STACK: ***\n";
           for (size_t i = 0; i < stack_depth; i++) {
@@ -397,6 +396,7 @@ void* bf_find_caller_address (void)
           }
           free(symnames);
         }
+        prev_caller = stack_addrs[stack_depth - 1];
       }
 
       // On the first and all subsequent invocations, return the

@@ -596,13 +596,28 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
   // bf_tally_bb_execution(), bf_accumulate_bb_tallies(), and
   // bf_report_bb_tallies().
   if (InstrumentEveryBB) {
-    static MersenneTwister bb_rng(2655817);
+    static MersenneTwister bb_rng(module->getModuleIdentifier());
     vector<Value*> arg_list;
-    arg_list.push_back(ConstantInt::get(globctx, APInt(64, uint64_t(bb_rng.next()))));
+    uint64_t randnum = uint64_t(bb_rng.next());
+    arg_list.push_back(ConstantInt::get(globctx, APInt(64, randnum)));
     arg_list.push_back(ConstantInt::get(globctx, APInt(64, num_insts)));
     callinst_create(tally_bb_exec, arg_list, insert_before);
     callinst_create(accum_bb_tallies, insert_before);
     callinst_create(report_bb_tallies, insert_before);
+
+    // Temporary
+    if (MDNode *node = inst.getMetadata("dbg")) {
+      DILocation Loc(node);
+      unsigned lineno = Loc.getLineNumber();
+      StringRef fname = Loc.getFilename();
+      StringRef dir = Loc.getDirectory();
+      Function* func = inst.getParent()->getParent();
+      errs() << "*** METADATA: "
+	     << int64_t(randnum) << " --> "
+	     << dir << '/' << fname << ':' << lineno << ' '
+	     << demangle_func_name(func->getName())
+	     << " ***\n";
+    }
   }
 
   // If we're instrumenting by function, insert a call to
@@ -786,7 +801,7 @@ string BytesFlops::value_to_string(const Value* value)
 // Push a value onto an argument list as a string.
 void BytesFlops::push_value_string(Module& module, vector<Value*>& arg_list, Value* value)
 {
-  static MersenneTwister prng(1073741741);
+  static MersenneTwister prng(module.getModuleIdentifier());
   string valstr = value_to_string(value);
   stringstream valstr_name;
   valstr_name << "bf_value_" << prng.next();

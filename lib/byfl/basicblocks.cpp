@@ -388,13 +388,14 @@ void bf_tally_bb_execution (uint64_t bb_id, uint64_t num_insts)
     bb_info->address = bf_find_caller_address();
 
     // Temporary
-    cerr << "*** ID " << int64_t(bb_id) << " IS ";
+    cerr << "*** BACKTRACE: " << int64_t(bb_id) << " --> ";
     SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t(bb_info->address)));
     if (srcloc == nullptr)
       cerr << "???";
     else
       cerr << srcloc->file_name << ':' << srcloc->line_number << ' '
-	   << demangle_func_name(srcloc->function_name);
+           << demangle_func_name(srcloc->function_name)
+           << " @ " << srcloc->address;
     cerr << " ***\n";
 #endif
     (*bb_accesses)[bb_id] = bb_info;
