@@ -374,6 +374,31 @@ void* bf_find_caller_address (void)
       // No break
 
     default:
+      // Temporary
+      {
+        size_t stack_depth = backtrace(stack_addrs, max_stack_depth);
+        static void* prev_caller = nullptr;
+        if (stack_addrs[stack_depth - 1] != prev_caller) {
+          prev_caller = stack_addrs[stack_depth - 1];
+          char** symnames = backtrace_symbols(stack_addrs, stack_depth);
+          cerr << "*** CALL STACK: ***\n";
+          for (size_t i = 0; i < stack_depth; i++) {
+            SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t(stack_addrs[i])));
+            cerr << "***   "
+                 << (i == discard_num ? "[X] " : "[ ] ")
+                 << hex << stack_addrs[i] << dec << " --> "
+                 << symnames[i] << " --> ";
+            if (srcloc == nullptr)
+              cerr << "??:0";
+            else
+              cerr << srcloc->file_name << ':' << srcloc->line_number << ' '
+                   << demangle_func_name(srcloc->function_name);
+            cerr << " ***\n";
+          }
+          free(symnames);
+        }
+      }
+
       // On the first and all subsequent invocations, return the
       // first non-Byfl stack address.
       {
