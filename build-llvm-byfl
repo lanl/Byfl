@@ -287,7 +287,11 @@ if [ "$compile" = yes ] ; then
         echo "# Installing LLVM and Clang into $destdir$installdir" 1>&4
         run_with_progress llvm-inst 850 make DESTDIR="$destdir" install
         cp -p tools/clang/tools/scan-view/scan-view "$destdir$installdir/bin/scan-view"
-        cp -p tools/clang/tools/scan-build/scan-build "$destdir$installdir/bin/scan-build"
+        cp -p tools/clang/tools/scan-build/* "$destdir$installdir/bin/"
+        pythondir=$(python -c 'import site; print site.getsitepackages()[0]' | sed "s,.*/lib/,$destdir$installdir/lib/,")
+	mkdir -p "$pythondir"
+        cp -pr tools/clang/tools/scan-view/* "$pythondir/"
+        rm "$pythondir/scan-view"
         popd
     fi
     export PATH="$destdir$installdir/bin:$PATH"
