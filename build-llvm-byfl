@@ -84,15 +84,15 @@ while getopts j:b:r:tdcCD:x:B:L: opt; do
             export "use_${OPTARG}"=no
             ;;
 
-	B)
-	    # Specify a specific branch of Byfl to use.
-	    byfl_branch="$OPTARG"
-	    ;;
+        B)
+            # Specify a specific branch of Byfl to use.
+            byfl_branch="$OPTARG"
+            ;;
 
-	L)
-	    # Specify a specific branch of LLVM/Clang to use.
-	    llvm_branch="$OPTARG"
-	    ;;
+        L)
+            # Specify a specific branch of LLVM/Clang to use.
+            llvm_branch="$OPTARG"
+            ;;
     esac
 done
 shift $((OPTIND-1))
@@ -259,9 +259,13 @@ if [ "$compile" = yes ] ; then
         # Install LLVM and Clang.  Out of the goodness of our heart we also
         # install the Clang static analyzer.
         echo "# Installing LLVM and Clang into $destdir$installdir" 1>&4
-        run_with_progress llvm-inst 840 make DESTDIR="$destdir" install
-	cp -p tools/clang/tools/scan-view/scan-view "$destdir$installdir/bin/scan-view"
-	cp -p tools/clang/tools/scan-build/scan-build "$destdir$installdir/bin/scan-build"
+        run_with_progress llvm-inst 850 make DESTDIR="$destdir" install
+        cp -p tools/clang/tools/scan-view/scan-view "$destdir$installdir/bin/scan-view"
+        cp -p tools/clang/tools/scan-build/* "$destdir$installdir/bin/"
+        pythondir=$(python -c 'import site; print site.getsitepackages()[0]' | sed "s,.*/lib/,$destdir$installdir/lib/,")
+        mkdir -p "$pythondir"
+        cp -pr tools/clang/tools/scan-view/* "$pythondir/"
+        rm "$pythondir/scan-view"
         popd
     fi
     export PATH="$destdir$installdir/bin:$PATH"
