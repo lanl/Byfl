@@ -153,7 +153,7 @@ void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
   load_array->setAlignment(8);
 
   // %2 = getelementptr inbounds i64* %1, i64 %idx
-  GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(load_array->getType(), load_array, idx, "idx_ptr", insert_before);
+  GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(NULL, load_array, idx, "idx_ptr", insert_before);
 
   // %3 = load i64* %2, align 8
   LoadInst* idx_val = new LoadInst(idx_ptr, "idx_val", false, insert_before);
@@ -186,7 +186,7 @@ void BytesFlops::increment_global_4D_array(BasicBlock::iterator& insert_before,
   gep_indices.push_back(idx3);
   gep_indices.push_back(idx4);
   GetElementPtrInst* gep_inst =
-    GetElementPtrInst::Create(array4d_var->getType(), array4d_var, gep_indices, "idx4_ptr", insert_before);
+    GetElementPtrInst::Create(NULL, array4d_var, gep_indices, "idx4_ptr", insert_before);
 
   // %2 = load i64* %1, align 8
   LoadInst* load_inst = new LoadInst(gep_inst, "idx4_val", false, insert_before);
@@ -285,9 +285,12 @@ Constant* BytesFlops::create_global_constant(Module& module,
                                              const char* value)
 {
   // First, create a _local_ array of characters.
+  Constant* old_value = module.getNamedValue(name);
+  if (old_value != nullptr)
+    return old_value;
   LLVMContext& globctx = module.getContext();
   size_t num_bytes = strlen(value) + 1;   // Number of characters including the trailing '\0'
-  ArrayType* array_type = ArrayType::get(Type::getInt8Ty(globctx), num_bytes);
+  ArrayType* array_type = ArrayType::get(IntegerType::get(globctx, 8), num_bytes);
   Constant *local_string = ConstantDataArray::getString(globctx, value, true);
   GlobalVariable* string_contents =
     new GlobalVariable(module, array_type, true, GlobalValue::PrivateLinkage,
@@ -299,11 +302,12 @@ Constant* BytesFlops::create_global_constant(Module& module,
   getelementptr_indexes.push_back(zero);
   getelementptr_indexes.push_back(zero);
   Constant* array_pointer =
-    ConstantExpr::getGetElementPtr(string_contents->getType(), string_contents, getelementptr_indexes);
-  PointerType* pointer_type = PointerType::get(Type::getInt8Ty(globctx), 0);
+    ConstantExpr::getGetElementPtr(NULL, string_contents, getelementptr_indexes);
+  PointerType* pointer_type = PointerType::get(IntegerType::get(globctx, 8), 0);
   GlobalVariable* new_constant =
     new GlobalVariable(module, pointer_type, true,
                        GlobalValue::LinkOnceODRLinkage, array_pointer, name);
+  new_constant->setAlignment(8);
   mark_as_used(module, new_constant);
   return array_pointer;
 }
@@ -468,7 +472,7 @@ Constant* BytesFlops::map_func_name_to_arg (Module* module, StringRef funcname)
   getelementptr_indices.push_back(zero_index);
   getelementptr_indices.push_back(zero_index);
   string_argument =
-    ConstantExpr::getGetElementPtr(const_char_ptr->getType(), const_char_ptr, getelementptr_indices);
+    ConstantExpr::getGetElementPtr(NULL, const_char_ptr, getelementptr_indices);
   func_name_to_arg[funcname] = string_argument;
   return string_argument;
 }
