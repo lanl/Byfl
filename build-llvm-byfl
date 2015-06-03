@@ -200,7 +200,7 @@ if [ "$download" = yes ] ; then
     fi
     if [ "$use_llvm" = yes ] ; then
         echo "# Removing old versions of LLVM and Clang from $builddir" 1>&4
-        run_with_progress cleanup-llvm 69000 rm -rfv llvm
+        run_with_progress cleanup-llvm 71000 rm -rfv llvm
     fi
 
     # Download LLVM trunk.
@@ -248,8 +248,10 @@ if [ "$compile" = yes ] ; then
         # Configure LLVM and Clang.
         echo "# Configuring LLVM and Clang" 1>&4
         pushd llvm
+        test -d build || mkdir build
+        cd build
         if [ $configure = yes -o ! -e config.log ] ; then
-            run_with_progress llvm-config 250 ./configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
+            run_with_progress llvm-config 250 ../configure --prefix="$installdir" --enable-optimized --enable-debug-runtime --enable-debug-symbols --disable-assertions CC="$CC" CXX="$CXX" REQUIRES_RTTI=1
         fi
 
         # Build LLVM and Clang.
@@ -259,12 +261,12 @@ if [ "$compile" = yes ] ; then
         # Install LLVM and Clang.  Out of the goodness of our heart we also
         # install the Clang static analyzer.
         echo "# Installing LLVM and Clang into $destdir$installdir" 1>&4
-        run_with_progress llvm-inst 850 make DESTDIR="$destdir" install
-        cp -p tools/clang/tools/scan-view/scan-view "$destdir$installdir/bin/scan-view"
-        cp -p tools/clang/tools/scan-build/* "$destdir$installdir/bin/"
+        run_with_progress llvm-inst 880 make DESTDIR="$destdir" install
+        cp -pr ../tools/clang/tools/scan-view/scan-view "$destdir$installdir/bin/scan-view"
+        cp -pr ../tools/clang/tools/scan-build/* "$destdir$installdir/bin/"
         pythondir=$(python -c 'import site; print site.getsitepackages()[0]' | sed "s,.*/lib/,$destdir$installdir/lib/,")
         mkdir -p "$pythondir"
-        cp -pr tools/clang/tools/scan-view/* "$pythondir/"
+        cp -pr ../tools/clang/tools/scan-view/* "$pythondir/"
         rm "$pythondir/scan-view"
         popd
     fi
@@ -289,7 +291,7 @@ if [ "$compile" = yes ] ; then
 
         # Install Byfl.
         echo "# Installing Byfl into $destdir$installdir" 1>&4
-        run_with_progress byfl-inst 200 make DESTDIR="$destdir" install
+        run_with_progress byfl-inst 230 make DESTDIR="$destdir" install
     fi
 
     # Test the installation
