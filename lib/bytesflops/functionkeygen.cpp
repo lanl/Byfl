@@ -3,7 +3,6 @@
  * generate unique function IDs
  *
  * By Rob Aulwes <rta@lanl.gov>
- *    Scott Pakin <pakin@lanl.gov>
  */
 
 #include "functionkeygen.h"
@@ -19,8 +18,8 @@ namespace bytesflops_pass
      * to C++ from the original C.
      */
 
-    FunctionKeyGen::FunctionKeyGen(const std::string& salt)
-        : m_rng(salt) {}
+    FunctionKeyGen::FunctionKeyGen(const FunctionKeyGen::Seed_t & seed)
+        : m_rng(seed) {}
 
     FunctionKeyGen::KeyID FunctionKeyGen::nextRandomKey()
     {

@@ -503,8 +503,14 @@ namespace bytesflops_pass {
     }
 
     // Initialize the function key generator.
-    string salt(module.getModuleIdentifier());
-    m_keygen = std::unique_ptr<FunctionKeyGen>(new FunctionKeyGen(salt));
+    FunctionKeyGen::Seed_t seed;
+    std::hash<std::string> hash_key;
+    seed = (hash_key(module.getModuleIdentifier())*UINT64_C(281474976710677) +
+            getpid()*UINT64_C(4294967311) +
+            time(NULL)*UINT64_C(65537));
+    m_keygen = std::unique_ptr<FunctionKeyGen>(new FunctionKeyGen(seed));
+
+
     return true;
   }
 

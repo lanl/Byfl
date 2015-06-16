@@ -844,7 +844,6 @@ private:
            counts_iter++) {
         running_total_bytes += counts_iter->second;
         running_total_accesses += uint64_t(counts_iter->first) * uint64_t(counts_iter->second);
-        double hit_rate = double(running_total_accesses) / double(global_bytes);
         if (running_total_accesses*2 >= global_bytes) {
           bytes_for_50pct_hits = running_total_bytes;
           break;
