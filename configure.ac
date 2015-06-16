@@ -138,7 +138,7 @@ if test "x$USE_BFD" = xyes ; then
     [Define to 1 if the BFD library should be used for associating instructions with lines of source code])
 fi
 
-dnl The Byfl binary-output library uses asprintf for error reporting can
+dnl The Byfl binary-output library uses asprintf for error reporting but can
 dnl work around its absence with an unsafe alternative.
 AC_CHECK_FUNCS([asprintf])
 
