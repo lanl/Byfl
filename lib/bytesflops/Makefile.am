@@ -14,7 +14,8 @@ bytesflops_la_SOURCES = \
 	mersennetwister.cpp \
 	mersennetwister.h \
 	functionkeygen.cpp \
-	functionkeygen.h
+	functionkeygen.h \
+	symbolinfo.cpp
 bytesflops_la_CPPFLAGS = -I$(top_srcdir)/include
 bytesflops_la_LDFLAGS = -module -avoid-version
 

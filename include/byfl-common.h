@@ -17,6 +17,7 @@
 #include <sstream>
 #include <cxxabi.h>
 #include <string.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -87,6 +88,17 @@ enum {
   BF_NO_ARG    = NUM_LLVM_OPCODES + 1   // No operand
 };
 
+// Define a type for communicating symbol information from the plugin
+// to the run-time library.
+typedef struct {
+  uint64_t ID;           // Unique identifier for the symbol
+  const char *origin;    // Who allocated the symbol
+  const char *symbol;    // Symbol name
+  const char *function;  // Name of function containing the symbol
+  const char *file;      // Name of directory+file containing the symbol
+  unsigned int line;     // Line number at which the symbol appears
+} bf_symbol_info_t;
+
 // Map a memory-access type to an index into bf_mem_insts_count[].
 static inline uint64_t
 mem_type_to_index(uint64_t memop,
@@ -139,6 +151,47 @@ static std::string strip_global_sub(string name)
 static std::string
 demangle_func_name(std::string mangled_name_list)
 {
+  // First, check if we were given a line of LLVM IR, which Byfl sometimes uses
+  // to represent unnamed code points.
+  if (mangled_name_list.find_first_of('%') != string::npos) {
+    // mangled_name_list looks like LLVM IR -- extract the opcode name.
+    size_t op_begin;     // Position of opcode name
+    op_begin = mangled_name_list.find(" = ");
+    if (op_begin == string::npos)
+      // Not found -- opcode must begin the string
+      op_begin = 0;
+    else
+      // Found -- skip past the " = " to find the opcode name.
+      op_begin += 3;
+    size_t op_end;      // Position of end of opcode name
+    op_end = mangled_name_list.find_first_of(" \t\n\r", op_begin);
+    string demangled_name = string("LLVM ") + mangled_name_list.substr(op_begin, op_end - op_begin) + string(" instruction");
+
+    // If the instruction references a function (e.g., @_Znwm)) or a named
+    // register (e.g., %"class foo"), append that information to the demangled
+    // name.
+    size_t func_begin = mangled_name_list.find('@', op_begin);
+    if (func_begin != string::npos) {
+      func_begin++;
+      size_t func_end = mangled_name_list.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.", func_begin);
+      if (func_end > func_begin) {
+        string func_name = demangle_func_name(mangled_name_list.substr(func_begin, func_end - func_begin));
+        return demangled_name + string(" referencing ") + func_name;
+      }
+    }
+    size_t reg_begin = mangled_name_list.find("%\"", op_begin);
+    if (reg_begin != string::npos) {
+      reg_begin += 2;
+      size_t reg_end = mangled_name_list.find_first_of('"', reg_begin);
+      if (reg_end > reg_begin) {
+        string reg_name = mangled_name_list.substr(reg_begin, reg_end - reg_begin);
+        return demangled_name + string(" referencing ") + reg_name;
+      }
+    }
+    return demangled_name;
+  }
+
+  // We have an ordinary symbol name.  Try various approaches to demangle it.
   std::istringstream mangled_stream(mangled_name_list);  // Stream of mangled names
   std::string mangled_name;      // A single mangled name
   char idelim = ' ';             // Delimiter between input mangled names
@@ -171,10 +224,10 @@ demangle_func_name(std::string mangled_name_list)
                          << mangled_name.substr(mod_ofs + 5);    // Function name
       }
       else
-        // mangled_name does not look like a g++ or gfortran mangled name;
-        // don't let __cxa_demangle() screw it up (e.g., by demangling "f" to
-        // "float").  However, do strip "@@<version>" from the end of the
-        // symbol name.
+        // mangled_name does not look like a g++ or gfortran mangled name.
+        // Don't let __cxa_demangle() screw up mangled_name (e.g., by
+        // demangling "f" to "float").  However, do strip "@@<version>" from
+        // the end of the symbol name.
         demangled_stream << strip_atat(mangled_name);
     }
   }
@@ -219,6 +272,45 @@ parse_command_line (void)
     arg += arglen + 1;
   }
   return arglist;
+}
+
+// Canonicalize a file name and convert it to an absolute path.  The original
+// string will be returned on error.  The value returned should be considered
+// ephemeral.
+#pragma GCC diagnostic ignored "-Wunused-function"
+static char *absolute_file_name (const char* filename)
+{
+  // Determine the maximum path length.
+  static ssize_t path_max = 0;
+  if (path_max == 0) {
+#ifdef PATH_MAX
+    path_max = PATH_MAX;
+#else
+    path_max = pathconf(filename, _PC_PATH_MAX);
+    if (path_max <= 0)
+      path_max = 4096;
+#endif
+  }
+
+  // Allocate space in which to work.
+  static char *old_path = nullptr;
+  static char *new_path = nullptr;
+  if (old_path == nullptr) {
+    old_path = new char[path_max + 1];
+    new_path = new char[path_max + 1];
+  }
+
+  // realpath() seems to get tripped up by "//".  Remove those.
+  strcpy(old_path, filename);
+  char *dslash;
+  while ((dslash = strstr(old_path, "//")) != nullptr)
+    memmove(old_path, dslash + 1, strlen(dslash));   // Include the '\0'.
+
+  // Return the canonical absolute path.
+  if (realpath(old_path, new_path) != nullptr)
+    return new_path;
+  else
+    return old_path;
 }
 
 #endif

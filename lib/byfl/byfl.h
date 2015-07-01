@@ -104,10 +104,6 @@ namespace bytesflops {
   extern vector<unordered_map<uint64_t,uint64_t> > bf_get_remote_shared_cache_hits(void);
 // Determine if we should suppress output from this process.
   extern bool suppress_output(void);
-#ifdef HAVE_BACKTRACE
-  extern void* bf_find_caller_address(void);
-  extern const char* bf_address_to_location_string(void* addrp);
-#endif
 
   // The following library variables are used in files other than the
   // one in which they're defined.
