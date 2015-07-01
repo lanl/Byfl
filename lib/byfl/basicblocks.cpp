@@ -8,9 +8,6 @@
 
 #include "byfl.h"
 #include "byfl-common.h"
-#ifdef USE_BFD
-# include "findsrc.h"
-#endif
 
 namespace bytesflops {}
 using namespace bytesflops;
@@ -42,15 +39,12 @@ static ByteFlopCounters bb_totals; // Tallies of all of our counters across <= n
 
 extern ostream* bfout;
 extern BinaryOStream* bfbin;
-#ifdef USE_BFD
-extern ProcessSymbolTable* procsymtab;  // The calling process's symbol table
-#endif
 
 // Define a structure to keep track of dynamic basic-block accesss.
 struct BBAccessInfo {
+  bf_symbol_info_t syminfo;  // Information about the basic block's location
   uint64_t tally;      // Number of times the basic block was executed
   uint64_t num_insts;  // Static code size in instructions
-  void* address;       // Virtual-memory address of the basic block
 };
 
 // Map a basic-block ID to an access tally.
@@ -375,18 +369,17 @@ void bf_reset_bb_tallies (void)
 // Keep track of dynamic basic-block accesses given a unique identifier and
 // static basic-block size in instructions.
 extern "C"
-void bf_tally_bb_execution (uint64_t bb_id, uint64_t num_insts)
+void bf_tally_bb_execution (bf_symbol_info_t* syminfo, uint64_t bb_id,
+                            uint64_t num_insts)
 {
   BBAccessInfo* bb_info;
   auto iter = bb_accesses->find(bb_id);
   if (iter == bb_accesses->end()) {
     // Not found -- create a new entry.
     bb_info = new BBAccessInfo;
+    bb_info->syminfo = *syminfo;
     bb_info->tally = 0;
     bb_info->num_insts = num_insts;
-#ifdef HAVE_BACKTRACE
-    bb_info->address = bf_find_caller_address();
-#endif
     (*bb_accesses)[bb_id] = bb_info;
   }
   else
@@ -395,13 +388,18 @@ void bf_tally_bb_execution (uint64_t bb_id, uint64_t num_insts)
 }
 
 // Compare two basic blocks, reporting which was called more times.  Break ties
-// by comparing instruction counts.
+// by comparing instruction counts, then file names, then line numbers.
 static bool compare_bb_accesses (const BBAccessInfo* one,
                                  const BBAccessInfo* two)
 {
   if (one->tally != two->tally)
     return one->tally > two->tally;
-  return one->num_insts > two->num_insts;
+  if (one->num_insts != two->num_insts)
+    return one->num_insts > two->num_insts;
+  int file_comp = strcmp(one->syminfo.file, two->syminfo.file);
+  if (file_comp != 0)
+    return file_comp == -1;
+  return one->syminfo.line < two->syminfo.line;
 }
 
 // Output the number of accesses to each basic block.
@@ -410,24 +408,12 @@ void bf_report_bb_execution (void)
   // Write a header to the binary output file.
   *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic-block accesses";
   *bfbin << uint8_t(BINOUT_COL_UINT64) << "Invocations"
-         << uint8_t(BINOUT_COL_UINT64) << "Instructions";
-#ifdef HAVE_BACKTRACE
-  *bfbin << uint8_t(BINOUT_COL_UINT64) << "Address";
-# ifdef USE_BFD
-  *bfbin << uint8_t(BINOUT_COL_STRING) << "File name"
+         << uint8_t(BINOUT_COL_UINT64) << "Instructions"
          << uint8_t(BINOUT_COL_STRING) << "Mangled function name"
          << uint8_t(BINOUT_COL_STRING) << "Demangled function name"
+         << uint8_t(BINOUT_COL_STRING) << "File name"
          << uint8_t(BINOUT_COL_UINT64) << "Line number"
-#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
-         << uint8_t(BINOUT_COL_UINT64) << "Line-number discriminator";
-#  else
-         ;
-#  endif
-# else
-      *bfbin << uint8_t(BINOUT_COL_STRING) << "Symbolic location";
-# endif
-#endif
-  *bfbin << uint8_t(BINOUT_COL_NONE);
+         << uint8_t(BINOUT_COL_NONE);
 
   // Sort the list of basic blocks in decreasing order of access count.
   vector<BBAccessInfo*> unique_bbs;
@@ -438,40 +424,20 @@ void bf_report_bb_execution (void)
   // Output each basic block in turn.
   for (auto iter = unique_bbs.begin(); iter != unique_bbs.end(); iter++) {
     BBAccessInfo* bb_info = *iter;
+    bf_symbol_info_t* syminfo = &bb_info->syminfo;
     *bfbin << uint8_t(BINOUT_ROW_DATA)
            << bb_info->tally
-           << bb_info->num_insts;
-#ifdef HAVE_BACKTRACE
-    *bfbin << (uint64_t) uintptr_t(bb_info->address);
-# ifdef USE_BFD
-    SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t(bb_info->address)));
-    if (srcloc == nullptr)
-      *bfbin << "Unknown" << "Unknown" << "Unknown" << UINT64_C(0)
-#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
-             << UINT64_C(0);
-#  else
-             ;
-#  endif
-    else
-      *bfbin << srcloc->file_name
-             << srcloc->function_name
-             << demangle_func_name(srcloc->function_name)
-             << srcloc->line_number
-#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
-             << srcloc->discriminator;
-#  else
-             ;
-#  endif
-# else
-    *bfbin << bf_address_to_location_string(bb_info->address);
-# endif
-#endif
+           << bb_info->num_insts
+           << (strcmp(syminfo->function, "*GLOBAL*") == 0 ? "" : syminfo->function)
+           << (strcmp(syminfo->function, "*GLOBAL*") == 0 ? "" : demangle_func_name(syminfo->function))
+           << (strcmp(syminfo->file, "??") == 0 ? "" : syminfo->file)
+           << uint64_t(syminfo->line);
   }
   *bfbin << uint8_t(BINOUT_ROW_NONE);
 }
 
 // Report what we've measured for the current basic block.
-static void report_bb_tallies (uint64_t bb_merge)
+static void report_bb_tallies (bf_symbol_info_t* syminfo, uint64_t bb_merge)
 {
   static bool showed_header = false;         // true=already output our header
 
@@ -483,31 +449,25 @@ static void report_bb_tallies (uint64_t bb_merge)
   // output only in binary format to avoid flooding the standard
   // output device.
   if (__builtin_expect(!showed_header, 0)) {
+    // The first few columns vary based on whether we're logging individual
+    // basic blocks or groups of basic blocks.
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Basic blocks";
     if (bb_merge == 1) {
       // Log every basic block individually.
       *bfbin << uint8_t(BINOUT_COL_UINT64) << "Basic block number"
-             << uint8_t(BINOUT_COL_STRING) << "Tag";
-#ifdef HAVE_BACKTRACE
-      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Address";
-# ifdef USE_BFD
-      *bfbin << uint8_t(BINOUT_COL_STRING) << "File name"
-             << uint8_t(BINOUT_COL_STRING) << "Function name"
-             << uint8_t(BINOUT_COL_UINT64) << "Line number"
-#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
-             << uint8_t(BINOUT_COL_UINT64) << "Line-number discriminator";
-#  else
-             ;
-#  endif
-# else
-      *bfbin << uint8_t(BINOUT_COL_STRING) << "Symbolic location";
-# endif
-#endif
+             << uint8_t(BINOUT_COL_STRING) << "Tag"
+             << uint8_t(BINOUT_COL_STRING) << "Mangled function name"
+             << uint8_t(BINOUT_COL_STRING) << "Demangled function name"
+             << uint8_t(BINOUT_COL_STRING) << "File name"
+             << uint8_t(BINOUT_COL_UINT64) << "Line number";
     }
     else
       // Log groups of basic blocks.
       *bfbin << uint8_t(BINOUT_COL_UINT64) << "Beginning basic block number"
              << uint8_t(BINOUT_COL_UINT64) << "Ending basic block number";
+
+    // The remaining fields are independent of the number of basic blocks per
+    // group.
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Load operations"
            << uint8_t(BINOUT_COL_UINT64) << "Store operations"
            << uint8_t(BINOUT_COL_UINT64) << "Floating-point operations"
@@ -549,32 +509,11 @@ static void report_bb_tallies (uint64_t bb_merge)
     first_bb += num_merged;
     if (bb_merge == 1) {
       const char* partition = bf_categorize_counters();
-      *bfbin << (partition == NULL ? "" : partition);
-#ifdef HAVE_BACKTRACE
-      void* caller_addr = bf_find_caller_address();
-      *bfbin << (uint64_t) (uintptr_t) caller_addr;
-# ifdef USE_BFD
-      SourceCodeLocation* srcloc = procsymtab->find_address((uintptr_t)caller_addr);
-      if (srcloc == nullptr)
-        *bfbin << "Unknown" << "Unknown" << UINT64_C(0) << UINT64_C(0)
-#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
-               << UINT64_C(0);
-#  else
-               ;
-#  endif
-      else
-        *bfbin << srcloc->file_name
-               << srcloc->function_name
-               << srcloc->line_number
-#  if HAVE_DECL_BFD_FIND_NEAREST_LINE_DISCRIMINATOR
-               << srcloc->discriminator;
-#  else
-               ;
-#  endif
-# else
-      *bfbin << bf_address_to_location_string(caller_addr);
-# endif
-#endif
+      *bfbin << (partition == NULL ? "" : partition)
+             << (strcmp(syminfo->function, "*GLOBAL*") == 0 ? "" : syminfo->function)
+             << (strcmp(syminfo->function, "*GLOBAL*") == 0 ? "" : demangle_func_name(syminfo->function))
+             << (strcmp(syminfo->file, "??") == 0 ? "" : syminfo->file)
+             << uint64_t(syminfo->line);
     }
     uint64_t other_branches = counter_deltas.terminators[BF_END_BB_ANY];
     for (int i = 0; i < BF_END_BB_NUM; i++)
@@ -612,9 +551,9 @@ static void report_bb_tallies (uint64_t bb_merge)
 // Report what we've measured for the current basic block by calling the
 // internal report_bb_tallies() function with its default argument.
 extern "C"
-void bf_report_bb_tallies (void)
+void bf_report_bb_tallies (bf_symbol_info_t* syminfo)
 {
-  report_bb_tallies(bf_bb_merge);
+  report_bb_tallies(syminfo, bf_bb_merge);
 }
 
 // Associate the current counter values with a given function.
@@ -625,17 +564,14 @@ void bf_assoc_counters_with_func (KeyType_t funcID)
   // for funcname, then add the current counters to that entry.
   key2bfc_t::iterator sm_iter;
   KeyType_t key;
-  if ( bf_call_stack )
-  {
-      sm_iter = per_func_totals().find(bf_func_and_parents_id);
-      key = bf_func_and_parents_id;
+  if (bf_call_stack) {
+    sm_iter = per_func_totals().find(bf_func_and_parents_id);
+    key = bf_func_and_parents_id;
   }
-  else
-  {
-      sm_iter = per_func_totals().find(funcID);
-      key = funcID;
+  else {
+    sm_iter = per_func_totals().find(funcID);
+    key = funcID;
   }
-
   if (sm_iter == per_func_totals().end())
     // This is the first time we've seen this function name.
     per_func_totals()[key] =
@@ -679,7 +615,7 @@ void finalize_bblocks (void)
     // Complete the basic-block table.
     if (num_merged > 0)
       // Flush the last set of basic blocks.
-      report_bb_tallies(0);
+      report_bb_tallies(nullptr, 0);
     *bfbin << uint8_t(BINOUT_ROW_NONE);
   }
   else {

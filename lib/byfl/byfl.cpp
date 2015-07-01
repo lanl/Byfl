@@ -10,12 +10,6 @@
 #include "byfl.h"
 #include "byfl-common.h"
 #include "callstack.h"
-#ifdef HAVE_BACKTRACE
-# include <execinfo.h>
-#endif
-#ifdef USE_BFD
-# include "findsrc.h"
-#endif
 
 namespace bytesflops {}
 using namespace bytesflops;
@@ -113,9 +107,6 @@ ostream* bfout;                  // Stream to which to send textual output
 BinaryOStream* bfbin;            // Stream to which to send binary output
 ofstream *bfbin_file;            // Underlying file for the above
 bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
-#ifdef USE_BFD
-ProcessSymbolTable* procsymtab = NULL;  // The calling process's symbol table
-#endif
 static CallStack* call_stack = NULL;    // The calling process's current call stack
 
 // As a kludge, set a global variable indicating that all of the
@@ -138,9 +129,6 @@ void initialize_byfl (void) {
   bf_func_and_parents_id = KeyType_t(0);
   bf_current_func_key = KeyType_t(0);
   call_stack = new CallStack();
-#ifdef USE_BFD
-  procsymtab = new ProcessSymbolTable();
-#endif
   const char* partition = bf_categorize_counters();
   if (partition != NULL)
     bf_record_key(partition, bf_categorize_counters_id);
@@ -315,95 +303,9 @@ bool suppress_output (void)
              << "BYFL_WARNING:     consider using -bf-every-bb -bf-merge-bb="
              << uint64_t(-1) << ".\n";
 
-    // Warn the user if he specified -bf-data-structs but lacks the
-    // backtrace() function and/or the BFD library.
-    if (bf_data_structs) {
-#ifndef USE_BFD
-      *bfout << "BYFL_WARNING: (" << ++num_warnings << ") Byfl failed to find the BFD development files at\n"
-             << "BYFL_WARNING:     configuration time.  -bf-data-structs will therefore be\n"
-             << "BYFL_WARNING:     unable to identify statically allocated data structures or\n"
-             << "BYFL_WARNING:     to report source-code locations for dynamically allocated\n"
-             << "BYFL_WARNING:     data structures.\n";
-#endif
-#ifndef HAVE_BACKTRACE
-      *bfout << "BYFL_WARNING: (" << ++num_warnings << ") Byfl failed to find a backtrace_symbols() function at\n"
-             << "BYFL_WARNING:     configuration time.  -bf-data-structs will therefore be\n"
-             << "BYFL_WARNING:     unable to identify dynamically allocated data structures.\n";
-#endif
-    }
   }
   return output == SUPPRESS;
 }
-
-#ifdef HAVE_BACKTRACE
-// Return the address of the user code that invoked us.
-void* bf_find_caller_address (void)
-{
-  const size_t DEPTH_UNINITIALIZED = (size_t)(-1);   // We haven't yet calibrarated our stack depth
-  const size_t DEPTH_UNKNOWN = (size_t)(-2);         // We were unable to determine our stack depth
-  static size_t discard_num = DEPTH_UNINITIALIZED;   // Number of stack entries to discard
-  const size_t max_stack_depth = 32;   // Maximum stack depth before we expect to find a user function
-  void* stack_addrs[max_stack_depth];
-
-  switch (discard_num) {
-    case DEPTH_UNKNOWN:
-      // If we gave up once, give up forever after.
-      return NULL;
-      break;
-
-    case DEPTH_UNINITIALIZED:
-      // On our first invocation, determine the call depth of the
-      // Byfl library.
-      {
-        size_t stack_depth = backtrace(stack_addrs, max_stack_depth);
-        char** symnames = backtrace_symbols(stack_addrs, stack_depth);
-        discard_num = DEPTH_UNKNOWN;   // Assume we don't find anything.
-        for (size_t i = 0; i < stack_depth; i++) {
-          char* name = symnames[i];
-          if (!strstr(name, "bf_") &&
-              !strstr(name, "bytesflops") &&
-              !strstr(name, "libbyfl")) {
-            discard_num = i;
-            break;
-          }
-        }
-        free(symnames);
-        if (discard_num == DEPTH_UNKNOWN)
-          return NULL;
-      }
-      // No break
-
-    default:
-      // On the first and all subsequent invocations, return the
-      // first non-Byfl stack address.
-      {
-        size_t stack_depth = backtrace(stack_addrs, discard_num + 1);
-        return stack_addrs[stack_depth - 1];
-      }
-      break;
-  }
-}
-
-// Return a string version of an instruction address (e.g., "foo.c:123").
-const char* bf_address_to_location_string (void* addrp)
-{
-  typedef map<uintptr_t, const char*> addr2string_t;
-  static addr2string_t address_map;
-  uintptr_t addr = uintptr_t(addrp);
-  addr2string_t::iterator addr_iter = address_map.find(addr);
-  if (addr_iter == address_map.end()) {
-    // This is the first time we've seen this address.
-    char** locstrs = backtrace_symbols(&addrp, 1);
-    const char* location_string = locstrs == NULL ? "??:0" : strdup(locstrs[0]);
-    free(locstrs);
-    address_map[addr] = location_string;
-    return location_string;
-  }
-  else
-    // Return the string we found the previous time.
-    return addr_iter->second;
-}
-#endif
 
 // At the end of the program, report what we measured.
 static class RunAtEndOfProgram {

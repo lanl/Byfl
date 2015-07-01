@@ -126,6 +126,45 @@ namespace bytesflops_pass {
   // elements and need to be recombined.
   extern set<string>* parse_function_names(vector<string>& funclist);
 
+  // Define a class version of bf_symbol_info_t for internal use.
+  class InternalSymbolInfo {
+  private:
+    // Map a Function to a {file, line} tuple.
+    typedef pair<string, unsigned int> string_uint_pair;
+    static unordered_map<const Function*, string_uint_pair> *func2loc;
+
+    // Populate func2loc with every function in the module.
+    void initialize_func2loc (const Module* module);
+
+    // Indicate whether all fields have been assigned a non-default value.
+    bool have_all_fields();
+
+    // Randomly generate IDs.
+    static MersenneTwister *prng;
+
+  public:
+    uint64_t ID;           // Unique identifier for the symbol
+    string origin;         // Who allocate the symbol
+    string symbol;         // Symbol name
+    string function;       // Name of function containing the symbol
+    string file;           // Name of directory+file containing the symbol
+    unsigned int line;     // Line number at which the symbol appears
+    bool precise;          // true=precise source location; false=approximate
+
+    // Read the metadata associated with a value and construct an
+    // InternalSymbolInfo that represents the value's provenance.
+    InternalSymbolInfo(Value* value, string defn_loc);
+
+    // Construct an InternalSymbolInfo directly from a DIGlobalVariable..
+    InternalSymbolInfo(DIGlobalVariable& var, string defn_loc);
+
+    // Format our contents and write them to a stream.
+    friend raw_ostream& operator<< (raw_ostream &ros, const InternalSymbolInfo& sym) {
+      ros << (sym.precise ? "[precise]" : "[imprecise]") << ' ';  // Temporary
+      ros << sym.function << ':' << sym.symbol << " @ " << sym.file << ':' << sym.line;
+      return ros;
+    }
+  };
 
   // Define a pass over each basic block in the module.
   //  struct BytesFlops : public FunctionPass {
@@ -189,6 +228,7 @@ namespace bytesflops_pass {
     Function* release_mega_lock;   // Pointer to bf_release_mega_lock()
     Function* tally_vector;        // Pointer to bf_tally_vector_operation()
     Function* access_data_struct;  // Pointer to bf_access_data_struct()
+    Function* assoc_addrs_with_sstruct;     // Pointer to bf_assoc_addresses_with_sstruct()
     Function* assoc_addrs_with_dstruct;     // Pointer to bf_assoc_addresses_with_dstruct
     Function* assoc_addrs_with_dstruct_pm;  // Pointer to bf_assoc_addresses_with_dstruct_pm
     Function* assoc_addrs_with_dstruct_stack;  // Pointer to bf_assoc_addresses_with_dstruct_stack
@@ -208,6 +248,8 @@ namespace bytesflops_pass {
     ConstantPointerNull* null_pointer;   // (void *)NULL
     typedef unordered_map<string, unsigned long> str2ul_t;
     str2ul_t loop_len;        // Number of instructions in each inner loop
+    StructType* syminfo_type; // bf_symbol_info_t struct type
+    AllocaInst* func_syminfo;   // Recyclable, function-local, stack-allocated bf_symbol_info_t struct
 
     // Say whether one str2ul_t should be output before another.
     class compare_str2ul_t {
@@ -235,6 +277,9 @@ namespace bytesflops_pass {
     std::vector<KeyType_t>             recorded;
 
     GlobalVariable * byfl_fmap_cnt;
+
+    // Mark an instruction as having been produced by Byfl.
+    void mark_as_byfl(Instruction* inst);
 
     // Insert after a given instruction some code to increment a
     // global variable.
@@ -272,17 +317,17 @@ namespace bytesflops_pass {
     // Create and initialize a global uint64_t constant in the
     // instrumented code.
     GlobalVariable* create_global_constant(Module& module, const char* name,
-                                           uint64_t value);
+                                           uint64_t value, bool reuse_old=false);
 
     // Create and initialize a global bool constant in the
     // instrumented code.
     GlobalVariable* create_global_constant(Module& module, const char* name,
-                                           bool value);
+                                           bool value, bool reuse_old=false);
 
     // Create and initialize a global char* constant in the
     // instrumented code.
     Constant* create_global_constant(Module& module, const char* name,
-                                     const char* value);
+                                     const char* value, bool reuse_old=false);
 
     // Return the number of elements in a given vector.
     ConstantInt* get_vector_length(LLVMContext& bbctx, const Type* dataType,
@@ -436,10 +481,33 @@ namespace bytesflops_pass {
     } inner_loop_info_t;
     unordered_map<string, inner_loop_info_t*> loc_to_loop_info;
 
-    void initializeKeyMap(Module& module);
+    // Manage the compile-time hashing of function names.
+    void initializeKeyMap(Module* module);
+    void create_func_map_ctor(Module& module, uint32_t nkeys,
+                              Constant* keys, Constant* fnames);
 
-    void create_func_map_ctor(Module & module, uint32_t nkeys,
-                              Constant * keys, Constant * fnames);
+    // Track all global variable declarations.
+    void track_global_variables(Module* module);
+
+    // Read the metadata associated with a value and generate code to construct
+    // a bf_symbol_info_t representing where the value came from.
+    AllocaInst* find_value_provenance(Module& module, Value* value,
+                                      string defn_loc,
+                                      BasicBlock::iterator& insert_before,
+                                      AllocaInst* syminfo_struct = nullptr);
+
+    // Do the same, but take an InternalSymbolInfo instead of a Value.
+    AllocaInst* find_value_provenance(Module& module, InternalSymbolInfo& syminfo,
+                                      Instruction* insert_before,
+                                      AllocaInst* syminfo_struct = nullptr);
+
+    // Do the same, but take a BasicBlock iterator instead of a Value.
+    AllocaInst* find_value_provenance(Module& module,
+                                      BasicBlock::iterator& inst_iter,
+                                      string defn_loc,
+                                      BasicBlock::iterator& insert_before,
+                                      AllocaInst* syminfo_struct);
+
   public:
     static char ID;
 

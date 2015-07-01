@@ -1,8 +1,6 @@
 Byfl: Compiler-based Application Analysis
 =========================================
 
-![Warning](https://github.com/losalamos/Byfl/wiki/graphics/warning.png) Now that LLVM 3.6 has been released, Byfl's `llvm-3.5` branch can be considered frozen.  All new Byfl development will target more recent versions of LLVM.
-
 Description
 -----------
 
