@@ -159,8 +159,7 @@ void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
                                         Value* increment)
 {
   // %1 = load i64** @<global_var>, align 8
-  LoadInst* load_array = new LoadInst(global_var, "garray", false, insert_before);
-  load_array->setAlignment(8);
+  LoadInst* load_array = new LoadInst(global_var, "garray", false, 8, insert_before);
   mark_as_byfl(load_array);
 
   // %2 = getelementptr inbounds i64* %1, i64 %idx
@@ -168,8 +167,7 @@ void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
   mark_as_byfl(idx_ptr);
 
   // %3 = load i64* %2, align 8
-  LoadInst* idx_val = new LoadInst(idx_ptr, "idx_val", false, insert_before);
-  idx_val->setAlignment(8);
+  LoadInst* idx_val = new LoadInst(idx_ptr, "idx_val", false, 8, insert_before);
   mark_as_byfl(idx_val);
 
   // %4 = add i64 %3, <increment>
@@ -178,8 +176,7 @@ void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
   mark_as_byfl(inc_elt);
 
   // store i64 %4, i64* %2, align 8
-  StoreInst* store_inst = new StoreInst(inc_elt, idx_ptr, false, insert_before);
-  store_inst->setAlignment(8);
+  StoreInst* store_inst = new StoreInst(inc_elt, idx_ptr, false, 8, insert_before);
   mark_as_byfl(store_inst);
 }
 
@@ -205,8 +202,7 @@ void BytesFlops::increment_global_4D_array(BasicBlock::iterator& insert_before,
   mark_as_byfl(gep_inst);
 
   // %2 = load i64* %1, align 8
-  LoadInst* load_inst = new LoadInst(gep_inst, "idx4_val", false, insert_before);
-  load_inst->setAlignment(8);
+  LoadInst* load_inst = new LoadInst(gep_inst, "idx4_val", false, 8, insert_before);
   mark_as_byfl(load_inst);
 
   // %3 = add i64 %2, <increment>
@@ -215,8 +211,7 @@ void BytesFlops::increment_global_4D_array(BasicBlock::iterator& insert_before,
   mark_as_byfl(add_inst);
 
   // store i64 %3, i64* %1, align 8
-  StoreInst* store_inst = new StoreInst(add_inst, gep_inst, false, insert_before);
-  store_inst->setAlignment(8);
+  StoreInst* store_inst = new StoreInst(add_inst, gep_inst, false, 8, insert_before);
   mark_as_byfl(store_inst);
 }
 
@@ -547,8 +542,7 @@ void BytesFlops::insert_zero_array_code(Module* module,
                                         uint64_t num_elts,
                                         BasicBlock::iterator& insert_before)
 {
-  LoadInst* array_addr = new LoadInst(array_to_zero, "ar", false, insert_before);
-  array_addr->setAlignment(8);
+  LoadInst* array_addr = new LoadInst(array_to_zero, "ar", false, 8, insert_before);
   mark_as_byfl(array_addr);
   LLVMContext& globctx = module->getContext();
   CastInst* array_addr_cast =
@@ -697,8 +691,7 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
       mark_as_byfl(new StoreInst(zero, call_inst_var, false, insert_before));
     if (must_clear & CLEAR_MEM_TYPES) {
       // Zero out the entire array.
-      LoadInst* mem_insts_addr = new LoadInst(mem_insts_var, "mi", false, insert_before);
-      mem_insts_addr->setAlignment(8);
+      LoadInst* mem_insts_addr = new LoadInst(mem_insts_var, "mi", false, 8, insert_before);
       mark_as_byfl(mem_insts_addr);
       LLVMContext& globctx = module->getContext();
       CastInst* mem_insts_cast =
@@ -726,8 +719,7 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
       // If we're tallying instructions we don't need a must_clear
       // bit to tell us that an instruction was executed.  We always
       // need to zero out the entire array.
-      LoadInst* tally_insts_addr = new LoadInst(inst_mix_histo_var, "ti", false, insert_before);
-      tally_insts_addr->setAlignment(8);
+      LoadInst* tally_insts_addr = new LoadInst(inst_mix_histo_var, "ti", false, 8, insert_before);
       mark_as_byfl(tally_insts_addr);
       LLVMContext& globctx = module->getContext();
       CastInst* tally_insts_cast =
@@ -854,18 +846,6 @@ string BytesFlops::value_to_string(const Value* value)
   return valstr.substr(text_begin, text_end - text_begin + 1);
 }
 
-// Push a value onto an argument list as a string.
-void BytesFlops::push_value_string(Module& module, vector<Value*>& arg_list, Value* value)
-{
-  static MersenneTwister prng(1073741741);
-  string valstr = value_to_string(value);
-  stringstream valstr_name;
-  valstr_name << "bf_value_" << prng.next();
-  Constant* valstr_name_var =
-    create_global_constant(module, valstr_name.str().c_str(), valstr.c_str());
-  arg_list.push_back(valstr_name_var);
-}
-
 // Stack-allocate a bf_symbol_info_t in the generated code based on a
 // given InternalSymbolInfo.
 AllocaInst* BytesFlops::find_value_provenance(Module& module,
@@ -896,8 +876,7 @@ AllocaInst* BytesFlops::find_value_provenance(Module& module,
   mark_as_byfl(syminfo_gep);
   syminfo_store =
     new StoreInst(ConstantInt::get(globctx, APInt(64, syminfo.ID)),
-                  syminfo_gep, false, insert_before);
-  syminfo_store->setAlignment(8);
+                  syminfo_gep, false, 8, insert_before);
   mark_as_byfl(syminfo_store);
 
   // Assign bf_symbol_info_t.origin.
@@ -933,8 +912,7 @@ AllocaInst* BytesFlops::find_value_provenance(Module& module,
                  "deref_str", false, 8, insert_before);
   mark_as_byfl(syminfo_load);
   syminfo_store =
-    new StoreInst(syminfo_load, syminfo_gep, false, insert_before);
-  syminfo_store->setAlignment(8);
+    new StoreInst(syminfo_load, syminfo_gep, false, 8, insert_before);
   mark_as_byfl(syminfo_store);
 
   // Assign bf_symbol_info_t.file.
@@ -955,8 +933,7 @@ AllocaInst* BytesFlops::find_value_provenance(Module& module,
   mark_as_byfl(syminfo_gep);
   syminfo_store =
     new StoreInst(ConstantInt::get(globctx, APInt(32, syminfo.line)),
-                  syminfo_gep, false, insert_before);
-  syminfo_store->setAlignment(4);
+                  syminfo_gep, false, 4, insert_before);
   mark_as_byfl(syminfo_store);
 
   // Return a pointer to the initialized bf_symbol_info_t Value.
