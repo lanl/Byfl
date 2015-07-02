@@ -106,38 +106,6 @@ fi
 AC_DEFINE_UNQUOTED([NUM_LLVM_OPCODES_POW2], [$ax_cv_llvm_opcodes_pow2],
   [Define as NUM_LLVM_OPCODES+2 rounded up to a power of two.])
 
-dnl Record if we have the GNU backtrace_symbols() function.
-AC_CHECK_FUNC([backtrace_symbols],
-  [AC_CHECK_HEADER([execinfo.h],
-    [AC_DEFINE([HAVE_BACKTRACE], [1],
-      [Define to 1 if the GNU `backtrace' and `backtrace_symbols' functions are available.])])])
-
-dnl Record if we have the BFD library.  We need to have bfd.h, at least
-dnl one of bfd_find_nearest_line_discriminator() and
-dnl bfd_find_nearest_line(), and bf_init().
-if test -z ${USE_BFD+set} ; then
-  USE_BFD=no
-  AC_CHECK_HEADER([bfd.h],
-    [ax_nearest_line=no
-     AC_CHECK_DECLS([bfd_find_nearest_line_discriminator],
-       [ax_nearest_line=yes],
-       [AC_CHECK_DECLS([bfd_find_nearest_line],
-         [ax_nearest_line=yes],
-         ,
-         [#include <bfd.h>])],
-       [#include <bfd.h>])
-     if test $ax_nearest_line = yes ; then
-       AC_CHECK_LIB([bfd], [bfd_init])
-       if test "x$ac_cv_lib_bfd_bfd_init" = xyes ; then
-	 USE_BFD=yes
-       fi
-     fi])
-fi
-if test "x$USE_BFD" = xyes ; then
-  AC_DEFINE([USE_BFD], [1],
-    [Define to 1 if the BFD library should be used for associating instructions with lines of source code])
-fi
-
 dnl The Byfl binary-output library uses asprintf for error reporting but can
 dnl work around its absence with an unsafe alternative.
 AC_CHECK_FUNCS([asprintf])
@@ -265,13 +233,6 @@ if test "x$enable_shared" = xno ; then
 fi
 if test "x$ac_cv_func_asprintf" != xyes; then
   AC_MSG_WARN([Using an unsafe alternative to asprintf, which wasn't found])
-fi
-if test "x$ac_cv_header_execinfo_h" != xyes ; then
-  AC_MSG_WARN([Dynamic data structures cannot be tracked without access to the backtrace_symbols function])
-  AC_MSG_WARN([Binary basic-block output cannot include addresses without access to the backtrace_symbols function])
-fi
-if test $USE_BFD = no ; then
-  AC_MSG_WARN([Install the libbfd development files if you want to associate source-code locations with basic blocks])
 fi
 if test $BUILD_BFBIN2HDF5 = no ; then
   AC_MSG_WARN([Not building the bfbin2hdf5 postprocessor because it requires a working HDF5 with C++11 support])

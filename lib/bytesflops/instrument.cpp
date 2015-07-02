@@ -30,10 +30,9 @@ namespace bytesflops_pass {
    * This helps ensure that all of the function names are recorded
    * exactly once.
    */
-  void BytesFlops::create_func_map_ctor(Module & module, uint32_t nkeys,
-          Constant * keys, Constant * fnames)
-  {
-    initializeKeyMap(module);
+  void BytesFlops::create_func_map_ctor(Module& module, uint32_t nkeys,
+                                        Constant* keys, Constant* fnames) {
+    initializeKeyMap(&module);
 
     LLVMContext& ctx = module.getContext();
 
@@ -41,14 +40,14 @@ namespace bytesflops_pass {
     // create a basic block in the ctor.
     BasicBlock* ctor_bb = BasicBlock::Create(ctx, "", func_map_ctor, 0);
     if ( !ctor_bb )
-    {
+      {
         printf("Error: unable to create basic block\n");
-    }
+      }
     // insert call to record the keys
     std::vector<Value *> args;
 
     ConstantInt*
-    const_nkeys = ConstantInt::get(ctx, APInt(32, nkeys));
+      const_nkeys = ConstantInt::get(ctx, APInt(32, nkeys));
 
     /**
      * args are:
@@ -63,6 +62,7 @@ namespace bytesflops_pass {
     CallInst* void_12 = CallInst::Create(record_funcs2keys, args, "", ctor_bb);
     void_12->setCallingConv(CallingConv::C);
     void_12->setTailCall(false);
+    mark_as_byfl(void_12);
     AttributeSet void_12_PAL;
     void_12->setAttributes(void_12_PAL);
 
@@ -194,6 +194,7 @@ namespace bytesflops_pass {
         : cast<StoreInst>(inst).getPointerOperand();
       mem_addr = new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64),
                                   "", insert_before);
+      mark_as_byfl(mem_addr);
     }
 
     // If requested by the user, also insert a call to
@@ -250,6 +251,10 @@ namespace bytesflops_pass {
       vector<Value*> arg_list;
       CastInst* imm_mem_addr =
         new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64), "", insert_post_ls);
+      mark_as_byfl(imm_mem_addr);
+      func_syminfo =
+        find_value_provenance(*module, &inst, value_to_string(&inst), insert_post_ls, func_syminfo);
+      arg_list.push_back(func_syminfo);
       arg_list.push_back(imm_mem_addr);
       arg_list.push_back(num_bytes);
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
@@ -330,6 +335,10 @@ namespace bytesflops_pass {
             new PtrToIntInst(memsetfunc->getDest(),
                              IntegerType::get(globctx, 64),
                              "", insert_post_mem);
+          mark_as_byfl(mem_addr);
+          func_syminfo =
+            find_value_provenance(*module, inst, value_to_string(memsetfunc), insert_post_mem, func_syminfo);
+          arg_list.push_back(func_syminfo);
           arg_list.push_back(mem_addr);
           arg_list.push_back(memsetfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
@@ -368,6 +377,10 @@ namespace bytesflops_pass {
             new PtrToIntInst(memxferfunc->getSource(),
                              IntegerType::get(globctx, 64),
                              "", insert_post_mem);
+          mark_as_byfl(mem_addr);
+          func_syminfo =
+            find_value_provenance(*module, inst, value_to_string(memxferfunc), insert_post_mem, func_syminfo);
+          arg_list.push_back(func_syminfo);
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 0)));
@@ -379,6 +392,8 @@ namespace bytesflops_pass {
             new PtrToIntInst(memxferfunc->getDest(),
                              IntegerType::get(globctx, 64),
                              "", insert_post_mem);
+          mark_as_byfl(mem_addr);
+          arg_list.push_back(func_syminfo);  // Recycle the func_syminfo assigned above.
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
@@ -468,10 +483,8 @@ namespace bytesflops_pass {
       // and address returned.
       if (byte_count != nullptr) {
         vector<Value*> arg_list;
-        string alloc_name = string("bf_") + callee_name.str() + string("_name");
-        Constant* alloc_name_var =
-          create_global_constant(*module, alloc_name.c_str(), callee_name.data());
-        arg_list.push_back(alloc_name_var);
+        func_syminfo = find_value_provenance(*module, call_inst, callee_name.str(), insert_post_call, func_syminfo);
+        arg_list.push_back(func_syminfo);
         arg_list.push_back(ptr_provided);
         arg_list.push_back(ptr_returned);
         arg_list.push_back(byte_count);
@@ -555,10 +568,8 @@ namespace bytesflops_pass {
       // returned.
       if (byte_count != nullptr) {
         vector<Value*> arg_list;
-        string alloc_name = string("bf_") + callee_name.str() + string("_name");
-        Constant* alloc_name_var =
-          create_global_constant(*module, alloc_name.c_str(), callee_name.data());
-        arg_list.push_back(alloc_name_var);
+        func_syminfo = find_value_provenance(*module, invoke_inst, callee_name.str(), next_insert_before, func_syminfo);
+        arg_list.push_back(func_syminfo);
         arg_list.push_back(null_pointer);
         arg_list.push_back(invoke_inst);
         arg_list.push_back(byte_count);
@@ -610,17 +621,12 @@ namespace bytesflops_pass {
 
         // Instrument the alloca instruction.
         vector<Value*> arg_list;
-        Constant* alloc_name_var =
-          create_global_constant(*module, "bf_.stack._name", "stack");
         PointerType* ptr8ty = Type::getInt8PtrTy(bbctx);
         CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", insert_post_alloca);
-        string varname_name = string("bf_") + varname.str() + string("_name");
-        Constant* varname_name_var =
-          create_global_constant(*module, varname_name.c_str(), varname.data());
-        arg_list.push_back(alloc_name_var);
+        func_syminfo = find_value_provenance(*module, &ainst, "stack", insert_post_alloca, func_syminfo);
+        arg_list.push_back(func_syminfo);
         arg_list.push_back(pointer);
         arg_list.push_back(bytes_alloced);
-        arg_list.push_back(varname_name_var);
         callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_post_alloca);
 
         // Release the mega-lock.
@@ -779,8 +785,41 @@ namespace bytesflops_pass {
     // Tally the number of basic blocks that the function contains.
     static_bblocks += function.size();
 
-    // Generate a unique key for the function and insert call to record it.
+    // Generate a unique key for the function and insert a call to record it.
     FunctionKeyGen::KeyID keyval = record_func(function_name.str());
+
+    // Insert a call to bf_initialize_if_necessary() at the beginning of the
+    // function.
+    LLVMContext& func_ctx = function.getContext();
+    BasicBlock& old_entry = function.front();
+    BasicBlock* new_entry =
+      BasicBlock::Create(func_ctx, "bf_entry", &function, &old_entry);
+    callinst_create(init_if_necessary, new_entry);
+
+    // Insert a call at the beginning of the function to bf_push_function() if
+    // -bf-call-stack was specified or to bf_incr_func_tally() if -bf-by-func
+    // was specified without -bf-call-stack.
+    if (TallyByFunction) {
+      std::vector<Value*> key_args;
+      ConstantInt * key =
+        ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
+                         keyval);
+      Constant* argument = map_func_name_to_arg(module, function_name);
+      key_args.push_back(argument);
+      key_args.push_back(key);
+      if (TrackCallStack)
+        callinst_create(push_function, key_args, new_entry);
+      else
+        callinst_create(tally_function, key, new_entry);
+    }
+
+    // Branch to the original entry point.
+    BranchInst* br_inst = BranchInst::Create(&old_entry, new_entry);
+
+    // Stack-allocate a bf_symbol_info_t to be used throughout the function.
+    Instruction* first_inst = old_entry.getFirstNonPHIOrDbgOrLifetime();
+    InternalSymbolInfo first_syminfo(first_inst, value_to_string(first_inst));
+    func_syminfo = find_value_provenance(*module, first_syminfo, br_inst);
 
     // Iterate over each basic block in turn.
     for (Function::iterator func_iter = function.begin();
@@ -788,6 +827,8 @@ namespace bytesflops_pass {
          func_iter++) {
       // Perform per-basic-block variable initialization.
       BasicBlock& bb = *func_iter;
+      if (bb.getName() == "bf_entry")
+        continue;  // Don't instrument our the basic block we just added.
       LLVMContext& bbctx = bb.getContext();
       BasicBlock::iterator terminator_inst = bb.end();
       terminator_inst--;
@@ -813,9 +854,12 @@ namespace bytesflops_pass {
         if (iter->isIdenticalTo(unreachable))
           iter = terminator_inst;
 
-        // Ignore various function calls non grata.
+        // Ignore various function calls non grata.  Ignore any code
+        // that Byfl previously inserted.
         Instruction& inst = *iter;
         if (ignorable_call(&inst))
+          continue;
+        if (inst.getMetadata("byfl") != nullptr)
           continue;
 
         // Snag the current opcode for further interrogation.
@@ -888,34 +932,6 @@ namespace bytesflops_pass {
         callinst_create(release_mega_lock, terminator_inst);
       unreachable->eraseFromParent();
     }  // Ends the loop over basic blocks within the function
-
-    // Insert a call to bf_initialize_if_necessary() at the beginning of the
-    // function.
-    LLVMContext& func_ctx = function.getContext();
-    BasicBlock& old_entry = function.front();
-    BasicBlock* new_entry =
-      BasicBlock::Create(func_ctx, "bf_entry", &function, &old_entry);
-    callinst_create(init_if_necessary, new_entry);
-
-    // Insert a call at the beginning of the function to bf_push_function() if
-    // -bf-call-stack was specified or to bf_incr_func_tally() if -bf-by-func
-    // was specified without -bf-call-stack.
-    if (TallyByFunction) {
-      std::vector<Value*> key_args;
-      ConstantInt * key =
-        ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
-                         keyval);
-      Constant* argument = map_func_name_to_arg(module, function_name);
-      key_args.push_back(argument);
-      key_args.push_back(key);
-      if (TrackCallStack)
-        callinst_create(push_function, key_args, new_entry);
-      else
-        callinst_create(tally_function, key, new_entry);
-    }
-
-    // Branch to the original entry point.
-    BranchInst::Create(&old_entry, new_entry);
   }
 
   bool BytesFlops::doFinalization(Module& module)
@@ -978,7 +994,7 @@ namespace bytesflops_pass {
           const_ptr_indices.push_back(const_int32);
           const_ptr_indices.push_back(const_int32);
           Constant *
-	    const_ptr = ConstantExpr::getGetElementPtr(NULL, gvar_array_str, const_ptr_indices);
+	    const_ptr = ConstantExpr::getGetElementPtr(nullptr, gvar_array_str, const_ptr_indices);
 
           const_fname_elems.push_back(const_ptr);
 
@@ -1005,7 +1021,7 @@ namespace bytesflops_pass {
       getelementptr_indexes.push_back(zero);
       getelementptr_indexes.push_back(zero);
       Constant* array_key_pointer =
-	ConstantExpr::getGetElementPtr(NULL, gvar_key_data, getelementptr_indexes);
+	ConstantExpr::getGetElementPtr(nullptr, gvar_key_data, getelementptr_indexes);
 
       GlobalVariable *
       gvar_array_key = new GlobalVariable(/*Module=*/module,
@@ -1036,7 +1052,7 @@ namespace bytesflops_pass {
       fnames_indexes.push_back(zero);
       fnames_indexes.push_back(zero);
       Constant* array_fnames_pointer =
-	ConstantExpr::getGetElementPtr(NULL, gvar_fnames_data, fnames_indexes);
+	ConstantExpr::getGetElementPtr(nullptr, gvar_fnames_data, fnames_indexes);
 
       GlobalVariable*
       gvar_fnames = new GlobalVariable(/*Module=*/module,
