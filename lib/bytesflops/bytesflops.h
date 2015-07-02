@@ -160,7 +160,6 @@ namespace bytesflops_pass {
 
     // Format our contents and write them to a stream.
     friend raw_ostream& operator<< (raw_ostream &ros, const InternalSymbolInfo& sym) {
-      ros << (sym.precise ? "[precise]" : "[imprecise]") << ' ';  // Temporary
       ros << sym.function << ':' << sym.symbol << " @ " << sym.file << ':' << sym.line;
       return ros;
     }
@@ -401,9 +400,6 @@ namespace bytesflops_pass {
 
     // Convert an LLVM value to an STL string.
     string value_to_string(const Value* value);
-
-    // Push a value onto an argument list as a string.
-    void push_value_string(Module& module, vector<Value*>& arg_list, Value* value);
 
     // Instrument Load and Store instructions.
     void instrument_load_store(Module* module,
