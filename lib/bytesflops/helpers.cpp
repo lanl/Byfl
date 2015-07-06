@@ -649,7 +649,7 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
     vector<Value*> arg_list;
     uint64_t randnum = uint64_t(bb_rng.next());
     func_syminfo =
-      find_value_provenance(*module, &inst, value_to_string(&inst), insert_before, func_syminfo);
+      find_value_provenance(*module, &inst, inst_to_string(&inst), insert_before, func_syminfo);
     arg_list.push_back(func_syminfo);
     arg_list.push_back(ConstantInt::get(globctx, APInt(64, randnum)));
     arg_list.push_back(ConstantInt::get(globctx, APInt(64, num_insts)));
@@ -829,21 +829,78 @@ size_t BytesFlops::bb_size(const BasicBlock& bb)
   return tally;
 }
 
-// Convert an LLVM value to an STL string.
-string BytesFlops::value_to_string(const Value* value)
+// Construct a mapping from Instruction* to string for every instruction in the
+// function by converting the function to a single string then splitting it up
+// into instructions.  This is a horrible, kludgy workaround for the fact that
+// Value::print() is abominably slow in the current version of LLVM.
+void BytesFlops::map_instructions_to_strings (Function& function)
 {
-  // Produce a string.
-  string valstr;
-  raw_string_ostream rso(valstr);
-  value->print(rso);
+  string func_string;                      // Function as a string
+  raw_string_ostream rso(func_string);
+  function.print(rso);
+  stringstream func_stream(func_string);   // Function string as a stream
+  string oneline;                          // One line of the string
+  vector<string> inst_strings;             // List of instruction strings
+  const string whitespace(" \t");          // Intra-line whitespace characters
+  while (getline(func_stream, oneline, '\n')) {
+    // Determine if we're looking at an instruction.
+    if (oneline.substr(0, 2) != "  ")
+      continue;    // Not an instruction
 
-  // Trim leading and trailing whitespace, and return the result.
-  const string whitespace(" \t\n\r");
-  size_t text_begin = valstr.find_first_not_of(whitespace);
-  if (text_begin == string::npos)
-    return "";   // No non-whitespacee characters
-  size_t text_end = valstr.find_last_not_of(whitespace);
-  return valstr.substr(text_begin, text_end - text_begin + 1);
+    // Trim leading and trailing whitespace.
+    size_t text_begin = oneline.find_first_not_of(whitespace);
+    if (text_begin != string::npos) {
+      size_t text_end = oneline.find_last_not_of(whitespace);
+      oneline = oneline.substr(text_begin, text_end - text_begin + 1);
+    }
+
+    // Store the resulting string.
+    if (text_begin > 2 || oneline[0] == ']') {
+      // Continuation of previous instruction
+      if (inst_strings.size() > 0)
+        inst_strings.back() += string(" ") + oneline;
+      else
+        report_fatal_error(Twine("Unexpected instruction continuation: ") + oneline);
+    }
+    else
+      // Ordinary instruction
+      inst_strings.push_back(oneline);
+  }
+  unsigned int inum = 0;
+  for (Function::iterator func_iter = function.begin();
+       func_iter != function.end();
+       func_iter++) {
+    BasicBlock& bb = *func_iter;
+    for (BasicBlock::iterator bb_iter = bb.begin(); bb_iter != bb.end(); bb_iter++)
+      // Associate each instruction with a string.
+      instruction_to_string[&*bb_iter] = inst_strings[inum++];
+  }
+}
+
+// Convert an LLVM Instruction* to an STL string.  Ideally, this
+// should be coded like the following:
+//
+//     string inst_str;
+//     raw_string_ostream rso(inst_str);
+//     inst->print(rso);
+//
+// plus whitespace trimming.  Unfortunately, in the current version of LLVM
+// (ca. July 2015), the preceding code is unacceptably slow -- I've seen
+// upwards of 1 second per call, depending on function length.  Hence, we use
+// map_instructions_to_strings() above as a fast but perhaps fragile workaround
+// to construct an Instruction* to string mapping, which we use in
+// inst_to_string().
+string BytesFlops::inst_to_string(Instruction* inst)
+{
+  unordered_map<Instruction*, string>::iterator iter = instruction_to_string.find(inst);
+  if (iter == instruction_to_string.end()) {
+    string errstr;
+    raw_string_ostream rso(errstr);
+    rso << "Failed to stringify instruction: ";
+    inst->print(rso);
+    report_fatal_error(errstr);
+  }
+  return iter->second;
 }
 
 // Stack-allocate a bf_symbol_info_t in the generated code based on a
