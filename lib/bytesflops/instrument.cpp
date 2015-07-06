@@ -253,7 +253,7 @@ namespace bytesflops_pass {
         new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64), "", insert_post_ls);
       mark_as_byfl(imm_mem_addr);
       func_syminfo =
-        find_value_provenance(*module, &inst, value_to_string(&inst), insert_post_ls, func_syminfo);
+        find_value_provenance(*module, &inst, inst_to_string(&inst), insert_post_ls, func_syminfo);
       arg_list.push_back(func_syminfo);
       arg_list.push_back(imm_mem_addr);
       arg_list.push_back(num_bytes);
@@ -337,7 +337,7 @@ namespace bytesflops_pass {
                              "", insert_post_mem);
           mark_as_byfl(mem_addr);
           func_syminfo =
-            find_value_provenance(*module, inst, value_to_string(memsetfunc), insert_post_mem, func_syminfo);
+            find_value_provenance(*module, inst, inst_to_string(memsetfunc), insert_post_mem, func_syminfo);
           arg_list.push_back(func_syminfo);
           arg_list.push_back(mem_addr);
           arg_list.push_back(memsetfunc->getLength());
@@ -379,7 +379,7 @@ namespace bytesflops_pass {
                              "", insert_post_mem);
           mark_as_byfl(mem_addr);
           func_syminfo =
-            find_value_provenance(*module, inst, value_to_string(memxferfunc), insert_post_mem, func_syminfo);
+            find_value_provenance(*module, inst, inst_to_string(memxferfunc), insert_post_mem, func_syminfo);
           arg_list.push_back(func_syminfo);
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
@@ -818,7 +818,7 @@ namespace bytesflops_pass {
 
     // Stack-allocate a bf_symbol_info_t to be used throughout the function.
     Instruction* first_inst = old_entry.getFirstNonPHIOrDbgOrLifetime();
-    InternalSymbolInfo first_syminfo(first_inst, value_to_string(first_inst));
+    InternalSymbolInfo first_syminfo(first_inst, inst_to_string(first_inst));
     func_syminfo = find_value_provenance(*module, first_syminfo, br_inst);
 
     // Iterate over each basic block in turn.
@@ -828,16 +828,16 @@ namespace bytesflops_pass {
       // Perform per-basic-block variable initialization.
       BasicBlock& bb = *func_iter;
       if (bb.getName() == "bf_entry")
-        continue;  // Don't instrument our the basic block we just added.
+        continue;  // Don't instrument the basic block we just added.
       LLVMContext& bbctx = bb.getContext();
       BasicBlock::iterator terminator_inst = bb.end();
       terminator_inst--;
       int must_clear = 0;   // Keep track of which counters we need to clear.
       uint64_t num_insts = bb.size();
 
-      // Insert an "unreachable" instruction as a sentinel before the
-      // real terminator instruction.  New code is inserted before the
-      // real terminator, and instrumentation stops at the sentinel.
+      // Insert an "unreachable" instruction as a sentinel before the real
+      // terminator instruction.  New code is inserted before the real
+      // terminator, and instrumentation stops at the sentinel.
       Instruction* unreachable = new UnreachableInst(bbctx, terminator_inst);
 
       // Acquire the mega-lock before inserting any instrumentation code.
@@ -846,10 +846,7 @@ namespace bytesflops_pass {
 
       // Iterate over the basic block's instructions one-by-one until
       // we reach the sentinal.
-      for (BasicBlock::iterator iter = bb.begin();
-           iter != bb.end();
-           iter++) {
-
+      for (BasicBlock::iterator iter = bb.begin(); iter != bb.end(); iter++) {
         // If we reach the sentinel, jump to the terminator.
         if (iter->isIdenticalTo(unreachable))
           iter = terminator_inst;
@@ -994,8 +991,7 @@ namespace bytesflops_pass {
           const_ptr_indices.push_back(const_int32);
           const_ptr_indices.push_back(const_int32);
           Constant *
-          const_ptr = ConstantExpr::getGetElementPtr(gvar_array_str, const_ptr_indices);
-
+            const_ptr = ConstantExpr::getGetElementPtr(gvar_array_str, const_ptr_indices);
           const_fname_elems.push_back(const_ptr);
 
           gvar_array_str->setInitializer(const_fname);

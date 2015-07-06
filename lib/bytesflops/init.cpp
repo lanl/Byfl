@@ -648,6 +648,10 @@ namespace bytesflops_pass {
     static_cond_brs = 0;
     static_bblocks = 0;
 
+    // Construct the instruction_to_string map, which maps an Instruction* to a
+    // string.
+    map_instructions_to_strings(function);
+
     // Instrument "interesting" instructions in every basic block.
     Module* module = function.getParent();
     instrument_entire_function(module, function, function_name);

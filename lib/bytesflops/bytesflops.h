@@ -398,8 +398,10 @@ namespace bytesflops_pass {
     // Tally the number of "real" instructions in a basic block.
     size_t bb_size(const BasicBlock& bb);
 
-    // Convert an LLVM value to an STL string.
-    string value_to_string(const Value* value);
+    // Convert an LLVM Instruction* to an STL string.
+    unordered_map<Instruction*, string> instruction_to_string;
+    void map_instructions_to_strings(Function& function);
+    string inst_to_string(Instruction* inst);
 
     // Instrument Load and Store instructions.
     void instrument_load_store(Module* module,
