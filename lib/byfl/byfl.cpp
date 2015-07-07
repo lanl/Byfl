@@ -108,6 +108,7 @@ BinaryOStream* bfbin;            // Stream to which to send binary output
 ofstream *bfbin_file;            // Underlying file for the above
 bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
 static CallStack* call_stack = NULL;    // The calling process's current call stack
+static string start_time;        // Time at which initialize_byfl() was called
 
 // As a kludge, set a global variable indicating that all of the
 // constructors in this file have been called.  Because of the "C++
@@ -123,8 +124,22 @@ public:
   }
 } check_construction;
 
+// Return the current time in the local time zone as a string formatted by
+// strftime().
+static string current_local_time (const char *format)
+{
+  time_t now = time(nullptr);
+  struct tm* now_tm = localtime(&now);
+  char now_str[25];
+  if (strftime(now_str, 25, format, now_tm) == 0)
+    return string("");
+  else
+    return string(now_str);
+}
+
 // Initialize some of our variables at first use.
-void initialize_byfl (void) {
+void initialize_byfl (void)
+{
   bf_func_and_parents = "-";
   bf_func_and_parents_id = KeyType_t(0);
   bf_current_func_key = KeyType_t(0);
@@ -143,6 +158,7 @@ void bf_initialize_if_necessary (void)
 {
   static bool initialized = false;
   if (!__builtin_expect(initialized, true)) {
+    start_time = current_local_time("%F %T");
     initialize_byfl();
     initialize_bblocks();
     initialize_reuse();
@@ -1265,6 +1281,40 @@ private:
     }
     *bfbin << uint8_t(BINOUT_ROW_NONE);
     free(optstr);
+
+    // Report bits of system information that may be useful for reproducibility.
+    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "System information";
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Property"
+           << uint8_t(BINOUT_COL_STRING) << "Value"
+           << uint8_t(BINOUT_COL_NONE);
+    *bfbin << uint8_t(BINOUT_ROW_DATA) << "Byfl version" << PACKAGE_VERSION;
+#ifdef BYFL_GIT_BRANCH
+    *bfbin << uint8_t(BINOUT_ROW_DATA) << "Byfl Git branch" << BYFL_GIT_BRANCH;
+#endif
+#ifdef BYFL_GIT_SHA1
+    *bfbin << uint8_t(BINOUT_ROW_DATA) << "Byfl Git commit" << BYFL_GIT_SHA1;
+#endif
+    *bfbin << uint8_t(BINOUT_ROW_DATA) << "LLVM version" << BYFL_LLVM_VERSION
+           << uint8_t(BINOUT_ROW_DATA) << "Canonical system name" << BYFL_HOST_TRIPLE;
+    char hostname[1024];
+    if (gethostname(hostname, 1024) == 0)
+      *bfbin << uint8_t(BINOUT_ROW_DATA) << "Host name" << hostname;
+    string end_time(current_local_time("%F %T"));
+    if (start_time != "" && end_time != "") {
+      *bfbin << uint8_t(BINOUT_ROW_DATA) << "Start time" << start_time
+             << uint8_t(BINOUT_ROW_DATA) << "End time" << end_time;
+      string end_tzname(current_local_time("%z"));
+      if (end_tzname != "") {
+#ifdef HAVE_STRUCT_TM_TM_ZONE
+        time_t now = time(nullptr);
+        struct tm* now_tm = localtime(&now);
+        if (now_tm != nullptr && now_tm->tm_zone != nullptr)
+          end_tzname += string(" (") + now_tm->tm_zone + string(")");
+#endif
+        *bfbin << uint8_t(BINOUT_ROW_DATA) << "Time zone" << end_tzname;
+      }
+    }
+    *bfbin << uint8_t(BINOUT_ROW_NONE);
   }
 
 public:

@@ -20,7 +20,23 @@ AC_MSG_RESULT([$MAN_RELEASE])
 AC_SUBST([MAN_RELEASE])
 AC_SUBST([MAN_CATEGORY], ["Byfl tools"])
 
-# Tell the Makefiles where plugins should be installed.
+dnl Define in config.h the version of Byfl we're currently configuring.
+byfl_git_sha1="`git rev-parse HEAD 2>/dev/null`"
+if test "x$byfl_git_sha1" != x ; then
+  AC_DEFINE_UNQUOTED([BYFL_GIT_SHA1], ["$byfl_git_sha1"],
+    [Define as the SHA-1 hash for the latest Git commit if known.])
+fi
+byfl_git_branch="`git rev-parse --abbrev-ref HEAD 2>/dev/null`"
+if test "x$byfl_git_branch" != x ; then
+  AC_DEFINE_UNQUOTED([BYFL_GIT_BRANCH], ["$byfl_git_branch"],
+    [Define as the current Git branch if known.])
+fi
+
+dnl Define a string containing the canonical name of the target system.
+AC_DEFINE_UNQUOTED([BYFL_HOST_TRIPLE], ["$host"],
+  [Define as an ARCH-VENDOR-OS string.])
+
+dnl Tell the Makefiles where plugins should be installed.
 AC_ARG_WITH([plugindir],
   [AS_HELP_STRING([--with-plugindir=DIR],
     [install the Byfl LLVM plugin into DIR [default=$libexecdir/byfl]])],
@@ -55,6 +71,9 @@ AC_PROG_GREP
 AC_PROG_SED
 AC_CHECK_PROGS([MAKE], [make gmake gnumake], [make])
 
+dnl We want to log the current timezone name if possible.
+AC_STRUCT_TIMEZONE
+
 dnl Use llvm-config to set our default compiler and linker flags.
 AC_CHECK_PROGS([LLVM_CONFIG], [llvm-config], [no])
 if test "$LLVM_CONFIG" = no ; then
@@ -63,6 +82,8 @@ fi
 AC_MSG_CHECKING([the LLVM version using $LLVM_CONFIG])
 llvm_version="`$LLVM_CONFIG --version`"
 AC_MSG_RESULT([$llvm_version])
+AC_DEFINE_UNQUOTED([BYFL_LLVM_VERSION], ["$llvm_version"],
+  [Define as the version of LLVM against which Byfl was built.])
 if test "${CPPFLAGS:-undefined}" = undefined ; then
    CPPFLAGS=`${LLVM_CONFIG} --cppflags`
    echo "$CPPFLAGS" | $GREP -- -D_GNU_SOURCE >/dev/null 2>&1 || CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE"
