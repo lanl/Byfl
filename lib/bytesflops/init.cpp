@@ -31,9 +31,9 @@ namespace bytesflops_pass {
     std::vector<Type*>ctor_record_fields;
     ctor_record_fields.push_back(IntegerType::get(globctx, 32));
     ctor_record_fields.push_back(ptr_to_thunk);
-    PointerType* null_pointer =
-      PointerType::get(IntegerType::get(globctx, 8), 0);
-    ctor_record_fields.push_back(null_pointer);
+    Constant* null_pointer =
+      ConstantPointerNull::get(PointerType::get(IntegerType::get(globctx, 8), 0));
+    ctor_record_fields.push_back(null_pointer->getType());
     StructType *ctor_record =
       StructType::get(globctx, ctor_record_fields, false);
     ArrayType* ctor_array = ArrayType::get(ctor_record, numelts);
@@ -44,6 +44,7 @@ namespace bytesflops_pass {
     std::vector<Constant*> ctor_elem_fields;
     ctor_elem_fields.push_back(ConstantInt::get(globctx, APInt(32, StringRef("65535"), 10)));
     ctor_elem_fields.push_back(func);
+    ctor_elem_fields.push_back(null_pointer);
     ctor_elems.push_back(ConstantStruct::get(ctor_record, ctor_elem_fields));
 
     // Prepend the existing constructors to the new array.
