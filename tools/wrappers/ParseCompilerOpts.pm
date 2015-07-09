@@ -202,6 +202,7 @@ sub parse_compiler_options (@)
             $build_type{"compile"} = 1 if defined $build_type{"link"} && $arg !~ /\.([ao]|so)$/;
         }
     }
+    %build_type = () if !@leftover_values;
 
     # Define the target filename if not already defined.
     if (!@target_filenames) {
