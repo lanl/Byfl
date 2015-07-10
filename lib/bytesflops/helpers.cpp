@@ -639,7 +639,7 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
   // bf_tally_bb_execution(), bf_accumulate_bb_tallies(), and
   // bf_report_bb_tallies().
   if (InstrumentEveryBB) {
-    static MersenneTwister bb_rng(2655817);
+    static MersenneTwister bb_rng(module->getModuleIdentifier());
     vector<Value*> arg_list;
     uint64_t randnum = uint64_t(bb_rng.next());
     func_syminfo =
