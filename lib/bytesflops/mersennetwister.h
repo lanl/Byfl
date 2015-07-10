@@ -26,6 +26,7 @@ namespace bytesflops_pass
   public:
     typedef KeyType_t  Value_t;
 
+    MersenneTwister(const std::string& salt);
     MersenneTwister(const Value_t &);
 
     Value_t next();

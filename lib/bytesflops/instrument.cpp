@@ -992,9 +992,7 @@ namespace bytesflops_pass {
           const_ptr_indices.push_back(const_int32);
           Constant *
             const_ptr = ConstantExpr::getGetElementPtr(nullptr, gvar_array_str, const_ptr_indices);
-
           const_fname_elems.push_back(const_ptr);
-
           gvar_array_str->setInitializer(const_fname);
       }
 
@@ -1019,7 +1017,6 @@ namespace bytesflops_pass {
       getelementptr_indexes.push_back(zero);
       Constant* array_key_pointer =
         ConstantExpr::getGetElementPtr(nullptr, gvar_key_data, getelementptr_indexes);
-
       GlobalVariable *
       gvar_array_key = new GlobalVariable(/*Module=*/module,
                           /*Type=*/       pointer_type,
@@ -1050,7 +1047,6 @@ namespace bytesflops_pass {
       fnames_indexes.push_back(zero);
       Constant* array_fnames_pointer =
         ConstantExpr::getGetElementPtr(nullptr, gvar_fnames_data, fnames_indexes);
-
       GlobalVariable*
       gvar_fnames = new GlobalVariable(/*Module=*/module,
                       /*Type=*/       char_ptr_ptr,

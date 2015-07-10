@@ -163,7 +163,7 @@ void BytesFlops::increment_global_array(BasicBlock::iterator& insert_before,
   mark_as_byfl(load_array);
 
   // %2 = getelementptr inbounds i64* %1, i64 %idx
-  GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(NULL, load_array, idx, "idx_ptr", insert_before);
+  GetElementPtrInst* idx_ptr = GetElementPtrInst::Create(nullptr, load_array, idx, "idx_ptr", insert_before);
   mark_as_byfl(idx_ptr);
 
   // %3 = load i64* %2, align 8
@@ -198,7 +198,7 @@ void BytesFlops::increment_global_4D_array(BasicBlock::iterator& insert_before,
   gep_indices.push_back(idx3);
   gep_indices.push_back(idx4);
   GetElementPtrInst* gep_inst =
-    GetElementPtrInst::Create(NULL, array4d_var, gep_indices, "idx4_ptr", insert_before);
+    GetElementPtrInst::Create(nullptr, array4d_var, gep_indices, "idx4_ptr", insert_before);
   mark_as_byfl(gep_inst);
 
   // %2 = load i64* %1, align 8
@@ -333,7 +333,7 @@ Constant* BytesFlops::create_global_constant(Module& module,
   }
   LLVMContext& globctx = module.getContext();
   size_t num_bytes = strlen(value) + 1;   // Number of characters including the trailing '\0'
-  ArrayType* array_type = ArrayType::get(IntegerType::get(globctx, 8), num_bytes);
+  ArrayType* array_type = ArrayType::get(Type::getInt8Ty(globctx), num_bytes);
   Constant *local_string = ConstantDataArray::getString(globctx, value, true);
   GlobalVariable* string_contents =
     new GlobalVariable(module, array_type, true, GlobalValue::PrivateLinkage,
@@ -350,7 +350,6 @@ Constant* BytesFlops::create_global_constant(Module& module,
   GlobalVariable* new_constant =
     new GlobalVariable(module, pointer_type, true,
                        GlobalValue::LinkOnceODRLinkage, array_pointer, name);
-  new_constant->setAlignment(8);
   mark_as_used(module, new_constant);
   return new_constant;
 }
@@ -645,7 +644,7 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
   // bf_tally_bb_execution(), bf_accumulate_bb_tallies(), and
   // bf_report_bb_tallies().
   if (InstrumentEveryBB) {
-    static MersenneTwister bb_rng(2655817);
+    static MersenneTwister bb_rng(module->getModuleIdentifier());
     vector<Value*> arg_list;
     uint64_t randnum = uint64_t(bb_rng.next());
     func_syminfo =
