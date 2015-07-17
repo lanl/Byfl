@@ -662,7 +662,7 @@ namespace bytesflops_pass {
   }
 
   // For each function in the module, run a function pass on it.
-  bool BytesFlops::runOnModule(Module & module) {
+  bool BytesFlops::runOnModule(Module& module) {
     doInitialization(module);
     for (auto fiter = module.begin(); fiter != module.end(); fiter++)
       runOnFunction(*fiter);

@@ -300,15 +300,13 @@ namespace bytesflops_pass {
                                    BasicBlock::iterator& iter,
                                    BasicBlock::iterator& insert_before,
                                    int& must_clear) {
+    increment_global_variable(insert_before, call_inst_var, one);
+    must_clear |= CLEAR_CALLS;
     LLVMContext& globctx = module->getContext();
     Instruction* inst = &*iter;
     CallInst* call_inst = dyn_cast<CallInst>(inst);
     Function* func = call_inst->getCalledFunction();
-    if (!func)
-      return;
-    StringRef callee_name = func->getName();
-    increment_global_variable(insert_before, call_inst_var, one);
-    must_clear |= CLEAR_CALLS;
+    StringRef callee_name = func ? func->getName() : "*UNNAMED*";
 
     // Tally calls to the LLVM memory intrinsics (llvm.mem{set,cpy,move}.*).
     if (isa<MemIntrinsic>(inst)) {
@@ -528,9 +526,7 @@ namespace bytesflops_pass {
     LLVMContext& globctx = module->getContext();
     InvokeInst* invoke_inst = dyn_cast<InvokeInst>(inst);
     Function* func = invoke_inst->getCalledFunction();
-    if (!func)
-      return;
-    StringRef callee_name = func->getName();
+    StringRef callee_name = func ? func->getName() : "*UNNAMED*";
 
     // Tally the callee (with a distinguishing "-" in front of its
     // name) in order to keep track of invocations to uninstrumented
