@@ -300,6 +300,8 @@ namespace bytesflops_pass {
                                    BasicBlock::iterator& iter,
                                    BasicBlock::iterator& insert_before,
                                    int& must_clear) {
+    increment_global_variable(insert_before, call_inst_var, one);
+    must_clear |= CLEAR_CALLS;
     LLVMContext& globctx = module->getContext();
     Instruction* inst = &*iter;
     CallInst* call_inst = dyn_cast<CallInst>(inst);
@@ -307,8 +309,6 @@ namespace bytesflops_pass {
     if (!func)
       return;
     StringRef callee_name = func->getName();
-    increment_global_variable(insert_before, call_inst_var, one);
-    must_clear |= CLEAR_CALLS;
 
     // Tally calls to the LLVM memory intrinsics (llvm.mem{set,cpy,move}.*).
     if (isa<MemIntrinsic>(inst)) {
