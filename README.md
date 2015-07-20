@@ -16,7 +16,6 @@ for (int row=0; row<100000; row++)
 Reading the hardware performance counters (e.g., using [PAPI](http://icl.cs.utk.edu/papi/)) can be misleading.  The performance counters on most processors tally not the number of bytes but rather the number of cache-line accesses.  Because the array is stored in row-major order, each access to `array` will presumably reference a different cache line while each access to `sum` will presumably reference the same cache line.
 
 Byfl does the equivalent of transforming the code into the following:
-
 ```C
 unsigned long int bytes accessed = 0;
 double array[100000][100];
@@ -38,10 +37,11 @@ Installation
 ------------
 
 If you have reasonably recent versions of [GCC](http://gcc.gnu.org/), [LLVM](http://www.llvm.org/), and [Clang](http://clang.llvm.org/), you should be able to perform the usual
-
-    ./configure
-    make
-    make install
+```bash
+./configure
+make
+make install
+```
 
 procedure.  See [INSTALL.md](https://github.com/losalamos/Byfl/blob/master/INSTALL.md) for a more complete explanation.
 
@@ -60,4 +60,4 @@ Contact
 
 Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)
 
-A list of [all authors and contributorsto Byfl](https://github.com/losalamos/Byfl/wiki/contributors) is available online.
+A list of [all authors and contributors to Byfl](https://github.com/losalamos/Byfl/wiki/contributors) is available online.
