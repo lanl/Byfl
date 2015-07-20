@@ -1,24 +1,32 @@
 Byfl installation
 =================
 
-Byfl relies on [LLVM](http://www.llvm.org/), [Clang](http://clang.llvm.org/), and [DragonEgg](http://dragonegg.llvm.org/).  The `llvm-3.5` branch of Byfl has been tested with LLVM/Clang/DragonEgg release 3.5.  The `master` branch of Byfl is tested with LLVM/Clang/DragonEgg trunk (i.e., the post-3.5-release development code).
+Byfl relies on [LLVM](http://www.llvm.org/) and [Clang](http://clang.llvm.org/) and can take advantage of [DragonEgg](http://dragonegg.llvm.org/).  The `llvm-3.5` branch of Byfl is designed to work with LLVM/Clang/DragonEgg release 3.5.  The `llvm-3.6` branch of Byfl is designed to work with LLVM/Clang release 3.6.  The `master` branch of Byfl is designed to work with LLVM/Clang trunk (i.e., the post-3.6-release development code).
 
 Normal installation
 -------------------
 
-As long as LLVM's `llvm-config` program is in your path, the Free Software Foundation's canonical installation procedure should work:
+As long as LLVM's `llvm-config` program is in your path, the Free Software Foundation's canonical installation procedure for an out-of-source build should work:
 
-    ./configure
-    make
-    make install
+```bash
+mkdir build
+cd build
+../configure
+make
+make install
+```
 
-`./configure` is included in Byfl releases but does not exist in the Git repository.  To create it, run
+Note that `../configure` is included in Byfl releases but does not exist in the Git repository.  To create it, run
 
-    autoreconf -f -i
+```bash
+autoreconf -f -i
+```
 
-Run `./configure --help` for usage information.  The [FSF's generic installation instructions](http://git.savannah.gnu.org/cgit/automake.git/tree/INSTALL) provide substantially more detail on customizing the configuration.
+from the top-level Byfl directory.
 
-Note that DragonEgg requires [GCC](http://gcc.gnu.org/) version 4.5 or newer.  (Plugin support was introduced with version 4.5.)  Technically, Byfl can build without DragonEgg support, but all of the Byfl wrapper scripts will fail to run; Byfl instrumentation will have to be applied manually, which is inconvenient.
+Run `../configure --help` for usage information.  The [FSF's generic installation instructions](http://git.savannah.gnu.org/cgit/automake.git/tree/INSTALL) provide substantially more detail on customizing the configuration.
+
+Note that DragonEgg requires [GCC](http://gcc.gnu.org/) versions 4.5-4.8 and LLVM/Clang 3.5.
 
 Automatically installing LLVM/Clang/DragonEgg trunk plus Byfl
 -------------------------------------------------------------
@@ -58,3 +66,36 @@ For convenience on systems that lack a LLVM/Clang/DragonEgg 3.5+ installation, B
   <dd>Exclude one of LLVM+Clang, DragonEgg, or Byfl from downloading/compiling.  For example, specify <code>-x dragonegg</code> on platforms on which DragonEgg is known not to build.  Or specify something to exclude from compilation if it requires manual configuration to work on some platform.  This option may be specified multiple times.<br/>
       <em>Default:</em> nothing is excluded</dd>
 </dl>
+
+Installation on Mac OS X
+------------------------
+
+A few extra steps are needed to build Byfl on OS X:
+
+1. Install [Xcode](https://developer.apple.com/xcode/), which provides various standard tools, header files, and libraries.
+
+2. Install [Homebrew](http://brew.sh/), which is needed to further download various packages that OS X doesn't provide by default.
+
+3. Use Homebrew to install the [GNU Autotools](https://en.wikipedia.org/wiki/GNU_build_system):
+```bash
+brew install autoconf
+brew install automake
+brew install libtool
+```
+
+4. For a normal installation (see above) you'll need to point `../configure` to the Homebrew-versioned `llvm-config` file, e.g.,
+```bash
+../configure LLVM_CONFIG=llvm-config-3.6
+```
+
+5. For an automatic installation with the Byfl build script (see above) you'll need a newer version of Bash than what OS X currently provides.  You'll also need to point the build script to Xcode's `/usr/include` directory, as in the following:
+```bash
+brew install bash
+env CPATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/usr/include bash ./build-llvm-byfl ~/byfl
+```
+
+Once you've built and installed Byfl, you'll probably need to set the following environment variables to point Byfl's [compiler wrapper scripts](https://github.com/losalamos/Byfl/wiki) to the version of Clang that Byfl was built against:
+```bash
+export BF_CLANGXX=clang++-3.6
+export BF_CLANG=clang-3.6
+```
