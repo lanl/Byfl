@@ -96,12 +96,10 @@ namespace bytesflops_pass
   {
     static_assert(sizeof(Value_t) == 8, "64-bit Mersenne Twister used with a non-64-bit datatype");
     std::hash<std::string> hash_key;
-    struct timespec now;
-    (void) clock_gettime(CLOCK_REALTIME, &now);
+    time_t now = time(nullptr);
     Value_t seed = (hash_key(salt)*UINT64_C(281474976710677) +
                     getpid()*UINT64_C(4294967311) +
-                    now.tv_sec*UINT64_C(65537) +
-                    now.tv_nsec);
+                    now*UINT64_C(65537));
     init(seed);
   }
 

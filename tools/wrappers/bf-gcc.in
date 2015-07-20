@@ -16,8 +16,9 @@ use File::stat;
 use Getopt::Long qw(GetOptionsFromArray);
 use lib '@perlsitelibdir@';   # Find ParseCompilerOpts if installed in a non-standard location.
 use ParseCompilerOpts;
-use Switch;
+use v5.10.1;
 use warnings;
+no warnings "experimental::smartmatch";
 use strict;
 
 # Specify some installation locations.
@@ -221,23 +222,23 @@ GetOptionsFromArray(\@constructed_ARGV,
                     "bf-plugin=s"     => \$byfl_plugin,
                     "bf-disable=s"    => \$bf_disable)
     || die "${progname}: Failed to parse the command line\n";
-switch ($bf_disable) {
-    case "none" {
+given ($bf_disable) {
+    when ("none") {
         # Disable nothing; run normally.
     }
-    case "byfl" {
+    when ("byfl") {
         # Disable the bytesflops plugin.  (This case is handled later).
     }
-    case "bitcode" {
+    when ("bitcode") {
         # Use the DragonEgg plugin for code optimization, but generate
         # native object files.
         exit execute_command($compiler, "-fplugin=$dragonegg", grep {!m/^--?bf-/} @constructed_ARGV);
     }
-    case "dragonegg" {
+    when ("dragonegg") {
         # Disable DragonEgg entirely and just use the underlying compiler.
         exit execute_command($compiler, grep {!m/^--?bf-/} @constructed_ARGV);
     }
-    else {
+    default {
         die "${progname}: I don't know how to disable \"$bf_disable\""
             . ' (must be one of "none", "byfl", "bitcode", or "dragonegg")' . "\n";
     }
@@ -502,8 +503,7 @@ if (defined $build_type{"link"}) {
     foreach my $dirname (@gcc_lib_path) {
         push @llvm_ld_options, "-L" . $dirname;
     }
-    push @llvm_ld_options, ("-L$byfl_libdir", "-L$llvm_libdir",
-                            "-Wl,--allow-multiple-definition", "-lm");
+    push @llvm_ld_options, ("-L$byfl_libdir", "-L$llvm_libdir", "-lm");
     if ($bf_disable eq "none") {
         push @llvm_ld_options, ("-rpath", $byfl_libdir, "-lbyfl", "-lstdc++");
         push @llvm_ld_options, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;

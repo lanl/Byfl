@@ -111,8 +111,12 @@ if [ -z "$numprocs" ] ; then
         # Linux -- get the CPU count from /proc/cpuinfo.
         numprocs=$(egrep -c '^processor' /proc/cpuinfo)
     else
-        # OS X or other -- disable implicit parallel builds.
-        numprocs=1
+        # OS X -- get the CPU count from the sysctl command.
+        numprocs=$(sysctl -n hw.ncpu 2>/dev/null)
+        if [ -z "$numprocs" ] ; then
+            # Other -- disable implicit parallel builds.
+            numprocs=1
+        fi
     fi
 fi
 

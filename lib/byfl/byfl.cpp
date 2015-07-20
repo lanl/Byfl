@@ -18,9 +18,8 @@ using namespace std;
 const unsigned int HDR_COL_WIDTH = 20;
 
 namespace bytesflops {
-// Keep track of basic-block counters on a per-function basis, being
-// careful to work around the "C++ static initialization order fiasco"
-// (cf. the C++ FAQ).
+// Keep track of basic-block counters on a per-function basis, being careful to
+// work around the "C++ static initialization order fiasco" (cf. the C++ FAQ).
 key2bfc_t& per_func_totals (void)
 {
   static key2bfc_t* mapping = new key2bfc_t();
@@ -53,9 +52,8 @@ static uint32_t& bf_cnt (void)
     return *cnt;
 }
 
-// Keep track of basic-block counters on a user-defined basis, being
-// careful to work around the "C++ static initialization order fiasco"
-// (cf. the C++ FAQ).
+// Keep track of basic-block counters on a user-defined basis, being careful to
+// work around the "C++ static initialization order fiasco" (cf. the C++ FAQ).
 str2bfc_t& user_defined_totals (void)
 {
   static str2bfc_t* mapping = new str2bfc_t();
@@ -66,9 +64,9 @@ str2bfc_t& user_defined_totals (void)
 
 
 
-// Associate a function name (which will not be unique across files)
-// with a unique key.  Abort if duplicate keys are detected.  (This
-// should be exceedingly unlikely.)
+// Associate a function name (which will not be unique across files) with a
+// unique key.  Abort if duplicate keys are detected.  (This should be
+// exceedingly unlikely.)
 static void bf_record_key (const char* funcname, KeyType_t keyID)
 {
   auto & map = key_to_func();
@@ -80,14 +78,22 @@ static void bf_record_key (const char* funcname, KeyType_t keyID)
   map[keyID] = std::move(std::string(funcname));
 }
 
-// bf_categorize_counters() is intended to be overridden by a
-// user-defined function.
+// bf_categorize_counters() is intended to be overridden by a user-defined
+// function.
 extern "C" {
+#ifdef HAVE_WEAK_ALIASES
   const char* bf_categorize_counters_original (void)
   {
     return NULL;
   }
   const char* bf_categorize_counters (void) __attribute__((weak, alias("bf_categorize_counters_original")));
+#else
+  __attribute__((weak))
+  const char* bf_categorize_counters (void)
+  {
+    return NULL;
+  }
+#endif
 }
 
 KeyType_t bf_categorize_counters_id = 10; // Should be unlikely that this is a duplicate.
@@ -110,12 +116,11 @@ bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
 static CallStack* call_stack = NULL;    // The calling process's current call stack
 static string start_time;        // Time at which initialize_byfl() was called
 
-// As a kludge, set a global variable indicating that all of the
-// constructors in this file have been called.  Because of the "C++
-// static initialization order fiasco" (cf. the C++ FAQ) we otherwise
-// have no guarantee that, in particular, cout (from iostream) has
-// been initialized.  If cout hasn't been called, we can force
-// suppress_output() to return true until it is.
+// As a kludge, set a global variable indicating that all of the constructors
+// in this file have been called.  Because of the "C++ static initialization
+// order fiasco" (cf. the C++ FAQ) we otherwise have no guarantee that, in
+// particular, cout (from iostream) has been initialized.  If cout hasn't been
+// called, we can force suppress_output() to return true until it is.
 static bool all_constructors_called = false;
 static class CheckConstruction {
 public:
@@ -149,10 +154,9 @@ void initialize_byfl (void)
     bf_record_key(partition, bf_categorize_counters_id);
 }
 
-// Initialize on first use all top-level variables in all files.  This
-// is a kludge to work around the "C++ static initialization order
-// fiasco" (cf. the C++ FAQ).  bf_initialize_if_necessary() can safely
-// be called multiple times.
+// Initialize on first use all top-level variables in all files.  This is a
+// kludge to work around the "C++ static initialization order fiasco" (cf. the
+// C++ FAQ).  bf_initialize_if_necessary() can safely be called multiple times.
 extern "C"
 void bf_initialize_if_necessary (void)
 {
@@ -195,9 +199,9 @@ void bf_record_funcs2keys(uint32_t cnt, const uint64_t* keys,
     bf_record_key(fnames[i], keys[i]);
 }
 
-// Push a function name onto the call stack.  Increment the invocation
-// count of the call stack as a whole, and ensure the individual
-// function name also exists in the hash table.
+// Push a function name onto the call stack.  Increment the invocation count of
+// the call stack as a whole, and ensure the individual function name also
+// exists in the hash table.
 extern "C"
 void bf_push_function (const char* funcname, KeyType_t key)
 {
@@ -251,8 +255,8 @@ bool suppress_output (void)
     bfout = &cout;
     output = SHOW;
 
-    // If the BF_BINOUT environment variable is set, expand it, treat it
-    // as a filename, create the file, and write a magic pattern to it.
+    // If the BF_BINOUT environment variable is set, expand it, treat it as a
+    // filename, create the file, and write a magic pattern to it.
     char *binout_raw = getenv("BF_BINOUT");
     string binout;
     if (binout_raw)
@@ -271,8 +275,8 @@ bool suppress_output (void)
     }
     string bfbin_filename = shell_expansion(binout.c_str(), "BF_BINOUT");
     if (bfbin_filename == "")
-      // Empty string (as opposed to unspecified environment
-      // variable): discard all binary data.
+      // Empty string (as opposed to unspecified environment variable): discard
+      // all binary data.
       bfbin = new BinaryOStream();
     else {
       // Non-empty string: write to the named file.
@@ -286,15 +290,15 @@ bool suppress_output (void)
              << uint8_t('B') << uint8_t('I') << uint8_t('N');
     }
 
-    // If the BF_PREFIX environment variable is set, expand it and
-    // output it before each line of output.
+    // If the BF_PREFIX environment variable is set, expand it and output it
+    // before each line of output.
     char *prefix = getenv("BF_PREFIX");
     if (prefix) {
       // Perform shell expansion on BF_PREFIX.
       bf_output_prefix = shell_expansion(prefix, "BF_PREFIX");
 
-      // If the prefix starts with "/" or "./", treat it as a filename
-      // and write all textual output there.
+      // If the prefix starts with "/" or "./", treat it as a filename and
+      // write all textual output there.
       if ((bf_output_prefix.size() >= 1 && bf_output_prefix[0] == '/')
           || (bf_output_prefix.size() >= 2 && bf_output_prefix[0] == '.' && bf_output_prefix[1] == '/')) {
         bfout = new ofstream(bf_output_prefix, ios_base::out | ios_base::trunc);
@@ -312,13 +316,14 @@ bool suppress_output (void)
     // Number warning messages.
     int num_warnings = 0;
 
-    // Warn the user if he defined bf_categorize_counters() but didn't
-    // compile with -bf-every-bb.
+    // Warn the user if he defined bf_categorize_counters() but didn't compile
+    // with -bf-every-bb.
+#ifdef HAVE_WEAK_ALIASES
     if (bf_categorize_counters != bf_categorize_counters_original && !bf_every_bb)
       *bfout << "BYFL_WARNING: (" << ++num_warnings << ") bf_categorize_counters() has no effect without -bf-every-bb;\n"
              << "BYFL_WARNING:     consider using -bf-every-bb -bf-merge-bb="
              << uint64_t(-1) << ".\n";
-
+#endif
   }
   return output == SUPPRESS;
 }
@@ -769,8 +774,8 @@ private:
       }
     }
 
-    // Compute the number of integer operations performed by
-    // subtracting flops, memory ops, and branch ops from total ops.
+    // Compute the number of integer operations performed by subtracting flops,
+    // memory ops, and branch ops from total ops.
     const uint64_t global_int_ops = counter_totals.ops - counter_totals.flops - global_mem_ops - term_any;
 
     // Report the raw measurements in terms of bytes and operations.
@@ -1254,32 +1259,36 @@ private:
     *bfbin << uint8_t(BINOUT_ROW_NONE);
 
     // Report the program command line, if possible (probably only Linux).
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Command line";
-    *bfbin << uint8_t(BINOUT_COL_STRING) << "Argument"
-           << uint8_t(BINOUT_COL_NONE);
     vector<string> command_line = parse_command_line();   // All command-line arguments
-    for (auto iter = command_line.cbegin(); iter != command_line.cend(); iter++)
-      *bfbin << uint8_t(BINOUT_ROW_DATA) << *iter;
-    *bfbin << uint8_t(BINOUT_ROW_NONE);
+    if (command_line[0].compare(0, 7, "[failed") != 0) {
+      *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Command line";
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Argument"
+             << uint8_t(BINOUT_COL_NONE);
+      for (auto iter = command_line.cbegin(); iter != command_line.cend(); iter++)
+        *bfbin << uint8_t(BINOUT_ROW_DATA) << *iter;
+      *bfbin << uint8_t(BINOUT_ROW_NONE);
+    }
 
     // Report the Byfl options specified at compile time.  We're given
     // these as a single string so we split the string heuristically
     // by assuming that each option begins with a space followed by
     // "-bf-".
-    char* optstr = strdup(bf_option_string);
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Byfl options";
-    *bfbin << uint8_t(BINOUT_COL_STRING) << "Option"
-           << uint8_t(BINOUT_COL_NONE);
-    char* one_opt;       // Pointer into optstr
-    char* optr = optstr; // Pointer to the next " -bf-"
-    for (one_opt = optstr; optr; one_opt += strlen(one_opt) + 1) {
-      optr = strstr(one_opt, " -bf-");
-      if (optr)
-        *optr = '\0';
-      *bfbin << uint8_t(BINOUT_ROW_DATA) << one_opt;
+    if (strncmp(bf_option_string, "[failed", 7) != 0) {
+      char* optstr = strdup(bf_option_string);
+      *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Byfl options";
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Option"
+             << uint8_t(BINOUT_COL_NONE);
+      char* one_opt;       // Pointer into optstr
+      char* optr = optstr; // Pointer to the next " -bf-"
+      for (one_opt = optstr; optr; one_opt += strlen(one_opt) + 1) {
+        optr = strstr(one_opt, " -bf-");
+        if (optr)
+          *optr = '\0';
+        *bfbin << uint8_t(BINOUT_ROW_DATA) << one_opt;
+      }
+      *bfbin << uint8_t(BINOUT_ROW_NONE);
+      free(optstr);
     }
-    *bfbin << uint8_t(BINOUT_ROW_NONE);
-    free(optstr);
 
     // Report bits of system information that may be useful for reproducibility.
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "System information";

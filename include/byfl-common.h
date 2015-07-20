@@ -18,6 +18,9 @@
 #include <cxxabi.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef HAVE_CRT_EXTERNS_H
+# include <crt_externs.h>
+#endif
 
 using namespace std;
 
@@ -234,15 +237,27 @@ demangle_func_name(std::string mangled_name_list)
   return demangled_stream.str();
 }
 
-// Read /proc/self/cmdline and parse it into a vector of strings.  If
-// /proc/self/cmdline doesn't exist or can't be read, return a dummy
-// string instead.
+// Parse the command line into a vector of strings.  We acquire the command
+// line via the /proc/self/cmdline file on Linux and via the _NSGetArgv() call
+// on OS X.  On failure, return a dummy string.
 #pragma GCC diagnostic ignored "-Wunused-function"
 static std::vector<std::string>
 parse_command_line (void)
 {
-  // Open the command-line pseudo-file.
   std::vector<std::string> arglist;   // Vector of arguments to return
+
+#ifdef HAVE__NSGETARGV
+  // Get the command line from _NSGetArgv() and _NSGetArgc() (OS X).
+  char ***argvp = _NSGetArgv();
+  int *argcp = _NSGetArgc();
+  if (argvp != nullptr && argcp != nullptr) {
+    for (int i = 0; i < *argcp; i++)
+      arglist.push_back((*argvp)[i]);
+    return arglist;
+  }
+#endif
+
+  // Open the command-line pseudo-file.
   ifstream cmdline("/proc/self/cmdline");   // Full command line passed to opt
   string failed_read("[failed to read /proc/self/cmdline]");  // Error return
   if (!cmdline.is_open()) {
