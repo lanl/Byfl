@@ -34,7 +34,8 @@ pkgconfigdir=$(libdir)/pkgconfig
 pkgconfig_DATA = byfl-clang.pc
 
 install-parser: $(srcdir)/ParseCompilerOpts.pm
-	$(INSTALL_DATA) -D "$(srcdir)/ParseCompilerOpts.pm" "$(DESTDIR)$(perlsitelibdir)/ParseCompilerOpts.pm"
+	$(INSTALL_DATA) -m 0755 -d "$(DESTDIR)$(perlsitelibdir)"
+	$(INSTALL_DATA) "$(srcdir)/ParseCompilerOpts.pm" "$(DESTDIR)$(perlsitelibdir)/ParseCompilerOpts.pm"
 
 install-compiler-scripts: bf-gcc bf-clang
 	$(LN_S) -f bf-clang $(DESTDIR)$(bindir)/bf-clang++
@@ -54,7 +55,7 @@ else
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicc bf-clang OMPI_CC MPICH_CC $(bindir) > $(DESTDIR)$(bindir)/bf-mpicc
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicxx bf-clang++ OMPI_CXX MPICH_CXX $(bindir) > $(DESTDIR)$(bindir)/bf-mpicxx
 endif
-	chmod +x $(DESTDIR)$(bindir)/bf-mpi*
+	chmod 0755 $(DESTDIR)$(bindir)/bf-mpi*
 
 install-man1-pages: bf-gcc bf-clang bf-inst
 	$(INSTALL) -d "$(DESTDIR)$(mandir)/man1"
