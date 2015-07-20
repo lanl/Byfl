@@ -16,8 +16,9 @@ use File::stat;
 use Getopt::Long qw(GetOptionsFromArray);
 use lib '@perlsitelibdir@';   # Find ParseCompilerOpts if installed in a non-standard location.
 use ParseCompilerOpts;
-use Switch;
+use v5.10.1;
 use warnings;
+no warnings "experimental::smartmatch";
 use strict;
 
 # Specify some installation locations.
@@ -199,15 +200,15 @@ GetOptionsFromArray(\@constructed_ARGV,
                     "bf-plugin=s"     => \$byfl_plugin,
                     "bf-disable=s"    => \$bf_disable)
     || die "${progname}: Failed to parse the command line\n";
-switch ($bf_disable) {
-    case "none" {
+given ($bf_disable) {
+    when ("none") {
         # Disable nothing; run normally.
     }
-    case "byfl" {
+    when ("byfl") {
         # Disable the bytesflops plugin and just use the underlying compiler.
         exit execute_command($compiler, @ARGV_no_bf);
     }
-    else {
+    default {
         die "${progname}: I don't know how to disable \"$bf_disable\""
             . ' (must be one of "none" or "byfl")' . "\n";
     }
@@ -246,8 +247,7 @@ if (defined $build_type{"compile"}) {
 # If we're linking, and Clang options to link with the Byfl run-time library
 # and its dependencies.
 if (defined $build_type{"link"}) {
-    push @command_line, ("-L$byfl_libdir", "-L$llvm_libdir",
-                            "-Wl,--allow-multiple-definition", "-lm");
+    push @command_line, ("-L$byfl_libdir", "-L$llvm_libdir", "-lm");
     push @command_line, ("-rpath", $byfl_libdir, "-lbyfl", "-lstdc++");
     push @command_line, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;
     if ($compiler ne "clang++") {

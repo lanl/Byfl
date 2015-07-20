@@ -58,8 +58,8 @@ use Config;
 $op = $Config{siteprefix};
 $np = $ARGV[[0]];
 $dir = $Config{sitelibexp};
-$dir =~ s/^\Q$op\E/$np/;
-print "$dir\n";
+$dir =~ s/^\Q$op\E//;
+print "$np$dir\n";
 EOF
    ax_cv_dir_perl_sitelib="`$PERL conftest.pl '${prefix}'`"
    rm -f conftest.pl
@@ -95,6 +95,7 @@ if test "${CXXFLAGS:-undefined}" = undefined ; then
    CXXFLAGS=`${LLVM_CONFIG} --cxxflags`
 fi
 AC_SUBST([llvm_libdir], [`${LLVM_CONFIG} --libdir`])
+AC_ARG_VAR([LLVM_CONFIG], [LLVM configuration tool])
 
 dnl Byfl requires C++11.  Abort if we don't have C++11 support.
 AC_PROG_CXX
@@ -102,6 +103,15 @@ AX_CHECK_CXX11
 if test "x$ax_cv_cxx11_CXX" = xno ; then
   AC_MSG_FAILURE([Byfl requires C++11 support; try recompiling with -std=c++11])
 fi
+
+dnl Byfl can give more informative warning messages if the system supports
+dnl weak function aliases, which, as the time of this writing, OS X does not.
+AX_CHECK_WEAK_ALIASES
+
+dnl OS X lacks a /proc/self/cmdline file, but it does provide a _NSGetArgv()
+dnl function to read the caller's command line.
+AC_CHECK_FUNCS([_NSGetArgv],
+  [AC_CHECK_HEADERS([crt_externs.h])])
 
 dnl The Byfl build process parses Instruction.def.  Ensure it exists.
 AC_CHECK_HEADER([llvm/IR/Instruction.def])

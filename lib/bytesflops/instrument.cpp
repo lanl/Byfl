@@ -956,33 +956,32 @@ namespace bytesflops_pass {
       std::vector<Constant*> const_fname_elems;
 
       int i = 0;
-      for ( auto it = func_key_map.begin(); it != func_key_map.end(); it++ )
-      {
-          const std::string & name = it->first;
-          auto key = it->second;
+      for (auto it = func_key_map.begin(); it != func_key_map.end(); it++) {
+        const std::string & name = it->first;
+        auto key = it->second;
 
-          // name.size() + 1 for NULL char.
-          ArrayType *
+        // name.size() + 1 for NULL char.
+        ArrayType *
           ArrayStrTy = ArrayType::get(IntegerType::get(ctx, 8), name.size() + 1);
 
-          // record the key
-          ConstantInt* const_int64 = ConstantInt::get(ctx, APInt(64, key));
-          const_key_elems.push_back(const_int64);
+        // Record the key.
+        ConstantInt* const_int64 = ConstantInt::get(ctx, APInt(64, key));
+        const_key_elems.push_back(const_int64);
 
-          // record the name
-          std::string gv_name = ".str" + std::to_string(i++);
-          GlobalVariable *
+        // Record the name.
+        std::string gv_name = ".str" + std::to_string(i++);
+        GlobalVariable *
           gvar_array_str = new GlobalVariable(/*Module=*/module,
-                                  /*Type=*/       ArrayStrTy,
-                                  /*isConstant=*/ true,
-                                  /*Linkage=*/    GlobalValue::PrivateLinkage,
-                                  /*Initializer=*/0, // has initializer, specified below
-                                  /*Name=*/       gv_name.c_str());
-          gvar_array_str->setAlignment(1);
-          mark_as_used(module, gvar_array_str);
+                                              /*Type=*/       ArrayStrTy,
+                                              /*isConstant=*/ true,
+                                              /*Linkage=*/    GlobalValue::PrivateLinkage,
+                                              /*Initializer=*/0, // has initializer, specified below
+                                              /*Name=*/       gv_name.c_str());
+        gvar_array_str->setAlignment(1);
+        mark_as_used(module, gvar_array_str);
 
-          std::vector<Constant*> const_ptr_indices;
-          Constant *
+        std::vector<Constant*> const_ptr_indices;
+        Constant *
           const_fname = ConstantDataArray::getString(ctx, name.c_str(), true);
           const_ptr_indices.push_back(const_int32);
           const_ptr_indices.push_back(const_int32);
@@ -995,16 +994,14 @@ namespace bytesflops_pass {
       Constant* const_array_keys = ConstantArray::get(ArrayTy_0, const_key_elems);
       Constant* const_array_fnames = ConstantArray::get(ArrayPtrTy, const_fname_elems);
 
-      //
-      // set up global key array
-      //
+      // Set up global key array.
       GlobalVariable*
-      gvar_key_data = new GlobalVariable(/*Module=*/module,
-                         /*Type=*/        ArrayTy_0,
-                         /*isConstant=*/  true,
-                         /*Linkage=*/     GlobalValue::InternalLinkage,
-                         /*Initializer=*/ const_array_keys, // has initializer, specified below
-                         /*Name=*/        string("bf_keys") + string(".data"));
+        gvar_key_data = new GlobalVariable(/*Module=*/module,
+                                           /*Type=*/        ArrayTy_0,
+                                           /*isConstant=*/  true,
+                                           /*Linkage=*/     GlobalValue::InternalLinkage,
+                                           /*Initializer=*/ const_array_keys, // has initializer, specified below
+                                           /*Name=*/        string("bf_keys") + string(".data"));
       gvar_key_data->setAlignment(16);
 
       PointerType* pointer_type = PointerType::get(Type::getInt64Ty(ctx), 0);
@@ -1014,25 +1011,24 @@ namespace bytesflops_pass {
       Constant* array_key_pointer =
         ConstantExpr::getGetElementPtr(nullptr, gvar_key_data, getelementptr_indexes);
       GlobalVariable *
-      gvar_array_key = new GlobalVariable(/*Module=*/module,
-                          /*Type=*/       pointer_type,
-                          /*isConstant=*/ true,
-                          /*Linkage=*/    GlobalValue::ExternalLinkage,
-                          /*Initializer=*/array_key_pointer, // has initializer, specified below
-                          /*Name=*/       "bf_keys");
+        gvar_array_key = new GlobalVariable(/*Module=*/module,
+                                            /*Type=*/       pointer_type,
+                                            /*isConstant=*/ true,
+                                            /*Linkage=*/    GlobalValue::InternalLinkage,
+                                            /*Initializer=*/array_key_pointer, // has initializer, specified below
+                                            /*Name=*/       "bf_keys");
       mark_as_used(module, gvar_array_key);
 
-
-      // declare global array of function names matching keys
-      // since the first item of the key array is the # of keys, then
-      // the key of function bf_fname[i] is bf_key[i+1].
+      // Declare global array of function names matching keys since the first
+      // item of the key array is the # of keys, then the key of function
+      // bf_fname[i] is bf_key[i+1].
       GlobalVariable*
-      gvar_fnames_data = new GlobalVariable(/*Module=*/module,
-                  /*Type=*/       ArrayPtrTy,
-                  /*isConstant=*/ true,
-                  /*Linkage=*/    GlobalValue::InternalLinkage,
-                  /*Initializer=*/const_array_fnames, // has initializer, specified below
-                  /*Name=*/       string("bf_fnames") + string(".data"));
+        gvar_fnames_data = new GlobalVariable(/*Module=*/module,
+                                              /*Type=*/       ArrayPtrTy,
+                                              /*isConstant=*/ true,
+                                              /*Linkage=*/    GlobalValue::InternalLinkage,
+                                              /*Initializer=*/const_array_fnames, // has initializer, specified below
+                                              /*Name=*/       string("bf_fnames") + string(".data"));
       gvar_fnames_data->setAlignment(16);
 
       // create (char **) type
@@ -1044,19 +1040,17 @@ namespace bytesflops_pass {
       Constant* array_fnames_pointer =
         ConstantExpr::getGetElementPtr(nullptr, gvar_fnames_data, fnames_indexes);
       GlobalVariable*
-      gvar_fnames = new GlobalVariable(/*Module=*/module,
-                      /*Type=*/       char_ptr_ptr,
-                      /*isConstant=*/ true,
-                      /*Linkage=*/    GlobalValue::ExternalLinkage,
-                      /*Initializer=*/array_fnames_pointer, // has initializer, specified below
-                      /*Name=*/       "bf_fnames");
+        gvar_fnames = new GlobalVariable(/*Module=*/module,
+                                         /*Type=*/       char_ptr_ptr,
+                                         /*isConstant=*/ true,
+                                         /*Linkage=*/    GlobalValue::InternalLinkage,
+                                         /*Initializer=*/array_fnames_pointer, // Has initializer, specified below
+                                         /*Name=*/       "bf_fnames");
       mark_as_used(module, gvar_fnames);
 
-
-
-      // now insert callto create the function map into the module constructor.
+      // Now insert callto create the function map into the module constructor.
       create_func_map_ctor(module, (uint32_t)func_key_map.size(),
-              array_key_pointer, array_fnames_pointer);
+                           array_key_pointer, array_fnames_pointer);
 
       return true;
   }
