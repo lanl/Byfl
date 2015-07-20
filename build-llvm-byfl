@@ -101,7 +101,7 @@ if [ -z "$1" ] ; then
     exit 1
 fi
 if [ -z "$builddir" ] ; then
-    builddir=$(mktemp --directory --tmpdir="$(/bin/pwd)" byfl-build.XXXXXX)
+    builddir=$(mktemp -d -t "$(/bin/pwd)" byfl-build.XXXXXX)
 fi
 builddir=$(abs_dirname "$builddir")
 installdir=$(abs_dirname "$1")
@@ -299,8 +299,8 @@ if [ "$compile" = yes ] ; then
     # Test the installation
     echo "# Testing the Byfl installation" 1>&4
     test "$gui" = yes && echo 0 1>&4
-    cfile=$(mktemp --tmpdir --suffix=.c byfltest-XXXXXX)
-    exefile=${cfile%.c}
+    exefile=$(mktemp -t byfltest-XXXXXX)
+    cfile=${exefile}.c
     cat <<CFILE > $cfile
 #include <stdio.h>
 int main (void) {
