@@ -60,4 +60,4 @@ Contact
 
 Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)
 
-A list of [all authors and contributors to Byfl](https://github.com/losalamos/Byfl/wiki/contributors) is available online.
+A list of [all contributors to Byfl](https://github.com/losalamos/Byfl/wiki/contributors) is available online.
