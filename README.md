@@ -36,14 +36,19 @@ The name "Byfl" comes from "bytes/flops".  The very first version of the code co
 Installation
 ------------
 
-If you have reasonably recent versions of [GCC](http://gcc.gnu.org/), [LLVM](http://www.llvm.org/), and [Clang](http://clang.llvm.org/), you should be able to perform the usual
+There are three "release" branches of Byfl on GitHub:
+
+  * `master`, corresponding to LLVM trunk
+  * `llvm-3.6`, corresponding to LLVM 3.6._x_ releases
+  * `llvm-3.5`, corresponding to LLVM 3.5._x_ releases
+
+Be sure to download the Byfl branch that corresponds to your installed LLVM version.  (Run `llvm-config --version` to check.)  Then, the usual
 ```bash
 ./configure
 make
 make install
 ```
-
-procedure.  See [INSTALL.md](https://github.com/losalamos/Byfl/blob/master/INSTALL.md) for a more complete explanation.
+procedure should work.  See [INSTALL.md](https://github.com/losalamos/Byfl/blob/master/INSTALL.md) for a more complete explanation.
 
 Documentation
 -------------

@@ -15,3 +15,7 @@ AM_TESTS_ENVIRONMENT = \
 	top_builddir='$(top_builddir)'; export top_builddir;
 
 CLEANFILES = simple simple.byfl
+
+# On OS X we may wind up with a simple.dSYM directory that needs to be deleted.
+clean-local:
+	$(RM) -r simple.dSYM
