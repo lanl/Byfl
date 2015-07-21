@@ -336,14 +336,14 @@ automatically instruments the contents of B<ar> (F<.a>) archives.
 B<bf-inst> is intended to be used on existing bitcode files as an
 explicit part of the build process:
 
-    $ clang -O2 -emit-llvm -c myfile.c -o myfile.bc
-    $ bf-inst -bf-verbose -bf-types -bf-by-func myfile.bc
-    $ clang -o myfile myfile.bc -lbyfl
+    clang -O2 -emit-llvm -c myfile.c -o myfile.bc
+    bf-inst -bf-verbose -bf-types -bf-by-func myfile.bc
+    clang -o myfile myfile.bc -lbyfl
 
 An alternative way to use B<bf-inst> is
 
-    $ clang -O2 `bf-inst -bf-clang-args -bf-types -bf-by-func` \
-        -o myfile.o -c myfile.c
+    clang -O2 `bf-inst -bf-clang-args -bf-types -bf-by-func` \
+      -o myfile.o -c myfile.c
 
 This has the advantage of being easier to integrate into an existing
 build system but the disadvantage that Byfl instrumentation is
@@ -358,4 +358,4 @@ Scott Pakin, I<pakin@lanl.gov>
 =head1 SEE ALSO
 
 ar(1), bf-clang(1), clang(1), opt(1),
-the Byfl README file (L<https://github.com/losalamos/Byfl/blob/master/README.md>)
+L<the Byfl README file|https://github.com/losalamos/Byfl/blob/master/README.md>
