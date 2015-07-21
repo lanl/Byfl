@@ -8,7 +8,7 @@
 
 int main (int argc, char *argv[])
 {
-  int iters = argc > 1 ? atoi(argv[1]) : 1000;
+  int iters = argc > 1 ? atoi(argv[1]) : 100000;
   int i;
   int sum = 0;
 
