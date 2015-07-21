@@ -21,6 +21,7 @@ AM_TESTS_ENVIRONMENT = \
 	srcdir='$(srcdir)'; export srcdir; \
 	top_srcdir='$(top_srcdir)'; export top_srcdir; \
 	top_builddir='$(top_builddir)'; export top_builddir; \
+	LLVM_CONFIG='$(LLVM_CONFIG)'; export LLVM_CONFIG; \
 	use_dragonegg='$(use_dragonegg)'; export use_dragonegg;
 
 # bf-clang++ isn't normally symlinked until install time.  Symlink it here.

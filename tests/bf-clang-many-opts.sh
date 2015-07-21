@@ -14,6 +14,7 @@ PERL=${PERL:-perl}
 srcdir=${srcdir:-../../tests}
 top_srcdir=${top_srcdir:-../..}
 top_builddir=${top_builddir:-..}
+LLVM_CONFIG=${LLVM_CONFIG:-llvm-config}
 clang=${BF_CLANG:-clang}
 bf_clang="$top_builddir/tools/wrappers/bf-clang"
 
@@ -22,7 +23,7 @@ set -e
 set -x
 
 # Test 1: Do the C compiler and linker work at all?
-"$clang" -O2 -g -o simple-clang-many-opts "$srcdir/simple.c"
+"$clang" -O2 -g -o simple-clang-many-opts "$srcdir/simple.c" `$LLVM_CONFIG --cflags`
 
 # Test 2: Do the C compiler and linker work when invoked from the Byfl
 # wrapper script?
@@ -30,6 +31,7 @@ env BF_DISABLE=byfl \
   "$PERL" -I"$top_srcdir/tools/wrappers" \
     "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
                 -bf-verbose -O2 -g -o simple-clang-many-opts "$srcdir/simple.c" \
+                `$LLVM_CONFIG --cflags` \
                 -L"$top_builddir/lib/byfl/.libs" \
                 -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -bf-reuse-dist -bf-mem-footprint -bf-types -bf-inst-mix -bf-data-structs -bf-inst-deps
 
@@ -37,6 +39,7 @@ env BF_DISABLE=byfl \
 "$PERL" -I"$top_srcdir/tools/wrappers" \
   "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
               -bf-verbose -O2 -g -o simple-clang-many-opts "$srcdir/simple.c" \
+              `$LLVM_CONFIG --cflags` \
               -L"$top_builddir/lib/byfl/.libs" \
               -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -bf-reuse-dist -bf-mem-footprint -bf-types -bf-inst-mix -bf-data-structs -bf-inst-deps
 
