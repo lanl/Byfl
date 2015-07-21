@@ -16,6 +16,12 @@ top_srcdir=${top_srcdir:-../..}
 top_builddir=${top_builddir:-..}
 gcc=${BF_GCC:-gcc}
 bf_gcc="$top_builddir/tools/wrappers/bf-gcc"
+use_draongegg=${use_draongegg:-yes}
+
+# Skip this test if we don't have DragonEgg.
+if [ "x$use_dragonegg" != xyes ] ; then
+    exit 77
+fi
 
 # Log everything we do.  Fail on the first error.
 set -e

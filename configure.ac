@@ -221,6 +221,11 @@ else
   ax_cv_file_dragonegg_so="$DRAGONEGG"
 fi
 AM_CONDITIONAL([HAVE_DRAGONEGG], [test x$ax_cv_file_dragonegg_so != xno])
+if test x$ax_cv_file_dragonegg_so = xno ; then
+  AC_SUBST([use_dragonegg], [no])
+else
+  AC_SUBST([use_dragonegg], [yes])
+fi
 
 dnl Generate all of the Byfl Makefiles and other files.
 AC_CONFIG_FILES([Makefile])

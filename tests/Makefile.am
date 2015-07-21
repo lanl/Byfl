@@ -6,18 +6,12 @@
 
 TESTS = \
 	bf-clang-no-opts.sh \
-	bf-clang-many-opts.sh \
-	bf-clang++-no-opts.sh
-
-if HAVE_DRAGONEGG
-TESTS += bf-gcc-no-opts.sh
-endif
-
-EXTRA_DIST = \
-	bf-clang-no-opts.sh \
-	bf-clang-many-opts.sh \
 	bf-clang++-no-opts.sh \
 	bf-gcc-no-opts.sh \
+	bf-clang-many-opts.sh
+
+EXTRA_DIST = \
+	$(TESTS) \
 	simple.c \
 	simple.cpp
 
@@ -26,7 +20,8 @@ AM_TESTS_ENVIRONMENT = \
 	PERL='$(PERL)'; export PERL; \
 	srcdir='$(srcdir)'; export srcdir; \
 	top_srcdir='$(top_srcdir)'; export top_srcdir; \
-	top_builddir='$(top_builddir)'; export top_builddir;
+	top_builddir='$(top_builddir)'; export top_builddir; \
+	use_dragonegg='$(use_dragonegg)'; export use_dragonegg;
 
 # bf-clang++ isn't normally symlinked until install time.  Symlink it here.
 bf-clang++-no-opts.sh: bf-clang++
