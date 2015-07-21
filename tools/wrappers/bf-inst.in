@@ -16,7 +16,8 @@ use strict;
 # Store the name of this script.
 my $progname = basename $0;
 
-# Specify the Byfl installation location.
+# Specify some installation locations.
+my $byfl_plugin = '@plugindir@/bytesflops.so';
 my $byfl_libdir = '@libdir@';
 
 # Let the user increase this script's verbosity.
@@ -139,12 +140,12 @@ sub apply_byfl ($$)
     }
 
     # Run the static analyzer if -bf-static was specified.
-    execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
+    execute_command("opt", "-load", $byfl_plugin,
                     "-bytesflops", @bf_options,
                     "-analyze", $infile) if $static_analysis;
 
     # Instrument the input file.
-    execute_command("opt", "-load", "$byfl_libdir/bytesflops.so",
+    execute_command("opt", "-load", $byfl_plugin,
                     "-bytesflops", @bf_options,
                     $infile, "-o", $newtemp->());
 
@@ -218,7 +219,7 @@ GetOptionsFromArray(\@constructed_ARGV,
                     "bf-clang-args"   => \$want_clang_args,
                     "bf-verbose+"     => \$verbosity,
                     "bf-static"       => \$static_analysis,
-                    "bf-libdir=s"     => \$byfl_libdir)
+                    "bf-plugin=s"     => \$byfl_plugin)
     || die "${progname}: Failed to parse the command line\n";
 my @infiles = grep {!/^-/} @constructed_ARGV;
 @bf_options = grep {/^-/} @constructed_ARGV;
@@ -232,7 +233,7 @@ if (defined $outfile && $#infiles > 0) {
 # If -bf-clang-args was specified, output @bf_options in a form
 # suitable for passing to clang or clang++.
 if ($want_clang_args) {
-    print "-Xclang -load -Xclang $byfl_libdir/bytesflops.so ";
+    print "-Xclang -load -Xclang $byfl_plugin ";
     print join(" ", map {"-mllvm $_"} @bf_options), "\n";
     exit 0;
 }
@@ -265,7 +266,8 @@ bf-inst
 [B<-O>I<opt_level>]
 [B<--bf-verbose>]
 [B<--bf-clang-args>]
-[B<--bf-libdir>=I<directory>]
+[B<-bf-plugin>=I<path/to/bytesflops.so>]
+[B<--bf-static>]
 [I<Byfl options>]
 I<bitcode_file>
 
@@ -277,7 +279,7 @@ B<--help>
 B<bf-inst> uses Byfl to instrument a given LLVM bitcode file with
 tallies of how many times various operations were executed.  It serves
 as a lower-level interface to Byfl instrumentation than that which is
-provided by B<bf-gcc> and related Byfl compiler wrapper scripts in
+provided by B<bf-clang> and related Byfl compiler wrapper scripts in
 that B<bf-inst> expects the user already to have produced LLVM bitcode
 from program source code.
 
@@ -303,15 +305,19 @@ bitcode I<after> Byfl instrumentation has been applied.
 
 Display all of the file operations that B<bf-inst> performs.
 
-=item B<--bf-libdir>=I<directory>
+=item B<-bf-plugin>=I<path/to/bytesflops.so>
 
-Name the full path to the directory in which F<bytesflops.so> resides.
+Point B<bf-inst> to the Byfl plugin (C<bytesflops.so>).
 
 =item B<--bf-clang-args>
 
 Instead of instrumenting any bitcode, display a command-line fragment
 that can be passed to B<clang> or B<clang++> to instruct those
 programs to invoke Byfl themselves.
+
+=item B<-bf-static>
+
+Output static instruction counts at compile time.
 
 =back
 
@@ -332,29 +338,18 @@ explicit part of the build process:
 
     $ clang -O2 -emit-llvm -c myfile.c -o myfile.bc
     $ bf-inst -bf-verbose -bf-types -bf-by-func myfile.bc
-    $ clang++ -o myfile myfile.bc /usr/local/lib/libbyfl.bc
-
-Note that Byfl is written in C++ so Byfl-instrumented codes must be
-linked either with B<clang++> or with the B<-lstdc++> flag to
-B<clang>.
+    $ clang -o myfile myfile.bc -lbyfl
 
 An alternative way to use B<bf-inst> is
 
     $ clang -O2 `bf-inst -bf-clang-args -bf-types -bf-by-func` \
-        -o myfile myfile.c /usr/local/lib/libbyfl.a -lstdc++ -lm
+        -o myfile.o -c myfile.c
 
 This has the advantage of being easier to integrate into an existing
 build system but the disadvantage that Byfl instrumentation is
 performed in the middle of LLVM's set of optimization passes instead
 of after all optimizations have been performed.  Furthermore, it
 sacrifices the post-instrumentation optimization pass.
-
-Note that the B<clang> command links to F<libbyfl.a> instead of
-F<libbyfl.bc>.  This is to avoid instrumenting the Byfl run-time
-library using Byfl, which is likely to produce circular dependencies.
-If B<bf-inst> is used only during compilation but not linking then
-F<libbyfl.bc> should work, as well (and support link-time optimization
-when used at optimization level B<-O4>).
 
 =head1 AUTHOR
 
