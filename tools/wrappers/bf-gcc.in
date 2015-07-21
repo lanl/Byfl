@@ -843,8 +843,8 @@ object files.
 
 =item C<dragonegg>
 
-Disable DragonEgg entirely -- and hence all B<bf-gcc> functionality --
-and transfer control to the underlying B<gcc> compiler.
+Disable DragonEgg entirely -- and hence all B<bf-gcc> functionality -- and
+transfer control to the underlying B<gcc> compiler.
 
 =back
 
