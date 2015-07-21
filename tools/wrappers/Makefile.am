@@ -5,13 +5,12 @@
 # By Scott Pakin <pakin@lanl.gov>	   #
 ############################################
 
-
 if HAVE_DRAGONEGG
-BF_GCC=bf-gcc
+BF_GCC_SCRIPT=bf-gcc
 endif
 
 nodist_bin_SCRIPTS = \
-	$(BF_GCC) \
+	$(BF_GCC_SCRIPT) \
 	bf-clang \
 	bf-inst
 

@@ -15,26 +15,27 @@ srcdir=${srcdir:-../../tests}
 top_srcdir=${top_srcdir:-../..}
 top_builddir=${top_builddir:-..}
 clangxx=${BF_CLANGXX:-clang++}
-bf_clangxx="$top_builddir/tools/wrappers/bf-clang++"
+bf_clangxx="./bf-clang++"
 
-# Log everything we do.
+# Log everything we do.  Fail on the first error.
+set -e
 set -x
 
 # Test 1: Do the C compiler and linker work at all?
-"$clangxx" -g -o simple-clang++-no-opts "$srcdir/simple.c"
+"$clangxx" -g -o simple-clang++-no-opts "$srcdir/simple.cpp"
 
 # Test 2: Do the C compiler and linker work when invoked from the Byfl
 # wrapper script?
 env BF_DISABLE=byfl \
   "$PERL" -I"$top_srcdir/tools/wrappers" \
     "$bf_clangxx" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
-                  -bf-verbose -g -o simple-clang++-no-opts "$srcdir/simple.c" \
+                  -bf-verbose -g -o simple-clang++-no-opts "$srcdir/simple.cpp" \
                   -L"$top_builddir/lib/byfl/.libs"
 
 # Test 3: Can the Byfl wrapper script compile, instrument, and link a program?
 "$PERL" -I"$top_srcdir/tools/wrappers" \
   "$bf_clangxx" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
-                -bf-verbose -g -o simple-clang++-no-opts "$srcdir/simple.c" \
+                -bf-verbose -g -o simple-clang++-no-opts "$srcdir/simple.cpp" \
                 -L"$top_builddir/lib/byfl/.libs"
 
 # Test 4: Does the Byfl-instrumented program run without error?

@@ -17,7 +17,8 @@ top_builddir=${top_builddir:-..}
 gcc=${BF_GCC:-gcc}
 bf_gcc="$top_builddir/tools/wrappers/bf-gcc"
 
-# Log everything we do.
+# Log everything we do.  Fail on the first error.
+set -e
 set -x
 
 # Test 1: Do the C compiler and linker work at all?
