@@ -19,3 +19,4 @@ ltmain.sh
 missing
 opcode2name.cpp
 opcode2name.h
+test-driver

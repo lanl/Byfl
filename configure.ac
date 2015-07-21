@@ -255,6 +255,7 @@ AC_CONFIG_FILES([tools/wrappers/bf-inst], [
     mv tools/wrappers/bf-inst.tmp tools/wrappers/bf-inst],
   [MAKE="$MAKE"
    GREP="$GREP"])
+AC_CONFIG_FILES([tests/Makefile])
 AC_OUTPUT
 
 dnl Issue various warning messages here, where we hope the user will
