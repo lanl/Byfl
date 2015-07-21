@@ -4,7 +4,7 @@
 # By Scott Pakin <pakin@lanl.gov> #
 ###################################
 
-SUBDIRS = include lib tools
+SUBDIRS = include lib tools tests
 
 EXTRA_DIST = README.md INSTALL.md LICENSE.md gen_opcode2name
 

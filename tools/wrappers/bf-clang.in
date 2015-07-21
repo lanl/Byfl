@@ -18,7 +18,7 @@ use lib '@perlsitelibdir@';   # Find ParseCompilerOpts if installed in a non-sta
 use ParseCompilerOpts;
 use v5.10.1;
 use warnings;
-no warnings "experimental::smartmatch";
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 use strict;
 
 # Specify some installation locations.
@@ -237,10 +237,10 @@ my @command_line = ($compiler, @ARGV_no_bf);
 if (defined $build_type{"compile"}) {
     # Construct a command line.
     push @command_line, ("-g",
-			 "-Xclang", "-load",
-			 "-Xclang", "$byfl_plugin");
+                         "-Xclang", "-load",
+                         "-Xclang", "$byfl_plugin");
     foreach my $bf_opt (@bf_options) {
-	push @command_line, ("-mllvm", $bf_opt);
+        push @command_line, ("-mllvm", $bf_opt);
     }
 }
 
@@ -584,7 +584,7 @@ and a dump of internal compiler state:
     Pass 'Bytes:flops instrumentation' is not initialized.
     Verify if there is a pass dependency cycle.
     Required Passes:
-	    Data Layout
+            Data Layout
 
 Until this is resolved, please always specify at least B<-O1> when compiling
 programs with B<bf-clang>.

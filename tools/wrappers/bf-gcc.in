@@ -18,7 +18,7 @@ use lib '@perlsitelibdir@';   # Find ParseCompilerOpts if installed in a non-sta
 use ParseCompilerOpts;
 use v5.10.1;
 use warnings;
-no warnings "experimental::smartmatch";
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 use strict;
 
 # Specify some installation locations.
@@ -379,7 +379,7 @@ if (defined $build_type{"compile"}) {
         # find its input file and therefore abort.
         next if !-e $sfile;
 
-		# add --debug-pass=Structure to debug
+                # add --debug-pass=Structure to debug
         # Run the static analyzer if -bf-static was specified.
         execute_command("opt", "-load", "$byfl_plugin",
                         "-bytesflops", @bf_options,
