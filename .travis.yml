@@ -21,7 +21,7 @@ before_install:
  - export LLVM_CONFIG=llvm-config-${LLVM_VERSION}
 
 script: 
-  - autoreconf -i && ./configure CXXFLAGS="`$LLVM_CONFIG --cxxflags` -fno-rtti" && make distcheck
+  - autoreconf -i && ./configure && make DISTCHECK_CONFIGURE_FLAGS="CXXFLAGS=\"`$LLVM_CONFIG --cxxflags` -fno-rtti\"" distcheck
 
 compiler:
   - clang
