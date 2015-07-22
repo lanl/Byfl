@@ -23,7 +23,7 @@ set -e
 set -x
 
 # Test 1: Do the C compiler and linker work at all?
-"$clang" -g -o simple-clang-no-opts "$srcdir/simple.c" `$LLVM_CONFIG --cflags`
+"$clang" -g -o simple-clang-no-opts "$srcdir/simple.c" `$LLVM_CONFIG --cflags --ldflags --libs`
 
 # Test 2: Do the C compiler and linker work when invoked from the Byfl
 # wrapper script?
@@ -31,14 +31,14 @@ env BF_DISABLE=byfl \
   "$PERL" -I"$top_srcdir/tools/wrappers" \
     "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
                 -bf-verbose -g -o simple-clang-no-opts "$srcdir/simple.c" \
-                `$LLVM_CONFIG --cflags` \
+                `$LLVM_CONFIG --cflags --ldflags --libs` \
                 -L"$top_builddir/lib/byfl/.libs"
 
 # Test 3: Can the Byfl wrapper script compile, instrument, and link a program?
 "$PERL" -I"$top_srcdir/tools/wrappers" \
   "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
               -bf-verbose -g -o simple-clang-no-opts "$srcdir/simple.c" \
-              `$LLVM_CONFIG --cflags` \
+              `$LLVM_CONFIG --cflags --ldflags --libs` \
               -L"$top_builddir/lib/byfl/.libs"
 
 # Test 4: Does the Byfl-instrumented program run without error?
