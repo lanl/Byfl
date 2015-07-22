@@ -3,10 +3,10 @@
  * By Scott Pakin <pakin@lanl.gov> *
  ***********************************/
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <iostream>
+#include <cstdlib>
 
-int main (int argc, char *argv[])
+int main (int argc, const char *argv[])
 {
   int iters = argc > 1 ? atoi(argv[1]) : 100000;
   int i;
@@ -14,6 +14,6 @@ int main (int argc, char *argv[])
 
   for (i = 0; i < iters; i++)
     sum = sum*34564793 + i;
-  printf("Sum is %d\n", sum);
+  std::cout << "Sum is " << sum << '\n';
   return 0;
 }
