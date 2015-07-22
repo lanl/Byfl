@@ -18,10 +18,14 @@ before_install:
      export CXX="clang++-${LLVM_VERSION}";
      export CC="clang-${LLVM_VERSION}";
    fi
- - export LLVM_CONFIG=llvm-config-${LLVM_VERSION}
+ - export LLVM_CONFIG="llvm-config-${LLVM_VERSION}"
+ - export BF_CLANG="clang-${LLVM_VERSION}"
+ - export BF_CLANGXX="clang++-${LLVM_VERSION}"
+ - export BF_GCC="gcc-{GCC_VERSION}"
+ - export BF_GXX="g++{GCC_VERSION}"
 
 script: 
-  - autoreconf -i && ./configure && make DISTCHECK_CONFIGURE_FLAGS="LDFLAGS=\"`$LLVM_CONFIG --ldflags`\" LIBS=\"`$LLVM_CONFIG --libs`\"" distcheck
+  - autoreconf -i && ./configure && make distcheck
 
 compiler:
   - clang
