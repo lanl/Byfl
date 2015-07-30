@@ -11,10 +11,32 @@ namespace bytesflops {}
 using namespace bytesflops;
 using namespace std;
 
+// Define an {ID, tag} pair.
+class ID_tag {
+public:
+  uint64_t ID;     // Unique call-point ID
+  string tag;      // User-specified tag
+
+  ID_tag(uint64_t i=0, string t="") : ID(i), tag(t) { }
+
+  bool operator==(const ID_tag& other) const {
+    return ID == other.ID && tag == other.tag;
+  }
+};
+namespace std {
+  template <>
+  struct hash<ID_tag> {
+    size_t operator()(const ID_tag& idt) const {
+      return hash<uint64_t>()(idt.ID) ^ hash<string>()(idt.tag);
+    }
+  };
+}
+
 namespace bytesflops {
 
 extern ostream* bfout;
 extern BinaryOStream* bfbin;
+static bool output_ds_tags = false;  // true: user called bf_tag_data_region() at least once; false=no calls
 
 // Define an interval-tree type.
 template<typename T>
@@ -63,13 +85,14 @@ public:
   uint64_t bytes_alloced = 0; // Total number of bytes allocated (always >= max_size)
   uint64_t num_allocs = 0;    // Number of allocation calls
   bool allocation = true;     // true=known allocation; false=access (unknown allocation)
+  string tag = "";            // User-specified tag
 
   // The minimum we need to initialize are the data structure's initial size
   // (which can grow), symbol information, and whether the data structure comes
   // from an explicit allocation or an access to an unknown address.
   DataStructCounters(bf_symbol_info_t sinfo, uint64_t sz, bool alloc) :
     syminfo(sinfo), current_size(sz), max_size(sz), allocation(alloc),
-    bytes_alloced(sz), num_allocs(1)
+    bytes_alloced(sz), num_allocs(1), tag("")
   {
   }
 
@@ -86,6 +109,8 @@ string DataStructCounters::generate_symbol_desc (void) const
     locstr << (allocation ? "Unnamed" : "Unknown") << " data structure";
   else
     locstr << "Variable " << demangle_func_name(syminfo.symbol);
+  if (tag != "")
+    locstr << " with tag \"" << tag << '"';
   if (is_global) {
     if (strcmp(syminfo.file, "??") != 0)
       locstr << " declared";
@@ -103,7 +128,7 @@ string DataStructCounters::generate_symbol_desc (void) const
 
 // Define this file's two main data structures.
 static CachedOrderedMap<Interval<uint64_t>, DataStructCounters*>* data_structs;  // Interval tree with information about each data structure
-static CachedUnorderedMap<uint64_t, DataStructCounters*>* id_to_counters;  // Map from a symbol identifier to data-structure counters
+static CachedUnorderedMap<ID_tag, DataStructCounters*>* id_tag_to_counters;  // Map from a symbol identifier to data-structure counters
 
 // Construct an interval tree of symbol addresses.
 void initialize_data_structures (void)
@@ -111,7 +136,7 @@ void initialize_data_structures (void)
   if (data_structs != nullptr)
     return;    // Already initialized
   data_structs = new CachedOrderedMap<Interval<uint64_t>, DataStructCounters*>;
-  id_to_counters = new CachedUnorderedMap<uint64_t, DataStructCounters*>;
+  id_tag_to_counters = new CachedUnorderedMap<ID_tag, DataStructCounters*>;
 }
 
 // Disassociate a range of previously allocated addresses (given the address
@@ -128,11 +153,10 @@ static void* disassoc_addresses_with_dstruct (void* baseptr)
   Interval<uint64_t> interval = iter->first;
   DataStructCounters* counters = iter->second;
 
-  // Reduce the size of the data structure by the size of the address range
-  // and break the link from the address interval to the counters.  Note
-  // that id_to_counters still points to the counters; we don't want
-  // to forget that the data structure ever existed just because it was
-  // deallocated.
+  // Reduce the size of the data structure by the size of the address range and
+  // break the link from the address interval to the counters.  Note that
+  // id_tag_to_counters still points to the counters; we don't want to forget
+  // that the data structure ever existed just because it was deallocated.
   uint64_t interval_length = interval.upper - interval.lower + 1;
   counters->current_size -= interval_length;
   data_structs->erase(interval);
@@ -160,9 +184,8 @@ void bf_assoc_addresses_with_sstruct (const bf_symbol_info_t* syminfo,
   // Insert the symbol into the interval tree and into the mapping from
   // data-structure name to counters.
   DataStructCounters* info = new DataStructCounters(*syminfo, numaddrs, true);
-  info->syminfo = *syminfo;
   (*data_structs)[Interval<uint64_t>(first_addr, last_addr)] = info;
-  (*id_to_counters)[syminfo->ID] = info;
+  (*id_tag_to_counters)[ID_tag(syminfo->ID)] = info;
 }
 
 // Associate a range of addresses with a dynamically allocated data structure.
@@ -178,11 +201,11 @@ static void assoc_addresses_with_dstruct (const bf_symbol_info_t* syminfo,
     // Common case -- we haven't seen the old base address before (because it's
     // presumably the same as the new address, and that's what was just
     // allocated).
-    auto count_iter = id_to_counters->find(syminfo->ID);
-    if (count_iter == id_to_counters->end()) {
+    auto count_iter = id_tag_to_counters->find(ID_tag(syminfo->ID));
+    if (count_iter == id_tag_to_counters->end()) {
       // Not found -- allocate new counters.
       counters = new DataStructCounters(*syminfo, numaddrs, known_alloc);
-      (*id_to_counters)[syminfo->ID] = counters;
+      (*id_tag_to_counters)[ID_tag(syminfo->ID)] = counters;
     }
     else {
       // Found -- increment the size of the data structure and its tallies.
@@ -316,6 +339,53 @@ void bf_access_data_struct (const bf_symbol_info_t* syminfo, uint64_t baseaddr,
   }
 }
 
+// Associate an arbitrary tag with a fragment of a data structure, given an
+// address within an interval.
+extern "C"
+void bf_tag_data_region (void* address, const char *tag)
+{
+  // Find the data structure associated with the given address.
+  static Interval<uint64_t> search_addr(0, 0);
+  search_addr.lower = search_addr.upper = uint64_t(uintptr_t(address));
+  auto diter = data_structs->find(search_addr);
+  if (diter == data_structs->end())
+    return;
+  DataStructCounters* old_counters = diter->second;
+  uint64_t id = old_counters->syminfo.ID;
+
+  // Find the set of counters associated with the symbol ID and tag.  If no
+  // such set exists, create a new one.
+  DataStructCounters* new_counters;
+  auto titer = id_tag_to_counters->find(ID_tag(id, tag));
+  if (titer == id_tag_to_counters->end()) {
+    // Create a new set of counters.
+    new_counters = new DataStructCounters(old_counters->syminfo, 0, old_counters->allocation);
+    new_counters->num_allocs = 0;   // This will be incremented below.
+    new_counters->tag = tag;
+    (*id_tag_to_counters)[ID_tag(id, tag)] = new_counters;
+    output_ds_tags = true;
+  }
+  else
+    new_counters = titer->second;
+
+  // Transfer allocation values (but not load/store counters) from the old
+  // counters to the new counters.
+  uint64_t numaddrs = diter->first.upper - diter->first.lower + 1;
+  old_counters->num_allocs--;
+  new_counters->num_allocs++;
+  old_counters->bytes_alloced -= numaddrs;
+  new_counters->bytes_alloced += numaddrs;
+  old_counters->current_size -= numaddrs;
+  new_counters->current_size += numaddrs;
+  if (old_counters->current_size < old_counters->max_size)
+    old_counters->max_size = old_counters->current_size;
+  if (new_counters->current_size > new_counters->max_size)
+    new_counters->max_size = new_counters->current_size;
+
+  // Associate the original address interval with the new set of counters.
+  (*data_structs)[diter->first] = new_counters;
+}
+
 // Compare two counters with the intention of sorted them in decreasing
 // order of interestingness.  To that end, we sort first by decreasing
 // access count, then by decreasing memory footprint, then by increasing
@@ -342,7 +412,7 @@ void bf_report_data_struct_counts (void)
   // Sort all data structures in the interval tree by decreasing order
   // of total bytes accessed.  Ignore any unaccessed data structures.
   vector<DataStructCounters*> interesting_data;
-  for (auto iter = id_to_counters->begin(); iter != id_to_counters->end(); iter++) {
+  for (auto iter = id_tag_to_counters->begin(); iter != id_tag_to_counters->end(); iter++) {
     DataStructCounters* counters = iter->second;
     if (counters->bytes_loaded + counters->bytes_stored > 0)
       interesting_data.push_back(counters);
@@ -370,8 +440,10 @@ void bf_report_data_struct_counts (void)
          << uint8_t(BINOUT_COL_UINT64) << "Store operations"
          << uint8_t(BINOUT_COL_BOOL)   << "Known allocation point"
          << uint8_t(BINOUT_COL_STRING) << "Mangled origin"
-         << uint8_t(BINOUT_COL_STRING) << "Demangled origin"
-         << uint8_t(BINOUT_COL_STRING) << "Mangled variable name"
+         << uint8_t(BINOUT_COL_STRING) << "Demangled origin";
+  if (output_ds_tags)
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Tag";
+  *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled variable name"
          << uint8_t(BINOUT_COL_STRING) << "Demangled variable name"
          << uint8_t(BINOUT_COL_STRING) << "Mangled function name"
          << uint8_t(BINOUT_COL_STRING) << "Demangled function name"
@@ -413,8 +485,10 @@ void bf_report_data_struct_counts (void)
            << counters->store_ops
            << counters->allocation
            << string(syminfo->origin)
-           << demangled_origin
-           << (string(syminfo->symbol[0] == '[' ? "" : syminfo->symbol))
+           << demangled_origin;
+    if (output_ds_tags)
+      *bfbin << counters->tag;
+    *bfbin << (string(syminfo->symbol[0] == '[' ? "" : syminfo->symbol))
            << (string(syminfo->symbol[0] == '[' ? "" : demangle_func_name(syminfo->symbol)))
            << (strcmp(syminfo->function, "*GLOBAL*") == 0 ? "" : syminfo->function)
            << (strcmp(syminfo->function, "*GLOBAL*") == 0 ? "" : demangle_func_name(syminfo->function))
