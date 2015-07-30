@@ -63,7 +63,7 @@ InternalSymbolInfo::InternalSymbolInfo(Value* value, string defn_loc)
 {
   // Initialize our fields with placeholder values.
   if (prng == nullptr)
-    prng = new MersenneTwister(0x11223344);  // Arbitrary salt
+    prng = new MersenneTwister("InternalSymbolInfo Value");  // Arbitrary salt
   ID = prng->next();
   origin = defn_loc;
   symbol = "*UNNAMED*";
@@ -172,7 +172,7 @@ InternalSymbolInfo::InternalSymbolInfo(Value* value, string defn_loc)
 // Construct an InternalSymbolInfo from a DIGlobalVariable..
 InternalSymbolInfo::InternalSymbolInfo(DIGlobalVariable& var, string defn_loc) {
   if (prng == nullptr)
-    prng = new MersenneTwister(0x11223344);  // Arbitrary salt
+    prng = new MersenneTwister("InternalSymbolInfo Global");  // Arbitrary salt
   ID = prng->next();
   origin = defn_loc;
   symbol = var.getName().str();
