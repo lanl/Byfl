@@ -88,6 +88,14 @@ sub parse_compiler_options (@)
                             $for_compiler->($_[0], undef);
                             %build_type = ();
                         },
+                        "M" => sub {
+                            $for_compiler->($_[0], undef);
+                            %build_type = ();
+                        },
+                        "MM" => sub {
+                            $for_compiler->($_[0], undef);
+                            %build_type = ();
+                        },
                         "help" => sub {
                             $for_compiler->($_[0], undef);
                             %build_type = ();
