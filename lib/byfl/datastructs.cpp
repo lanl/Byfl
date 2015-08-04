@@ -37,6 +37,7 @@ namespace bytesflops {
 extern ostream* bfout;
 extern BinaryOStream* bfbin;
 static bool output_ds_tags = false;  // true: user called bf_tag_data_region() at least once; false=no calls
+static uint64_t dstruct_time = 1;    // Current allocation "time"
 
 // Define an interval-tree type.
 template<typename T>
@@ -86,14 +87,20 @@ public:
   uint64_t num_allocs = 0;    // Number of allocation calls
   bool allocation = true;     // true=known allocation; false=access (unknown allocation)
   string tag = "";            // User-specified tag
+  uint64_t alloc_time = 0;    // Allocation "time" on a global counter
+  uint64_t access1_time = 0;  // First access "time" on a global counter
+  uint64_t accessN_time = 0;  // Last access "time" on a global counter
+  uint64_t free_time = 0;     // Deallocation "time" on a global counter
 
   // The minimum we need to initialize are the data structure's initial size
   // (which can grow), symbol information, and whether the data structure comes
   // from an explicit allocation or an access to an unknown address.
   DataStructCounters(bf_symbol_info_t sinfo, uint64_t sz, bool alloc) :
     syminfo(sinfo), current_size(sz), max_size(sz), allocation(alloc),
-    bytes_alloced(sz), num_allocs(1), tag("")
+    bytes_alloced(sz), num_allocs(1), tag(""),
+    access1_time(0), accessN_time(0), free_time(0)
   {
+    alloc_time = dstruct_time++;
   }
 
   // Generate a description of a data structure.
@@ -159,6 +166,9 @@ static void* disassoc_addresses_with_dstruct (void* baseptr)
   // that the data structure ever existed just because it was deallocated.
   uint64_t interval_length = interval.upper - interval.lower + 1;
   counters->current_size -= interval_length;
+  if (counters->current_size == 0)
+    counters->free_time = dstruct_time;
+  dstruct_time++;      // Deallocation is an event, even if we haven't freed the entire data structure.
   data_structs->erase(interval);
   return (void *)(interval.upper + 1);
 }
@@ -184,6 +194,8 @@ void bf_assoc_addresses_with_sstruct (const bf_symbol_info_t* syminfo,
   // Insert the symbol into the interval tree and into the mapping from
   // data-structure name to counters.
   DataStructCounters* info = new DataStructCounters(*syminfo, numaddrs, true);
+  dstruct_time--;   // Undo the time increment when we're allocating statically.
+  info->alloc_time = 0;   // Static data are always allocated at time 0.
   (*data_structs)[Interval<uint64_t>(first_addr, last_addr)] = info;
   (*id_tag_to_counters)[ID_tag(syminfo->ID)] = info;
 }
@@ -337,6 +349,9 @@ void bf_access_data_struct (const bf_symbol_info_t* syminfo, uint64_t baseaddr,
     counters->store_ops++;
     counters->bytes_stored += numaddrs;
   }
+  if (counters->access1_time == 0)
+    counters->access1_time = dstruct_time;
+  counters->accessN_time = dstruct_time++;
 }
 
 // Associate an arbitrary tag with a fragment of a data structure, given an
@@ -434,6 +449,10 @@ void bf_report_data_struct_counts (void)
   *bfbin << uint8_t(BINOUT_COL_UINT64) << "Number of allocations"
          << uint8_t(BINOUT_COL_UINT64) << "Total bytes allocated"
          << uint8_t(BINOUT_COL_UINT64) << "Maximum memory footprint"
+         << uint8_t(BINOUT_COL_UINT64) << "First allocation time"
+         << uint8_t(BINOUT_COL_UINT64) << "First access time"
+         << uint8_t(BINOUT_COL_UINT64) << "Last access time"
+         << uint8_t(BINOUT_COL_UINT64) << "Last deallocation time"
          << uint8_t(BINOUT_COL_UINT64) << "Bytes loaded"
          << uint8_t(BINOUT_COL_UINT64) << "Bytes stored"
          << uint8_t(BINOUT_COL_UINT64) << "Load operations"
@@ -479,6 +498,10 @@ void bf_report_data_struct_counts (void)
            << counters->num_allocs
            << counters->bytes_alloced
            << counters->max_size
+           << counters->alloc_time
+           << counters->access1_time
+           << counters->accessN_time
+           << (counters->free_time == 0 ? dstruct_time : counters->free_time)
            << counters->bytes_loaded
            << counters->bytes_stored
            << counters->load_ops
