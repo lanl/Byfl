@@ -1081,6 +1081,19 @@ private:
       *bfbin << uint8_t(BINOUT_ROW_NONE);
     }
 
+    // Output a table of reuse distances in binary format.
+    if (reuse_unique > 0) {
+      *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Reuse distance";
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Distance in bytes"
+             << uint8_t(BINOUT_COL_UINT64) << "Tally"
+             << uint8_t(BINOUT_COL_NONE);
+      uint64_t dist = 0;
+      for (auto iter = reuse_hist->begin(); iter != reuse_hist->end(); iter++, dist++)
+        if (*iter > 0)
+          *bfbin << uint8_t(BINOUT_ROW_DATA) << dist << *iter;
+      *bfbin << uint8_t(BINOUT_ROW_NONE);
+    }
+
     // Report a bunch of derived measurements (textually only).
     if (counter_totals.stores > 0) {
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
