@@ -199,6 +199,10 @@ static page_to_bits_t* assoc_addresses_with_func (const char* funcname,
 extern "C"
 void bf_assoc_addresses_with_func (const char* funcname, uint64_t baseaddr, uint64_t numaddrs)
 {
+  // Do nothing if counting is suppressed.
+  if (bf_suppress_counting)
+    return;
+
   // Keep track of the two most recently used page-to-bit-vector maps.
   typedef struct {
     const char* funcname;
@@ -235,6 +239,8 @@ void bf_assoc_addresses_with_func (const char* funcname, uint64_t baseaddr, uint
 extern "C"
 void bf_assoc_addresses_with_prog (uint64_t baseaddr, uint64_t numaddrs)
 {
+  if (bf_suppress_counting)
+    return;
   flag_bytes_in_range(*global_unique_bytes, baseaddr, numaddrs);
 }
 

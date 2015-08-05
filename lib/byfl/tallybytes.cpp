@@ -18,8 +18,8 @@ struct eqaddr
   bool operator()(uintptr_t p1, uintptr_t p2) const { return p1 == p2; }
 };
 
-// Define a mapping from a page-aligned memory address to a vector of
-// byte tallies.
+// Define a mapping from a page-aligned memory address to a vector of byte
+// tallies.
 static const size_t logical_page_size = 8192;      // Arbitrary; not tied to the OS page size
 class PageTableEntry {
 private:
@@ -150,8 +150,8 @@ static void flag_bytes_in_range (page_to_counts_t& mapping, uint64_t baseaddr, u
     }
 }
 
-// Associate a set of memory locations with a given function.  Return
-// the page-to-bit-vector mapping for the given function.
+// Associate a set of memory locations with a given function.  Return the
+// page-to-bit-vector mapping for the given function.
 static page_to_counts_t* assoc_addresses_with_func (const char* funcname,
                                                   uint64_t baseaddr,
                                                   uint64_t numaddrs)
@@ -168,12 +168,15 @@ static page_to_counts_t* assoc_addresses_with_func (const char* funcname,
   return unique_bytes;
 }
 
-// Associate a set of memory locations with a given function.  This
-// function basically wraps assoc_addresses_with_func() with a quick
-// cache lookup.
+// Associate a set of memory locations with a given function.  This function
+// basically wraps assoc_addresses_with_func() with a quick cache lookup.
 extern "C"
 void bf_assoc_addresses_with_func_tb (const char* funcname, uint64_t baseaddr, uint64_t numaddrs)
 {
+  // Do nothing if counting is suppressed.
+  if (bf_suppress_counting)
+    return;
+
   // Keep track of the two most recently used page-to-bit-vector maps.
   typedef struct {
     const char* funcname;
@@ -209,6 +212,8 @@ void bf_assoc_addresses_with_func_tb (const char* funcname, uint64_t baseaddr, u
 extern "C"
 void bf_assoc_addresses_with_prog_tb (uint64_t baseaddr, uint64_t numaddrs)
 {
+  if (bf_suppress_counting)
+    return;
   flag_bytes_in_range(*global_unique_bytes, baseaddr, numaddrs);
 }
 
@@ -219,8 +224,8 @@ bool greater_count_than (bf_addr_tally_t a, bf_addr_tally_t b)
   return a.first > b.first;
 }
 
-// Convert a collection of tallies to a histogram, freeing the former
-// as we build the latter.
+// Convert a collection of tallies to a histogram, freeing the former as we
+// build the latter.
 void get_address_tally_hist (page_to_counts_t& mapping, vector<bf_addr_tally_t>& histogram, uint64_t* total)
 {
   // Process each page of counts in turn.
@@ -228,8 +233,8 @@ void get_address_tally_hist (page_to_counts_t& mapping, vector<bf_addr_tally_t>&
   count_to_mult_t count2mult;               // Number of times each count was seen
   page_to_counts_t::iterator counts_iter;
   for (counts_iter = mapping.begin(); counts_iter != mapping.end(); ) {
-    // Increment the iterator now so we can safely delete it at the
-    // bottom of this block.
+    // Increment the iterator now so we can safely delete it at the bottom of
+    // this block.
     uintptr_t baseaddr = counts_iter->first;
     PageTableEntry* pte = counts_iter->second;
     counts_iter++;
@@ -251,14 +256,14 @@ void get_address_tally_hist (page_to_counts_t& mapping, vector<bf_addr_tally_t>&
     *total += c2m_iter->second;
   }
 
-  // Sort the resulting vector by decreasing access count.  That is x
-  // accesses to each of y unique bytes will appear before x-a
-  // accesses to each of z unique bytes, regardless of y and z.
+  // Sort the resulting vector by decreasing access count.  That is x accesses
+  // to each of y unique bytes will appear before x-a accesses to each of z
+  // unique bytes, regardless of y and z.
   sort(histogram.begin(), histogram.end(), greater_count_than);
 }
 
-// Convert a collection of global tallies to a histogram, freeing the
-// former as we build the latter.
+// Convert a collection of global tallies to a histogram, freeing the former as
+// we build the latter.
 void bf_get_address_tally_hist (vector<bf_addr_tally_t>& histogram, uint64_t* total)
 {
   get_address_tally_hist(*global_unique_bytes, histogram, total);

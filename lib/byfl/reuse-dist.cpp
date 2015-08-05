@@ -492,6 +492,8 @@ void initialize_reuse (void)
 extern "C"
 void bf_reuse_dist_addrs_prog (uint64_t baseaddr, uint64_t numaddrs)
 {
+  if (bf_suppress_counting)
+    return;
   for (uint64_t ofs = 0; ofs < numaddrs; ofs++)
     global_reuse_dist->process_address(baseaddr + ofs);
 }

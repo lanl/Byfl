@@ -98,6 +98,7 @@ extern "C" {
 
 KeyType_t bf_categorize_counters_id = 10; // Should be unlikely that this is a duplicate.
 extern char** environ;
+extern "C" void bf_reset_bb_tallies (void);
 
 // Define a mapping from an instruction's opcode to its arguments' opcodes to a
 // tally.  We ignore instructions with more than two arguments.
@@ -113,7 +114,8 @@ ostream* bfout;                  // Stream to which to send textual output
 BinaryOStream* bfbin;            // Stream to which to send binary output
 ofstream *bfbin_file;            // Underlying file for the above
 bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
-static CallStack* call_stack = NULL;    // The calling process's current call stack
+bool bf_suppress_counting = false;        // false=normal operation; true=don't update state
+static CallStack* call_stack = nullptr;   // The calling process's current call stack
 static string start_time;        // Time at which initialize_byfl() was called
 
 // As a kludge, set a global variable indicating that all of the constructors
@@ -184,10 +186,20 @@ void bf_abend (void)
   std::exit(1);
 }
 
+// Toggle suppression of Byfl counter updates.
+extern "C"
+void bf_enable_counting (int enable)
+{
+  bf_reset_bb_tallies();
+  bf_suppress_counting = !bool(enable);
+}
+
 // Tally the number of calls to each function.
 extern "C"
 void bf_incr_func_tally (KeyType_t keyID)
 {
+  if (bf_suppress_counting)
+    return;
   func_call_tallies()[keyID]++;
 }
 
@@ -210,6 +222,8 @@ void bf_push_function (const char* funcname, KeyType_t key)
   uint64_t depth = 1 << call_stack->depth();
   bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ key;
   bf_record_key(bf_func_and_parents, bf_func_and_parents_id);
+  if (bf_suppress_counting)
+    return;
   func_call_tallies()[bf_func_and_parents_id]++;
   func_call_tallies()[key] += 0;
 }
@@ -1143,7 +1157,7 @@ private:
                  << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
                  << " unique bits per (non-memory) op bit\n";
       }
-      if (bf_unique_bytes)
+      if (bf_unique_bytes && global_unique_bytes > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)global_bytes / (double)global_unique_bytes
                << " bytes per unique byte\n";
