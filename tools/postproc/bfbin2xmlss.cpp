@@ -293,7 +293,7 @@ static void write_string_value (void* state, const char* value)
                      << "        <Cell><Data ss:Type=\"String\">"
                      << lstate->colnames[lstate->colnum++]
                      << "</Data></Cell>\n"
-                     << "        <Cell ss:StyleID=\"sty-string\"><Data ss:Type=\"Number\">"
+                     << "        <Cell ss:StyleID=\"sty-string\"><Data ss:Type=\"String\">"
                      << lstate->quote_for_xml(value)
                      << "</Data></Cell>\n"
                      << "      </Row>\n";
