@@ -386,8 +386,8 @@ static void process_byfl_keyval_table (parse_state_t *state)
       case BINOUT_COL_STRING:
         read_string(state);
         string_len = strlen(state->last_value);
-        if (valid_bytes + sizeof(char *) > bytes_alloced) {
-          bytes_alloced = bytes_alloced == 0 ? 256 : (bytes_alloced + string_len) * 2;
+        if (valid_bytes + string_len + 1 > bytes_alloced) {
+          bytes_alloced = bytes_alloced == 0 ? 256 : (bytes_alloced + string_len + 1) * 2;
           row_data = (uint8_t *) realloc(row_data, bytes_alloced);
           if (!row_data)
             THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
