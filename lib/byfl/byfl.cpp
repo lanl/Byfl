@@ -1245,10 +1245,7 @@ private:
   // Report miscellaneous information in the binary output file.
   void report_misc_info() {
     // Report the list of environment variables that are currently active.
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Environment variables";
-    *bfbin << uint8_t(BINOUT_COL_STRING) << "Variable"
-           << uint8_t(BINOUT_COL_STRING) << "Value"
-           << uint8_t(BINOUT_COL_NONE);
+    *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << "Environment variables";
     class compare_case_insensitive
     {
     public:
@@ -1268,9 +1265,8 @@ private:
       free(var_val_str);
     }
     for (auto iter = environment_variables.cbegin(); iter != environment_variables.cend(); iter++)
-      *bfbin << uint8_t(BINOUT_ROW_DATA)
-             << iter->first << iter->second;
-    *bfbin << uint8_t(BINOUT_ROW_NONE);
+      *bfbin << uint8_t(BINOUT_COL_STRING) << string(iter->first) << string(iter->second);
+    *bfbin << uint8_t(BINOUT_COL_NONE);
 
     // Report the program command line, if possible (probably only Linux).
     vector<string> command_line = parse_command_line();   // All command-line arguments
@@ -1305,26 +1301,23 @@ private:
     }
 
     // Report bits of system information that may be useful for reproducibility.
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "System information";
-    *bfbin << uint8_t(BINOUT_COL_STRING) << "Property"
-           << uint8_t(BINOUT_COL_STRING) << "Value"
-           << uint8_t(BINOUT_COL_NONE);
-    *bfbin << uint8_t(BINOUT_ROW_DATA) << "Byfl version" << PACKAGE_VERSION;
+    *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << "System information";
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Byfl version" << PACKAGE_VERSION;
 #ifdef BYFL_GIT_BRANCH
-    *bfbin << uint8_t(BINOUT_ROW_DATA) << "Byfl Git branch" << BYFL_GIT_BRANCH;
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Byfl Git branch" << BYFL_GIT_BRANCH;
 #endif
 #ifdef BYFL_GIT_SHA1
-    *bfbin << uint8_t(BINOUT_ROW_DATA) << "Byfl Git commit" << BYFL_GIT_SHA1;
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Byfl Git commit" << BYFL_GIT_SHA1;
 #endif
-    *bfbin << uint8_t(BINOUT_ROW_DATA) << "LLVM version" << BYFL_LLVM_VERSION
-           << uint8_t(BINOUT_ROW_DATA) << "Canonical system name" << BYFL_HOST_TRIPLE;
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "LLVM version" << BYFL_LLVM_VERSION
+           << uint8_t(BINOUT_COL_STRING) << "Canonical system name" << BYFL_HOST_TRIPLE;
     char hostname[1024];
     if (gethostname(hostname, 1024) == 0)
-      *bfbin << uint8_t(BINOUT_ROW_DATA) << "Host name" << hostname;
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Host name" << hostname;
     string end_time(current_local_time("%F %T"));
     if (start_time != "" && end_time != "") {
-      *bfbin << uint8_t(BINOUT_ROW_DATA) << "Start time" << start_time
-             << uint8_t(BINOUT_ROW_DATA) << "End time" << end_time;
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Start time" << start_time
+             << uint8_t(BINOUT_COL_STRING) << "End time" << end_time;
       string end_tzname(current_local_time("%z"));
       if (end_tzname != "") {
 #ifdef HAVE_STRUCT_TM_TM_ZONE
@@ -1333,10 +1326,10 @@ private:
         if (now_tm != nullptr && now_tm->tm_zone != nullptr)
           end_tzname += string(" (") + now_tm->tm_zone + string(")");
 #endif
-        *bfbin << uint8_t(BINOUT_ROW_DATA) << "Time zone" << end_tzname;
+        *bfbin << uint8_t(BINOUT_COL_STRING) << "Time zone" << end_tzname;
       }
     }
-    *bfbin << uint8_t(BINOUT_ROW_NONE);
+    *bfbin << uint8_t(BINOUT_COL_NONE);
   }
 
 public:
