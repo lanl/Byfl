@@ -121,6 +121,10 @@ extern "C"
 void bf_tally_vector_operation (const char *funcname, uint64_t num_elements,
                                 uint64_t element_bits, bool is_flop)
 {
+  // Do nothing if counting is suppressed.
+  if (bf_suppress_counting)
+    return;
+
   // Find the given function's mapping from vector to tally and increment that.
   if (bf_per_func)
     if (bf_call_stack)

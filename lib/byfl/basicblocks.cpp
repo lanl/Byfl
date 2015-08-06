@@ -327,13 +327,15 @@ void ByteFlopCounters::reset (void)
   op_bits   = 0;
 }
 
-// At the end of a basic block, accumulate the current counter
-// variables (bf_*_count) into the current basic block's counters and
-// into the global counters.
+// At the end of a basic block, accumulate the current counter variables
+// (bf_*_count) into the current basic block's counters and into the global
+// counters.
 extern "C"
 void bf_accumulate_bb_tallies (void)
 {
   // Add the current values to the per-BB totals.
+  if (bf_suppress_counting)
+    return;
   bb_totals.accumulate(bf_mem_insts_count,
                        bf_inst_mix_histo,
                        bf_terminator_count,
@@ -358,11 +360,13 @@ void bf_accumulate_bb_tallies (void)
   }
 }
 
-// Reset the current basic block's tallies rather than requiring a
-// push and a pop for every basic block.
+// Reset the current basic block's tallies rather than requiring a push and a
+// pop for every basic block.
 extern "C"
 void bf_reset_bb_tallies (void)
 {
+  if (bf_suppress_counting)
+    return;
   bb_totals.reset();
 }
 
@@ -372,6 +376,8 @@ extern "C"
 void bf_tally_bb_execution (bf_symbol_info_t* syminfo, uint64_t bb_id,
                             uint64_t num_insts)
 {
+  if (bf_suppress_counting)
+    return;
   BBAccessInfo* bb_info;
   auto iter = bb_accesses->find(bb_id);
   if (iter == bb_accesses->end()) {
@@ -494,6 +500,10 @@ static void report_bb_tallies (bf_symbol_info_t* syminfo, uint64_t bb_merge)
     showed_header = true;
   }
 
+  // Ignore the current counters if told by the user to do so.
+  if (bf_suppress_counting)
+    return;
+
   // If we've accumulated enough basic blocks, output the aggregate of
   // their values.
   if (__builtin_expect(++num_merged >= bb_merge, 0)) {
@@ -553,6 +563,8 @@ static void report_bb_tallies (bf_symbol_info_t* syminfo, uint64_t bb_merge)
 extern "C"
 void bf_report_bb_tallies (bf_symbol_info_t* syminfo)
 {
+  // report_bb_tallies() checks bf_suppress_counting after determining if it
+  // needs to write a table header.
   report_bb_tallies(syminfo, bf_bb_merge);
 }
 
@@ -562,6 +574,8 @@ void bf_assoc_counters_with_func (KeyType_t funcID)
 {
   // Ensure that per_func_totals contains an ByteFlopCounters entry
   // for funcname, then add the current counters to that entry.
+  if (bf_suppress_counting)
+    return;
   key2bfc_t::iterator sm_iter;
   KeyType_t key;
   if (bf_call_stack) {

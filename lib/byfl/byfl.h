@@ -103,7 +103,6 @@ namespace bytesflops {
   extern uint64_t bf_get_shared_cold_misses(void);
   extern uint64_t bf_get_shared_misaligned_mem_ops(void);
   extern vector<unordered_map<uint64_t,uint64_t> > bf_get_remote_shared_cache_hits(void);
-// Determine if we should suppress output from this process.
   extern bool suppress_output(void);
 
   // The following library variables are used in files other than the
@@ -112,6 +111,7 @@ namespace bytesflops {
   extern string bf_output_prefix;           // Prefix appearing before each line of output
   extern const char* opcode2name[];         // Map from an LLVM opcode to its name
   extern KeyType_t bf_func_and_parents_id;  // Top of the complete_call_stack stack
+  extern bool bf_suppress_counting;         // Whether to update Byfl data structures
 
   // Encapsulate of all of our basic-block counters into a single structure.
   class ByteFlopCounters {

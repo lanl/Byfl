@@ -98,6 +98,7 @@ extern "C" {
 
 KeyType_t bf_categorize_counters_id = 10; // Should be unlikely that this is a duplicate.
 extern char** environ;
+extern "C" void bf_reset_bb_tallies (void);
 
 // Define a mapping from an instruction's opcode to its arguments' opcodes to a
 // tally.  We ignore instructions with more than two arguments.
@@ -113,7 +114,8 @@ ostream* bfout;                  // Stream to which to send textual output
 BinaryOStream* bfbin;            // Stream to which to send binary output
 ofstream *bfbin_file;            // Underlying file for the above
 bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
-static CallStack* call_stack = NULL;    // The calling process's current call stack
+bool bf_suppress_counting = false;        // false=normal operation; true=don't update state
+static CallStack* call_stack = nullptr;   // The calling process's current call stack
 static string start_time;        // Time at which initialize_byfl() was called
 
 // As a kludge, set a global variable indicating that all of the constructors
@@ -184,10 +186,20 @@ void bf_abend (void)
   std::exit(1);
 }
 
+// Toggle suppression of Byfl counter updates.
+extern "C"
+void bf_enable_counting (int enable)
+{
+  bf_reset_bb_tallies();
+  bf_suppress_counting = !bool(enable);
+}
+
 // Tally the number of calls to each function.
 extern "C"
 void bf_incr_func_tally (KeyType_t keyID)
 {
+  if (bf_suppress_counting)
+    return;
   func_call_tallies()[keyID]++;
 }
 
@@ -210,6 +222,8 @@ void bf_push_function (const char* funcname, KeyType_t key)
   uint64_t depth = 1 << call_stack->depth();
   bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ key;
   bf_record_key(bf_func_and_parents, bf_func_and_parents_id);
+  if (bf_suppress_counting)
+    return;
   func_call_tallies()[bf_func_and_parents_id]++;
   func_call_tallies()[key] += 0;
 }
@@ -1067,6 +1081,19 @@ private:
       *bfbin << uint8_t(BINOUT_ROW_NONE);
     }
 
+    // Output a table of reuse distances in binary format.
+    if (reuse_unique > 0) {
+      *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Reuse distance";
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Distance in bytes"
+             << uint8_t(BINOUT_COL_UINT64) << "Tally"
+             << uint8_t(BINOUT_COL_NONE);
+      uint64_t dist = 0;
+      for (auto iter = reuse_hist->begin(); iter != reuse_hist->end(); iter++, dist++)
+        if (*iter > 0)
+          *bfbin << uint8_t(BINOUT_ROW_DATA) << dist << *iter;
+      *bfbin << uint8_t(BINOUT_ROW_NONE);
+    }
+
     // Report a bunch of derived measurements (textually only).
     if (counter_totals.stores > 0) {
       *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
@@ -1143,7 +1170,7 @@ private:
                  << (double)global_unique_bytes*8.0 / (double)counter_totals.op_bits
                  << " unique bits per (non-memory) op bit\n";
       }
-      if (bf_unique_bytes)
+      if (bf_unique_bytes && global_unique_bytes > 0)
         *bfout << tag << ": " << fixed << setw(25) << setprecision(4)
                << (double)global_bytes / (double)global_unique_bytes
                << " bytes per unique byte\n";
@@ -1231,10 +1258,7 @@ private:
   // Report miscellaneous information in the binary output file.
   void report_misc_info() {
     // Report the list of environment variables that are currently active.
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Environment variables";
-    *bfbin << uint8_t(BINOUT_COL_STRING) << "Variable"
-           << uint8_t(BINOUT_COL_STRING) << "Value"
-           << uint8_t(BINOUT_COL_NONE);
+    *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << "Environment variables";
     class compare_case_insensitive
     {
     public:
@@ -1254,9 +1278,8 @@ private:
       free(var_val_str);
     }
     for (auto iter = environment_variables.cbegin(); iter != environment_variables.cend(); iter++)
-      *bfbin << uint8_t(BINOUT_ROW_DATA)
-             << iter->first << iter->second;
-    *bfbin << uint8_t(BINOUT_ROW_NONE);
+      *bfbin << uint8_t(BINOUT_COL_STRING) << string(iter->first) << string(iter->second);
+    *bfbin << uint8_t(BINOUT_COL_NONE);
 
     // Report the program command line, if possible (probably only Linux).
     vector<string> command_line = parse_command_line();   // All command-line arguments
@@ -1291,26 +1314,23 @@ private:
     }
 
     // Report bits of system information that may be useful for reproducibility.
-    *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "System information";
-    *bfbin << uint8_t(BINOUT_COL_STRING) << "Property"
-           << uint8_t(BINOUT_COL_STRING) << "Value"
-           << uint8_t(BINOUT_COL_NONE);
-    *bfbin << uint8_t(BINOUT_ROW_DATA) << "Byfl version" << PACKAGE_VERSION;
+    *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << "System information";
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Byfl version" << PACKAGE_VERSION;
 #ifdef BYFL_GIT_BRANCH
-    *bfbin << uint8_t(BINOUT_ROW_DATA) << "Byfl Git branch" << BYFL_GIT_BRANCH;
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Byfl Git branch" << BYFL_GIT_BRANCH;
 #endif
 #ifdef BYFL_GIT_SHA1
-    *bfbin << uint8_t(BINOUT_ROW_DATA) << "Byfl Git commit" << BYFL_GIT_SHA1;
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Byfl Git commit" << BYFL_GIT_SHA1;
 #endif
-    *bfbin << uint8_t(BINOUT_ROW_DATA) << "LLVM version" << BYFL_LLVM_VERSION
-           << uint8_t(BINOUT_ROW_DATA) << "Canonical system name" << BYFL_HOST_TRIPLE;
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "LLVM version" << BYFL_LLVM_VERSION
+           << uint8_t(BINOUT_COL_STRING) << "Canonical system name" << BYFL_HOST_TRIPLE;
     char hostname[1024];
     if (gethostname(hostname, 1024) == 0)
-      *bfbin << uint8_t(BINOUT_ROW_DATA) << "Host name" << hostname;
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Host name" << hostname;
     string end_time(current_local_time("%F %T"));
     if (start_time != "" && end_time != "") {
-      *bfbin << uint8_t(BINOUT_ROW_DATA) << "Start time" << start_time
-             << uint8_t(BINOUT_ROW_DATA) << "End time" << end_time;
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Start time" << start_time
+             << uint8_t(BINOUT_COL_STRING) << "End time" << end_time;
       string end_tzname(current_local_time("%z"));
       if (end_tzname != "") {
 #ifdef HAVE_STRUCT_TM_TM_ZONE
@@ -1319,10 +1339,10 @@ private:
         if (now_tm != nullptr && now_tm->tm_zone != nullptr)
           end_tzname += string(" (") + now_tm->tm_zone + string(")");
 #endif
-        *bfbin << uint8_t(BINOUT_ROW_DATA) << "Time zone" << end_tzname;
+        *bfbin << uint8_t(BINOUT_COL_STRING) << "Time zone" << end_tzname;
       }
     }
-    *bfbin << uint8_t(BINOUT_ROW_NONE);
+    *bfbin << uint8_t(BINOUT_COL_NONE);
   }
 
 public:

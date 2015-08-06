@@ -6,3 +6,4 @@
 #######################################
 
 dist_noinst_HEADERS = byfl-common.h binarytagdefs.h
+pkginclude_HEADERS = byfl.h
