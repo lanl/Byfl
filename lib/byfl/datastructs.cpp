@@ -315,6 +315,10 @@ extern "C"
 void bf_access_data_struct (const bf_symbol_info_t* syminfo, uint64_t baseaddr,
                             uint64_t numaddrs, uint8_t load0store1)
 {
+  // Do nothing if counting is suppressed.
+  if (bf_suppress_counting)
+    return;
+
   // Find the interval containing the base address.  Use a set of counts
   // representing unknown data structures if we failed to find an interval.
   static Interval<uint64_t> search_addr(0, 0);
