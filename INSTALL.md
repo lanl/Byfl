@@ -76,19 +76,31 @@ A few extra steps are needed to build Byfl on OS X:
 
 2. Install [Homebrew](http://brew.sh/), which is needed to further download various packages that OS X doesn't provide by default.
 
-3. Use Homebrew to install the [GNU Autotools](https://en.wikipedia.org/wiki/GNU_build_system):
+3. Use Homebrew to install Byfl:
+```bash
+brew install https://github.com/losalamos/Byfl/releases/download/v1.3-llvm-3.6.2/byfl13.rb
+```
+
+The preceding procedure installs Byfl 1.3 from the `llvm-3.6` branch of Byfl.  If you instead prefer to install a newer, pre-release version of Byfl (still from the `llvm-3.6` branch), you can use Homebrew to install Byfl's dependencies but download Byfl itself from GitHub.
+
+1. Use Homebrew to install the [GNU Autotools](https://en.wikipedia.org/wiki/GNU_build_system):
 ```bash
 brew install autoconf
 brew install automake
 brew install libtool
 ```
 
-4. For a normal installation (see above) you'll need to point `../configure` to the Homebrew-versioned `llvm-config` file, e.g.,
+2. Use Homebrew to install [LLVM](http://www.llvm.org/) 3.6:
+```bash
+brew install llvm36
+```
+
+3. For a normal Byfl installation (see above) you'll need to point Byfl's `../configure` to the Homebrew-versioned `llvm-config` file:
 ```bash
 ../configure LLVM_CONFIG=llvm-config-3.6
 ```
 
-5. For an automatic installation with the Byfl build script (see above) you'll need a newer version of Bash than what OS X currently provides.  You'll also need to point the build script to Xcode's `/usr/include` directory, as in the following:
+4. For an automatic installation with the Byfl build script (see above) you'll need a newer version of Bash than what OS X currently provides.  You'll also need to point the build script to Xcode's `/usr/include` directory, as in the following:
 ```bash
 brew install bash
 env CPATH=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/usr/include bash ./build-llvm-byfl ~/byfl
