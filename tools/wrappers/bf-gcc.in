@@ -583,7 +583,7 @@ bf-gcc
 [B<-bf-mem-footprint>]
 [B<-bf-every-bb>]
 [B<-bf-merge-bb>=I<count>]
-[B<-bf-reuse-dist>]
+[B<-bf-reuse-dist>[=loads|stores]
 [B<-bf-include>=I<function>[,I<function>]...]
 [B<-bf-exclude>=I<function>[,I<function>]...]
 [B<-bf-thread-safe>]
@@ -661,9 +661,12 @@ Report performance counters at the basic-block level.
 Aggregate basic blocks into groups of I<count> to reduce the output
 volume.
 
-=item B<-bf-reuse-dist>
+=item B<-bf-reuse-dist>[=loads|stores]
 
-Track data reuse distance.
+Track data reuse distance.  With an argument of C<loads>, only loads
+are tracked.  With an argument of C<stores>, only stores are tracked.
+With no argument -- or with an argument of C<loads,stores>) -- both
+loads and stores are tracked.
 
 =item B<-bf-include>=I<function>[,I<function>]...
 
