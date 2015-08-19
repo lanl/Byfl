@@ -6,23 +6,24 @@
 
 lib_LTLIBRARIES = libbyfl.la
 libbyfl_la_SOURCES = \
-	byfl.cpp \
 	basicblocks.cpp \
-	reuse-dist.cpp \
-	symtable.cpp \
-	threading.cpp \
-	ubytes.cpp \
-	vectors.cpp \
-	tallybytes.cpp \
-	cache-model.cpp \
-	opcode2name.cpp \
+	binaryoutput.cpp \
+	binaryoutput.h \
+	byfl.cpp \
 	byfl.h \
+	cache-model.cpp \
 	cachemap.h \
 	callstack.cpp \
 	callstack.h \
-	binaryoutput.cpp \
-	binaryoutput.h \
-	datastructs.cpp
+	datastructs.cpp \
+	opcode2name.cpp \
+	reuse-dist.cpp \
+	strides.cpp \
+	symtable.cpp \
+	tallybytes.cpp \
+	threading.cpp \
+	ubytes.cpp \
+	vectors.cpp
 
 libbyfl_la_CPPFLAGS = -I$(top_srcdir)/include -I$(srcdir)/../include
 libbyfl_la_LDFLAGS = -version-info 0:0:0

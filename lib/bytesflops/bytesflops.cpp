@@ -131,4 +131,9 @@ namespace bytesflops_pass {
 
   static RegisterPass<BytesFlops> H("bytesflops", "Bytes:flops instrumentation");
 
+  // Define a command-line option for tracking load/store strides.
+  cl::opt<bool>
+  TrackStrides("bf-strides", cl::init(false), cl::NotHidden,
+               cl::desc("Track data-access strides on a per-call-point basis"));
+
 }  // namespace bytesflops_pass

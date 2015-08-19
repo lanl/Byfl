@@ -421,8 +421,8 @@ static bool compare_counter_interest (const DataStructCounters* a,
     return a->max_size > b->max_size;
   int name_comp = strcmp(a->syminfo.symbol, b->syminfo.symbol);
   if (name_comp != 0)
-    return name_comp;
-  return strcmp(a->syminfo.origin, b->syminfo.origin);
+    return name_comp < 0;
+  return strcmp(a->syminfo.origin, b->syminfo.origin) < 0;
 }
 
 // Output load and store counters by data structure.
