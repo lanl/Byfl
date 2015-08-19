@@ -103,12 +103,11 @@ typedef struct {
 } bf_symbol_info_t;
 
 // Map a memory-access type to an index into bf_mem_insts_count[].
-static inline uint64_t
-mem_type_to_index(uint64_t memop,
-                  uint64_t memref,
-                  uint64_t memagg,
-                  uint64_t memtype,
-                  uint64_t memwidth)
+static inline uint64_t mem_type_to_index(uint64_t memop,
+                                         uint64_t memref,
+                                         uint64_t memagg,
+                                         uint64_t memtype,
+                                         uint64_t memwidth)
 {
   uint64_t idx = 0;
   idx = idx*BF_OP_NUM + memop;
@@ -171,12 +170,14 @@ demangle_func_name(std::string mangled_name_list)
     string demangled_name = string("LLVM ") + mangled_name_list.substr(op_begin, op_end - op_begin) + string(" instruction");
 
     // If the instruction references a function (e.g., @_Znwm)) or a named
-    // register (e.g., %"class foo"), append that information to the demangled
-    // name.
+    // register (e.g., %"class foo" or %__foo), append that information to the
+    // demangled name.
+    const string llvm_var_chars("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.");  // Valid characters for an LLVM name
     size_t func_begin = mangled_name_list.find('@', op_begin);
     if (func_begin != string::npos) {
+      // Function reference
       func_begin++;
-      size_t func_end = mangled_name_list.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.", func_begin);
+      size_t func_end = mangled_name_list.find_first_not_of(llvm_var_chars, func_begin);
       if (func_end > func_begin) {
         string func_name = demangle_func_name(mangled_name_list.substr(func_begin, func_end - func_begin));
         return demangled_name + string(" referencing ") + func_name;
@@ -184,12 +185,22 @@ demangle_func_name(std::string mangled_name_list)
     }
     size_t reg_begin = mangled_name_list.find("%\"", op_begin);
     if (reg_begin != string::npos) {
+      // Quoted named register
       reg_begin += 2;
       size_t reg_end = mangled_name_list.find_first_of('"', reg_begin);
       if (reg_end > reg_begin) {
         string reg_name = mangled_name_list.substr(reg_begin, reg_end - reg_begin);
         return demangled_name + string(" referencing ") + reg_name;
       }
+    }
+    reg_begin = mangled_name_list.find("%", op_begin);
+    if (reg_begin != string::npos &&
+        mangled_name_list.find_first_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_.", reg_begin + 1) == reg_begin + 1) {
+      // Unquoted named register
+      reg_begin++;
+      size_t reg_end = mangled_name_list.find_first_not_of(llvm_var_chars, reg_begin);
+      string reg_name = mangled_name_list.substr(reg_begin, reg_end - reg_begin);
+      return demangled_name + string(" referencing ") + reg_name;
     }
     return demangled_name;
   }
@@ -293,7 +304,7 @@ parse_command_line (void)
 // string will be returned on error.  The value returned should be considered
 // ephemeral.
 #pragma GCC diagnostic ignored "-Wunused-function"
-static char *absolute_file_name (const char* filename)
+static char *absolute_file_name(const char* filename)
 {
   // Determine the maximum path length.
   static ssize_t path_max = 0;

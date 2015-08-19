@@ -156,12 +156,8 @@ namespace bytesflops_pass {
           continue;
         Type* gv_type  = gv_const->getType();   // Data type
         Type* gv_ptr_type;                      // Type of pointer to data
-        if (gv_type->isPointerTy()) {
-          gv_ptr_type = gv_type;
-          gv_type = gv_ptr_type->getPointerElementType();
-        }
-        else
-          gv_ptr_type = PointerType::get(gv_type, 0);
+        if (gv_type->isPointerTy())
+          gv_type = gv_type->getPointerElementType();
         uint64_t byte_count = target_data.getTypeStoreSize(gv_type);
         if (byte_count == 0)
           continue;    // We can never access zero-sized data.
@@ -222,8 +218,9 @@ namespace bytesflops_pass {
     null_pointer = ConstantPointerNull::get(PointerType::get(IntegerType::get(globctx, 8), 0));
 
     // Declare a few argument types we intend to use in multiple declarations.
+    IntegerType* uint8_arg = IntegerType::get(globctx, 8);
     IntegerType* uint64_arg = IntegerType::get(globctx, 64);
-    PointerType* ptr_to_char_arg = PointerType::get(IntegerType::get(globctx, 8), 0);
+    PointerType* ptr_to_char_arg = PointerType::get(uint8_arg, 0);
 
     // Declare a bf_symbol_info_t struct type and a pointer to it.
     syminfo_type = module.getTypeByName("struct.bf_symbol_info_t");
@@ -282,6 +279,9 @@ namespace bytesflops_pass {
     // Assign a value to bf_data_structs.
     create_global_constant(module, "bf_data_structs", bool(TallyByDataStruct));
 
+    // Assign a value to bf_strides.
+    create_global_constant(module, "bf_strides", bool(TrackStrides));
+
     // Assign a value to bf_max_reuse_dist.
     create_global_constant(module, "bf_max_reuse_distance", uint64_t(MaxReuseDist));
 
@@ -316,8 +316,7 @@ namespace bytesflops_pass {
     vector<Type*> func_arg;
     func_arg.push_back(IntegerType::get(globctx, 8*sizeof(uint32_t)));
     func_arg.push_back(PointerType::get(IntegerType::get(globctx, 8*sizeof(uint64_t)),0));
-    PointerType* char_ptr = PointerType::get(IntegerType::get(globctx, 8), 0);
-    PointerType* char_ptr_ptr = PointerType::get(char_ptr, 0);
+    PointerType* char_ptr_ptr = PointerType::get(ptr_to_char_arg, 0);
     func_arg.push_back(char_ptr_ptr);
     FunctionType* void_int_func_result =
       FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
@@ -404,7 +403,7 @@ namespace bytesflops_pass {
       all_function_args.push_back(ptr_to_char_arg);
       all_function_args.push_back(uint64_arg);
       all_function_args.push_back(uint64_arg);
-      all_function_args.push_back(IntegerType::get(globctx, 8));
+      all_function_args.push_back(uint8_arg);
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       tally_vector =
@@ -522,7 +521,7 @@ namespace bytesflops_pass {
       all_function_args.push_back(ptr_to_syminfo_arg);
       all_function_args.push_back(uint64_arg);
       all_function_args.push_back(uint64_arg);
-      all_function_args.push_back(IntegerType::get(globctx, 8));
+      all_function_args.push_back(uint8_arg);
       void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       access_data_struct =
@@ -544,12 +543,26 @@ namespace bytesflops_pass {
                          &module);
     }
 
+    // Declare bf_track_stride() only if we were asked to track access strides.
+    if (TrackStrides) {
+      vector<Type*> all_function_args;
+      FunctionType* void_func_result;
+      all_function_args.clear();
+      all_function_args.push_back(ptr_to_syminfo_arg);
+      all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(uint64_arg);
+      all_function_args.push_back(uint8_arg);
+      void_func_result =
+        FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
+      track_stride = declare_extern_c(void_func_result, "bf_track_stride", &module);
+    }
+
     // Inject an external declaration for llvm.memset.p0i8.i64().
     memset_intrinsic = module.getFunction("llvm.memset.p0i8.i64");
     if (memset_intrinsic == NULL) {
       vector<Type*> all_function_args;
       all_function_args.push_back(ptr_to_char_arg);
-      all_function_args.push_back(IntegerType::get(globctx, 8));
+      all_function_args.push_back(uint8_arg);
       all_function_args.push_back(uint64_arg);
       all_function_args.push_back(IntegerType::get(globctx, 32));
       all_function_args.push_back(IntegerType::get(globctx, 1));

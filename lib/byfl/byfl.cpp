@@ -174,6 +174,7 @@ void bf_initialize_if_necessary (void)
     initialize_tallybytes();
     initialize_vectors();
     initialize_data_structures();
+    initialize_strides();
     initialize_cache();
     initialized = true;
   }
@@ -711,7 +712,7 @@ private:
 
     // Report in binary format all instruction+arguments triples.
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Instruction dependencies";
-    *bfbin << uint8_t(BINOUT_COL_STRING) << "Instruction"
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Opcode"
            << uint8_t(BINOUT_COL_STRING) << "Dependency 1"
            << uint8_t(BINOUT_COL_STRING) << "Dependency 2"
            << uint8_t(BINOUT_COL_BOOL)   << "More dependencies"
@@ -1374,6 +1375,10 @@ public:
     // Report per-data-structure counts if requested.
     if (bf_data_structs)
       bf_report_data_struct_counts();
+
+    // Report stride information if requested.
+    if (bf_strides)
+      bf_report_strides_by_call_point();
 
     // Report user-defined counter totals, if any.
     vector<const char*>* all_tag_names = user_defined_totals().sorted_keys(compare_char_stars);

@@ -118,6 +118,9 @@ namespace bytesflops_pass {
   // Define a command-line option for log2 of the maximum number of sets to model.
   extern cl::opt<unsigned long long> CacheMaxSetBits;
 
+  // Define a command-line option for tracking load/store strides.
+  extern cl::opt<bool> TrackStrides;
+
   // Destructively remove all instances of a given character from a string.
   extern void remove_all_instances(string& some_string, char some_char);
 
@@ -236,6 +239,7 @@ namespace bytesflops_pass {
     Function* memset_intrinsic;  // Pointer to LLVM's memset() intrinsic
     Function* access_cache;      // Pointer to bf_touch_cache()
     Function* tally_bb_exec;     // Pointer to bf_tally_bb_execution()
+    Function* track_stride;      // Pointer to bf_track_stride()
     StringMap<Constant*> func_name_to_arg;   // Map from a function name to an IR function argument
     set<string>* instrument_only;   // Set of functions to instrument; NULL=all
     set<string>* dont_instrument;   // Set of functions not to instrument; NULL=none
