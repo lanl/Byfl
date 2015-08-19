@@ -11,6 +11,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <inttypes.h>
 #include <iomanip>
@@ -50,6 +51,7 @@ extern uint8_t  bf_unique_bytes;     // 1=tally and output unique bytes
 extern uint8_t  bf_vectors;          // 1=bin then output vector characteristics
 extern uint8_t  bf_cache_model;      // 1=use the simple cache model
 extern uint8_t  bf_data_structs;     // 1=tally and output counters by data structure
+extern uint8_t  bf_strides;          // 1=tally and output information about access strides
 extern uint64_t bf_line_size;        // cache line size in bytes
 extern uint64_t bf_max_set_bits;     // log base 2 of max number of sets to model
 
@@ -78,6 +80,7 @@ namespace bytesflops {
   extern void bf_report_vector_operations(size_t call_stack_depth);
   extern void bf_report_data_struct_counts(void);
   extern void bf_report_bb_execution(void);
+  extern void bf_report_strides_by_call_point(void);
   extern uint64_t bf_tally_unique_addresses(const char* funcname);
   extern uint64_t bf_tally_unique_addresses_tb(const char* funcname);
   extern uint64_t bf_tally_unique_addresses_tb(void);
@@ -92,6 +95,7 @@ namespace bytesflops {
   extern void initialize_ubytes(void);
   extern void initialize_vectors(void);
   extern void initialize_data_structures(void);
+  extern void initialize_strides(void);
   extern void initialize_cache(void);
   extern void finalize_bblocks(void);
   extern uint64_t bf_get_private_cache_accesses(void);
