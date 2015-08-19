@@ -31,6 +31,7 @@
 
 #include "byfl-common.h"
 #include "cachemap.h"
+#include "bitpagetable.h"
 #include "binaryoutput.h"
 
 // The following constants are defined by the instrumented code.

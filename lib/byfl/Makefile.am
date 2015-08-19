@@ -9,6 +9,7 @@ libbyfl_la_SOURCES = \
 	basicblocks.cpp \
 	binaryoutput.cpp \
 	binaryoutput.h \
+	bitpagetable.h \
 	byfl.cpp \
 	byfl.h \
 	cache-model.cpp \
