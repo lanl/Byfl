@@ -8,8 +8,6 @@
 
 #include "byfl.h"
 
-namespace bytesflops {}
-using namespace bytesflops;
 using namespace std;
 
 // Encapsulate all interesting information about a vector operation.
