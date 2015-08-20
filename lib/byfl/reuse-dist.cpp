@@ -8,10 +8,7 @@
 
 #include "byfl.h"
 
-namespace bytesflops {}
-using namespace bytesflops;
 using namespace std;
-
 
 namespace bytesflops {
 

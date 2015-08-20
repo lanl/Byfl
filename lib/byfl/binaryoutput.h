@@ -10,9 +10,6 @@
 
 #include "binarytagdefs.h"
 
-namespace bytesflops {}
-using namespace bytesflops;
-
 namespace bytesflops {
 
 // Wrap an output stream so as to output data in a binary format.

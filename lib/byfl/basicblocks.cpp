@@ -9,8 +9,6 @@
 #include "byfl.h"
 #include "byfl-common.h"
 
-namespace bytesflops {}
-using namespace bytesflops;
 using namespace std;
 
 // The following values get reset at the end of every basic block.

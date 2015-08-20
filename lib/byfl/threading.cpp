@@ -7,8 +7,6 @@
 
 #include "byfl.h"
 
-namespace bytesflops {}
-using namespace bytesflops;
 using namespace std;
 
 static pthread_mutex_t megalock = PTHREAD_MUTEX_INITIALIZER;    // Lock protecting all library data structures

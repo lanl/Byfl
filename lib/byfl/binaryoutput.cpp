@@ -8,9 +8,6 @@
 #include "byfl.h"
 #include <cstring>
 
-namespace bytesflops {}
-using namespace bytesflops;
-
 namespace bytesflops {
 
 // Write an unsigned 8-bit integer in binary big-endian format.
