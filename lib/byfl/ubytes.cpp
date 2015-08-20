@@ -12,17 +12,16 @@ namespace bytesflops {}
 using namespace bytesflops;
 using namespace std;
 
-typedef CachedUnorderedMap<const char*, BitPageTable*> func_to_page_t;
+namespace bytesflops {
 
-// Keep track of the unique bytes touched by each function and by the
-// program as a whole.
+// Keep track of the unique bytes touched by each function and by the program
+// as a whole.
+typedef CachedUnorderedMap<const char*, BitPageTable*> func_to_page_t;
 static BitPageTable* global_unique_bytes = nullptr;
 static func_to_page_t* function_unique_bytes = nullptr;
 
 // Define a logical page size to use throughout this file.
 static const size_t logical_page_size = 8192;
-
-namespace bytesflops {
 
 // Initialize some of our variables at first use.
 void initialize_ubytes (void)
@@ -50,8 +49,8 @@ uint64_t bf_tally_unique_addresses (void)
 // Associate a set of memory locations with a given function.  Return
 // the page-to-bit-vector mapping for the given function.
 static BitPageTable* assoc_addresses_with_func (const char* funcname,
-                                                  uint64_t baseaddr,
-                                                  uint64_t numaddrs)
+                                                uint64_t baseaddr,
+                                                uint64_t numaddrs)
 {
   BitPageTable* unique_bytes;
   func_to_page_t::iterator map_iter = function_unique_bytes->find(funcname);
