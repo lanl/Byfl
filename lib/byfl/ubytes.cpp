@@ -64,9 +64,7 @@ static BitPageTable* assoc_addresses_with_func (const char* funcname,
   return unique_bytes;
 }
 
-// Associate a set of memory locations with a given function.  This
-// function basically wraps assoc_addresses_with_func() with a quick
-// cache lookup.
+// Associate a set of memory locations with a given function.
 extern "C"
 void bf_assoc_addresses_with_func (const char* funcname, uint64_t baseaddr, uint64_t numaddrs)
 {
@@ -74,35 +72,14 @@ void bf_assoc_addresses_with_func (const char* funcname, uint64_t baseaddr, uint
   if (bf_suppress_counting)
     return;
 
-  // Keep track of the two most recently used page-to-bit-vector maps.
-  typedef struct {
-    const char* funcname;
-    BitPageTable* unique_bytes;
-  } prev_value_t;
-  static prev_value_t prev_values[2] = {{nullptr, nullptr}, {nullptr, nullptr}};
-
   // Find the given function's mapping from page number to bit list.
   if (bf_call_stack)
     funcname = bf_func_and_parents;
   else
     funcname = bf_string_to_symbol(funcname);
-  if (funcname == prev_values[0].funcname)
-    // Fastest case: same function as last time
-    prev_values[0].unique_bytes->access(baseaddr, numaddrs);
-  else
-    // Second-fastest case: same function as the time before last
-    if (funcname == prev_values[1].funcname) {
-      prev_value_t swap = prev_values[0];
-      prev_values[0] = prev_values[1];
-      prev_values[1] = swap;
-      prev_values[0].unique_bytes->access(baseaddr, numaddrs);
-    }
-    else {
-      // Slowest case: different function from the last two times
-      prev_values[1] = prev_values[0];
-      prev_values[0].funcname = funcname;
-      prev_values[0].unique_bytes = assoc_addresses_with_func(funcname, baseaddr, numaddrs);
-    }
+
+  // Associate the range of addresses with the function's page table.
+  assoc_addresses_with_func(funcname, baseaddr, numaddrs);
 }
 
 // Associate a set of memory locations with the program as a whole.

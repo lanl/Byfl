@@ -69,15 +69,18 @@ static WordPageTable* assoc_addresses_with_func (const char* funcname,
 extern "C"
 void bf_assoc_addresses_with_func_tb (const char* funcname, uint64_t baseaddr, uint64_t numaddrs)
 {
-  WordPageTable* unique_bytes;
-  func_to_page_t::iterator map_iter = function_unique_bytes->find(funcname);
-  if (map_iter == function_unique_bytes->end())
-    // This is the first time we've seen this function.
-    (*function_unique_bytes)[funcname] = unique_bytes = new WordPageTable(logical_page_size);
+  // Do nothing if counting is suppressed.
+  if (bf_suppress_counting)
+    return;
+
+  // Find the given function's mapping from page number to bit list.
+  if (bf_call_stack)
+    funcname = bf_func_and_parents;
   else
-    // We've seen this function before.
-    unique_bytes = map_iter->second;
-  unique_bytes->access(baseaddr, numaddrs);
+    funcname = bf_string_to_symbol(funcname);
+
+  // Associate the range of addresses with the function's page table.
+  assoc_addresses_with_func(funcname, baseaddr, numaddrs);
 }
 
 // Associate a set of memory locations with the program as a whole.
@@ -91,13 +94,13 @@ void bf_assoc_addresses_with_prog_tb (uint64_t baseaddr, uint64_t numaddrs)
 
 // Return true if one {count, multiplier} pair has a greater
 // count than another.
-bool greater_count_than (bf_addr_tally_t a, bf_addr_tally_t b)
+static bool greater_count_than (bf_addr_tally_t a, bf_addr_tally_t b)
 {
   return a.first > b.first;
 }
 
 // Convert a collection of tallies to a histogram.
-void get_address_tally_hist (WordPageTable& mapping, vector<bf_addr_tally_t>& histogram, uint64_t* total)
+static void get_address_tally_hist (WordPageTable& mapping, vector<bf_addr_tally_t>& histogram, uint64_t* total)
 {
   // Process each page of counts in turn.
   typedef CachedUnorderedMap<bytecount_t, uint64_t> count_to_mult_t;
