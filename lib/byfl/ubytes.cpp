@@ -19,12 +19,15 @@ typedef CachedUnorderedMap<const char*, BitPageTable*> func_to_page_t;
 static BitPageTable* global_unique_bytes = nullptr;
 static func_to_page_t* function_unique_bytes = nullptr;
 
+// Define a logical page size to use throughout this file.
+static const size_t logical_page_size = 8192;
+
 namespace bytesflops {
 
 // Initialize some of our variables at first use.
 void initialize_ubytes (void)
 {
-  global_unique_bytes = new BitPageTable();
+  global_unique_bytes = new BitPageTable(logical_page_size);
   function_unique_bytes = new func_to_page_t();
 }
 
@@ -54,7 +57,7 @@ static BitPageTable* assoc_addresses_with_func (const char* funcname,
   func_to_page_t::iterator map_iter = function_unique_bytes->find(funcname);
   if (map_iter == function_unique_bytes->end())
     // This is the first time we've seen this function.
-    (*function_unique_bytes)[funcname] = unique_bytes = new BitPageTable();
+    (*function_unique_bytes)[funcname] = unique_bytes = new BitPageTable(logical_page_size);
   else
     // We've seen this function before.
     unique_bytes = map_iter->second;

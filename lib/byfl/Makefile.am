@@ -9,7 +9,6 @@ libbyfl_la_SOURCES = \
 	basicblocks.cpp \
 	binaryoutput.cpp \
 	binaryoutput.h \
-	bitpagetable.h \
 	byfl.cpp \
 	byfl.h \
 	cache-model.cpp \
@@ -18,6 +17,8 @@ libbyfl_la_SOURCES = \
 	callstack.h \
 	datastructs.cpp \
 	opcode2name.cpp \
+	pagetable.cpp \
+	pagetable.h \
 	reuse-dist.cpp \
 	strides.cpp \
 	symtable.cpp \
