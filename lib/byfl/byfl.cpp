@@ -11,13 +11,12 @@
 #include "byfl-common.h"
 #include "callstack.h"
 
-namespace bytesflops {}
-using namespace bytesflops;
 using namespace std;
 
-const unsigned int HDR_COL_WIDTH = 20;
-
 namespace bytesflops {
+
+static const unsigned int HDR_COL_WIDTH = 20;  // Maxmim characters in a textual column header
+
 // Keep track of basic-block counters on a per-function basis, being careful to
 // work around the "C++ static initialization order fiasco" (cf. the C++ FAQ).
 key2bfc_t& per_func_totals (void)
@@ -60,10 +59,6 @@ str2bfc_t& user_defined_totals (void)
   return *mapping;
 }
 
-} // namespace bytesflops
-
-
-
 // Associate a function name (which will not be unique across files) with a
 // unique key.  Abort if duplicate keys are detected.  (This should be
 // exceedingly unlikely.)
@@ -95,6 +90,9 @@ extern "C" {
   }
 #endif
 }
+
+} // namespace bytesflops
+
 
 KeyType_t bf_categorize_counters_id = 10; // Should be unlikely that this is a duplicate.
 extern char** environ;
