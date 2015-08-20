@@ -278,6 +278,7 @@ bf-clang
 [B<-bf-vectors>]
 [B<-bf-unique-bytes>]
 [B<-bf-mem-footprint>]
+[B<-bf-strides>]
 [B<-bf-every-bb>]
 [B<-bf-merge-bb>=I<count>]
 [B<-bf-reuse-dist>[=loads|stores]
@@ -342,6 +343,10 @@ Report the number of unique memory addresses referenced.
 
 Report the memory capacity requires to hold various percentages of the
 dynamic memory accesses.
+
+=item B<-bf-strides>
+
+Bin the stride sizes observes by each load and store.
 
 =item B<-bf-every-bb>
 
