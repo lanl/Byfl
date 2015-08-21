@@ -121,9 +121,9 @@ public:
       for (uint64_t i = 0; i < numaddrs; i++) {
         uint64_t address = baseaddr + i;
         uint64_t pagenum = address / logical_page_size;
-        uint64_t bitoffset = address % logical_page_size;
+        uint64_t byteoffset = address % logical_page_size;
         PTE* counters = find_or_create_page(mapping, pagenum);
-        counters->increment(bitoffset, bitoffset);
+        counters->increment(byteoffset, byteoffset);
       }
   }
 
