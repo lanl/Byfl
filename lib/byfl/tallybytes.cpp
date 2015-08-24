@@ -106,7 +106,6 @@ static void get_address_tally_hist (WordPageTable& mapping, vector<bf_addr_tally
   for (auto counts_iter = mapping.begin(); counts_iter != mapping.end(); ) {
     // Increment the iterator now so we can safely delete it at the bottom of
     // this block.
-    uintptr_t baseaddr = counts_iter->first;
     WordPageTableEntry* pte = counts_iter->second;
     counts_iter++;
 

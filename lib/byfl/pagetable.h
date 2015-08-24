@@ -44,8 +44,12 @@ public:
   // Increment the tallies associated with a range of bytes, clamping each at 1.
   void increment(size_t pos1, size_t pos2);
 
-  // Define a constructor and destructor.
+  // Merge the counts from another BitPageTableEntry into ours.
+  void merge(BitPageTableEntry* other);
+
+  // Define a constructor, copy constructor, and destructor.
   BitPageTableEntry(size_t pg_size);
+  BitPageTableEntry(const BitPageTableEntry& other);
   ~BitPageTableEntry();
 };
 
@@ -59,11 +63,15 @@ public:
   // the maximum word value.
   void increment(size_t pos1, size_t pos2);
 
+  // Merge the counts from another WordPageTableEntry into ours.
+  void merge(WordPageTableEntry* other);
+
   // Expose the raw counts.
   bytecount_t* raw_counts() { return byte_counter; }
 
-  // Define a constructor and destructor.
+  // Define a constructor, copy constructor, and destructor.
   WordPageTableEntry(size_t pg_size);
+  WordPageTableEntry(const WordPageTableEntry& other);
   ~WordPageTableEntry();
 };
 
@@ -121,10 +129,35 @@ public:
       for (uint64_t i = 0; i < numaddrs; i++) {
         uint64_t address = baseaddr + i;
         uint64_t pagenum = address / logical_page_size;
-        uint64_t bitoffset = address % logical_page_size;
+        uint64_t byteoffset = address % logical_page_size;
         PTE* counters = find_or_create_page(mapping, pagenum);
-        counters->increment(bitoffset, bitoffset);
+        counters->increment(byteoffset, byteoffset);
       }
+  }
+
+  // Merge another page table into ours.
+  void merge (PageTable<PTE>* other) {
+    // Ensure we have a superset of the other page table's pages.
+    for (auto page_iter = other->mapping.begin();
+         page_iter != other->mapping.end();
+         page_iter++) {
+      uint64_t page_num = page_iter->first;
+      if (mapping.find(page_num) != mapping.end())
+        continue;
+      mapping[page_num] = new PTE(logical_page_size);
+    }
+
+    // Merge page-by-page.
+    for (auto page_iter = mapping.begin();
+         page_iter != mapping.end();
+         page_iter++) {
+      uint64_t page_num = page_iter->first;
+      auto other_page_iter = other->mapping.find(page_num);
+      if (other_page_iter == other->mapping.end())
+        continue;
+      BitPageTableEntry* pte = other_page_iter->second;
+      page_iter->second->merge(pte);
+    }
   }
 
   // Return the number of unique addresses accessed.
