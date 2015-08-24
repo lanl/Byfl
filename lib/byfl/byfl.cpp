@@ -729,6 +729,8 @@ private:
 
   // Report the total counter values across all basic blocks.
   void report_totals (const char* partition, ByteFlopCounters& counter_totals) {
+    // Precompute various values we intend to report both textually and in the
+    // binary output file.
     uint64_t global_bytes = counter_totals.loads + counter_totals.stores;
     uint64_t global_mem_ops = counter_totals.load_ins + counter_totals.store_ins;
     uint64_t global_unique_bytes = 0;
@@ -740,6 +742,9 @@ private:
     else
       if (bf_unique_bytes && !partition)
         global_unique_bytes = bf_mem_footprint ? bf_tally_unique_addresses_tb() : bf_tally_unique_addresses();
+    uint64_t uti = 0, mti = 0;
+    if (bf_unique_bytes && bf_strides && !partition)
+      bf_partition_unique_addresses(&uti, &mti);
 
     // Prepare the tag to use for output, and indicate that we want to
     // use separators in numerical output.
@@ -796,8 +801,12 @@ private:
     *bfout << tag << ": " << setw(25) << global_bytes << " bytes ("
            << counter_totals.loads << " loaded + "
            << counter_totals.stores << " stored)\n";
-    if (bf_unique_bytes && !partition)
+    if (bf_unique_bytes && !partition) {
       *bfout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
+      if (bf_strides)
+        *bfout << tag << ": " << setw(25) << uti << " unique bytes from scalar accessese\n"
+               << tag << ": " << setw(25) << mti << " unique bytes from non-scalar accessese\n";
+    }
     if (bf_mem_footprint && !partition)
       *bfout << tag << ": " << setw(25) << bytes_for_50pct_hits
              << " addresses cover 50% of all dynamic loads and stores\n";
@@ -873,10 +882,18 @@ private:
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Bytes stored"
            << counter_totals.stores;
-    if (bf_unique_bytes && !partition)
+    if (bf_unique_bytes && !partition) {
       *bfbin << uint8_t(BINOUT_COL_UINT64)
              << "Unique addresses loaded or stored"
              << global_unique_bytes;
+      if (bf_strides)
+        *bfbin << uint8_t(BINOUT_COL_UINT64)
+               << "Unique addresses from scalar loads and stores"
+               << uti
+               << uint8_t(BINOUT_COL_UINT64)
+               << "Unique addresses from non-scalar loads and stores"
+               << mti;
+    }
     if (bf_mem_footprint && !partition)
       *bfbin << uint8_t(BINOUT_COL_UINT64)
              << "Bytes needed to cover half of all dynamic loads and stores"

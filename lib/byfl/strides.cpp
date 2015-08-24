@@ -122,8 +122,33 @@ void bf_track_stride (bf_symbol_info_t* syminfo, uint64_t baseaddr,
   AccessPattern* info = iter->second;
   info->increment_tally(baseaddr);
   info->prev_addr = baseaddr;
-  if (info->touched_data != nullptr)
-    info->touched_data->access(baseaddr, numaddrs);
+  info->touched_data->access(baseaddr, numaddrs);
+}
+
+// Compute the number of unique memory addresses accessed by loads/stores
+// that always reference the same word and by loads/stores that reference
+// different words on different invocations.
+void bf_partition_unique_addresses (uint64_t* uti, uint64_t *mti)
+{
+  BitPageTable uti_pt(logical_page_size);
+  BitPageTable mti_pt(logical_page_size);
+  for (auto iter = stride_data->begin(); iter != stride_data->end(); iter++) {
+    // Determine if this is a uni-targeted instruction (UTI) or a
+    // multi-targeted instruction (MTI).
+    AccessPattern* info = iter->second;
+    uint64_t nonzero_strides = 0;
+    for (size_t i = 0; i <= MAX_POW2_STRIDE; i++)
+      nonzero_strides += info->stride_tally[i];
+
+    // Merge the current pattern's page table into either the UTI or MTI page
+    // table.
+    if (nonzero_strides == 0)
+      uti_pt.merge(info->touched_data);
+    else
+      mti_pt.merge(info->touched_data);
+  }
+  *uti = uti_pt.tally_unique();
+  *mti = mti_pt.tally_unique();
 }
 
 // This function is used by sort() to sort stride information in decreasing

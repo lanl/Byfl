@@ -19,6 +19,13 @@ BitPageTableEntry::BitPageTableEntry(size_t pg_size) : BasePageTableEntry(pg_siz
   memset((void *)bit_vector, 0, sizeof(uint64_t)*logical_page_size/64);
 }
 
+// Copy an existing page-table entry.
+BitPageTableEntry::BitPageTableEntry(const BitPageTableEntry& other) : BasePageTableEntry(other)
+{
+  bit_vector = new uint64_t[logical_page_size/64];
+  memcpy((void *)bit_vector, other.bit_vector, sizeof(uint64_t)*logical_page_size/64);
+}
+
 // Destruct a bit-sized page-table entry.
 BitPageTableEntry::~BitPageTableEntry()
 {
@@ -69,12 +76,60 @@ void BitPageTableEntry::increment(size_t pos1, size_t pos2)
   }
 }
 
+// Merge the counts from another BitPageTableEntry into ours.
+void BitPageTableEntry::merge(BitPageTableEntry* other)
+{
+  // Do nothing if our page is full.
+  if (!bit_vector)
+    return;
+
+  // If the other PTE is full, set all of our bits to 1.
+  if (other->bit_vector == nullptr) {
+    for (size_t w = 0; w < logical_page_size/64; w++) {
+      uint64_t word0 = bit_vector[w];
+      for (size_t b = 0; b < 64; b++) {
+        uint64_t bit0 = word0 & (1ULL<<b);
+        uint64_t bit1 = 1ULL<<b;
+        if (bit0 == 0ULL) {
+          word0 |= bit1;
+          bytes_touched++;
+        }
+      }
+      bit_vector[w] = word0;
+      return;
+    }
+  }
+
+  // Merge bit-by-bit, incrementing bytes_touched on any transition
+  // from zero to one.
+  for (size_t w = 0; w < logical_page_size/64; w++) {
+    uint64_t word0 = bit_vector[w];
+    uint64_t word1 = other->bit_vector[w];
+    for (size_t b = 0; b < 64; b++) {
+      uint64_t bit0 = word0 & (1ULL<<b);
+      uint64_t bit1 = word1 & (1ULL<<b);
+      if (bit0 == 0ULL && bit1 != 0ULL) {
+        word0 |= bit1;
+        bytes_touched++;
+      }
+    }
+    bit_vector[w] = word0;
+  }
+}
+
 // Construct a page-table entry for word-sized counters.
 WordPageTableEntry::WordPageTableEntry(size_t pg_size) : BasePageTableEntry(pg_size)
 {
   bytes_touched = 0;
   byte_counter = new bytecount_t[logical_page_size];
   memset((void *)byte_counter, 0, sizeof(bytecount_t)*logical_page_size);
+}
+
+// Copy an existing page-table entry.
+WordPageTableEntry::WordPageTableEntry(const WordPageTableEntry& other) : BasePageTableEntry(other)
+{
+  byte_counter = new bytecount_t[logical_page_size];
+  memcpy((void *)byte_counter, other.byte_counter, sizeof(bytecount_t)*logical_page_size);
 }
 
 // Destruct a word-sized page-table entry.
@@ -103,6 +158,23 @@ void WordPageTableEntry::increment(size_t pos1, size_t pos2)
         byte_counter[pos]++;
         break;
     }
+}
+
+// Merge the counts from another WordPageTableEntry into ours.
+void WordPageTableEntry::merge(WordPageTableEntry* other)
+{
+  for (size_t pos = 0; pos < logical_page_size; pos++) {
+    bytecount_t count0 = byte_counter[pos];
+    bytecount_t count1 = other->byte_counter[pos];
+    if (count1 == 0)
+      continue;
+    if (count0 != 0) {
+      byte_counter[pos] = count1;
+      bytes_touched++;
+    }
+    else
+      byte_counter[pos] = (count1 > bf_max_bytecount - count0) ? bf_max_bytecount : count0 + count1;
+  }
 }
 
 } // namespace bytesflops
