@@ -96,8 +96,8 @@ void BitPageTableEntry::merge(BitPageTableEntry* other)
         }
       }
       bit_vector[w] = word0;
-      return;
     }
+    return;
   }
 
   // Merge bit-by-bit, incrementing bytes_touched on any transition
