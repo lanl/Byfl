@@ -17,6 +17,9 @@ namespace bytesflops {
 #define OTHER_STRIDE (ZERO_STRIDE + 1)     // Non-zero and non-power-of-two word stride
 #define NUM_STRIDES (OTHER_STRIDE + 1)     // Array elements to allocate for all of the above
 
+// Define a logical page size to use throughout this file.
+static const size_t logical_page_size = 1024;
+
 // Track a single call point's data-access pattern.
 class AccessPattern {
 public:
@@ -27,15 +30,26 @@ public:
   uint64_t backward_strides;            // Tally of backward strides, any distance
   uint64_t total_strides;               // Sum across stride_tally[]
   bool is_store;                        // true=store; false=load
+  BitPageTable* touched_data;           // Flags for every byte of memory accessed
 
   // Initialize an AccessPattern with all zero tallies.
   AccessPattern(bf_symbol_info_t sinfo, uint64_t addr, uint64_t nbytes, bool st) :
     syminfo(sinfo), prev_addr(addr), num_bytes(nbytes),  backward_strides(0),
-    total_strides(0), is_store(st) {
+    total_strides(0), is_store(st), touched_data(nullptr) {
     memset(stride_tally, 0, NUM_STRIDES*sizeof(uint64_t));
+    if (bf_unique_bytes || bf_mem_footprint) {
+      touched_data = new BitPageTable(logical_page_size);
+      touched_data->access(addr, nbytes);
+    }
   }
 
-  // Given a new address, increment the appropriate stride tally.
+  // Free any memory we allocated.
+  ~AccessPattern() {
+    if (touched_data != nullptr)
+      delete touched_data;
+  }
+
+  // Given an address, increment the appropriate stride tally.
   void increment_tally(uint64_t new_addr) {
     // Increase the total number of strides observed.
     total_strides++;
@@ -108,6 +122,34 @@ void bf_track_stride (bf_symbol_info_t* syminfo, uint64_t baseaddr,
   AccessPattern* info = iter->second;
   info->increment_tally(baseaddr);
   info->prev_addr = baseaddr;
+  if (info->touched_data != nullptr)
+    info->touched_data->access(baseaddr, numaddrs);
+}
+
+// Compute the number of unique memory addresses accessed by loads/stores
+// that always reference the same word and by loads/stores that reference
+// different words on different invocations.
+void bf_partition_unique_addresses (uint64_t* uti, uint64_t *mti)
+{
+  BitPageTable uti_pt(logical_page_size);
+  BitPageTable mti_pt(logical_page_size);
+  for (auto iter = stride_data->begin(); iter != stride_data->end(); iter++) {
+    // Determine if this is a uni-targeted instruction (UTI) or a
+    // multi-targeted instruction (MTI).
+    AccessPattern* info = iter->second;
+    uint64_t nonzero_strides = 0;
+    for (size_t i = 0; i <= MAX_POW2_STRIDE; i++)
+      nonzero_strides += info->stride_tally[i];
+
+    // Merge the current pattern's page table into either the UTI or MTI page
+    // table.
+    if (nonzero_strides == 0)
+      uti_pt.merge(info->touched_data);
+    else
+      mti_pt.merge(info->touched_data);
+  }
+  *uti = uti_pt.tally_unique();
+  *mti = mti_pt.tally_unique();
 }
 
 // This function is used by sort() to sort stride information in decreasing
@@ -146,8 +188,10 @@ void bf_report_strides_by_call_point (void)
     *bfbin << uint8_t(BINOUT_COL_UINT64) << label;
   }
   *bfbin << uint8_t(BINOUT_COL_UINT64) << "Other strides"
-         << uint8_t(BINOUT_COL_UINT64) << "Total backward strides"
-         << uint8_t(BINOUT_COL_NONE);
+         << uint8_t(BINOUT_COL_UINT64) << "Total backward strides";
+  if (bf_unique_bytes || bf_mem_footprint)
+    *bfbin << uint8_t(BINOUT_COL_UINT64) << "Unique bytes";
+  *bfbin << uint8_t(BINOUT_COL_NONE);
 
   // Sort the stride information in decreasing order of invocation count.
   vector<AccessPattern*> access_pats;
@@ -179,6 +223,8 @@ void bf_report_strides_by_call_point (void)
       *bfbin << info->stride_tally[i];
     *bfbin << info->stride_tally[OTHER_STRIDE]
            << info->backward_strides;
+    if (bf_unique_bytes || bf_mem_footprint)
+      *bfbin << info->touched_data->tally_unique();
   }
   *bfbin << uint8_t(BINOUT_ROW_NONE);
 }
