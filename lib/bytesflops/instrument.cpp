@@ -187,7 +187,8 @@ namespace bytesflops_pass {
     // Determine the memory address that was loaded or stored.
     CastInst* mem_addr = nullptr;
     Value* mem_ptr = nullptr;
-    if (TrackUniqueBytes || FindMemFootprint || rd_bits > 0 || TallyByDataStruct || CacheModel) {
+    if (TrackUniqueBytes || FindMemFootprint || rd_bits > 0 ||
+        TallyByDataStruct || TrackStrides || CacheModel) {
       mem_ptr =
         opcode == Instruction::Load
         ? cast<LoadInst>(inst).getPointerOperand()

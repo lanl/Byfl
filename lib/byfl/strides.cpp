@@ -122,7 +122,8 @@ void bf_track_stride (bf_symbol_info_t* syminfo, uint64_t baseaddr,
   AccessPattern* info = iter->second;
   info->increment_tally(baseaddr);
   info->prev_addr = baseaddr;
-  info->touched_data->access(baseaddr, numaddrs);
+  if (info->touched_data != nullptr)
+    info->touched_data->access(baseaddr, numaddrs);
 }
 
 // Compute the number of unique memory addresses accessed by loads/stores
