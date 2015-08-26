@@ -802,10 +802,13 @@ private:
            << counter_totals.loads << " loaded + "
            << counter_totals.stores << " stored)\n";
     if (bf_unique_bytes && !partition) {
-      *bfout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
       if (bf_strides)
-        *bfout << tag << ": " << setw(25) << uti << " unique bytes from scalar accessese\n"
-               << tag << ": " << setw(25) << mti << " unique bytes from non-scalar accessese\n";
+        *bfout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes ("
+               << uti << " from single-target loads and stores + "
+               << mti << " from multiple-target loads and stores - "
+               << uti + mti - global_unique_bytes << " overlapped)\n";
+        else
+          *bfout << tag << ": " << setw(25) << global_unique_bytes << " unique bytes\n";
     }
     if (bf_mem_footprint && !partition)
       *bfout << tag << ": " << setw(25) << bytes_for_50pct_hits
@@ -888,10 +891,10 @@ private:
              << global_unique_bytes;
       if (bf_strides)
         *bfbin << uint8_t(BINOUT_COL_UINT64)
-               << "Unique addresses from scalar loads and stores"
+               << "Unique addresses from single-target loads and stores"
                << uti
                << uint8_t(BINOUT_COL_UINT64)
-               << "Unique addresses from non-scalar loads and stores"
+               << "Unique addresses from multiple-target loads and stores"
                << mti;
     }
     if (bf_mem_footprint && !partition)
