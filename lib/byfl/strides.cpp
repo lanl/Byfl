@@ -140,6 +140,7 @@ void bf_partition_unique_addresses (uint64_t* uti, uint64_t *mti)
     uint64_t nonzero_strides = 0;
     for (size_t i = 0; i <= MAX_POW2_STRIDE; i++)
       nonzero_strides += info->stride_tally[i];
+    nonzero_strides += info->stride_tally[OTHER_STRIDE];
 
     // Merge the current pattern's page table into either the UTI or MTI page
     // table.
