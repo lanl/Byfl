@@ -30,12 +30,14 @@ public:
   uint64_t backward_strides;            // Tally of backward strides, any distance
   uint64_t total_strides;               // Sum across stride_tally[]
   bool is_store;                        // true=store; false=load
+  bool is_const;                        // true=provably constant address at compile time; false=may vary
   BitPageTable* touched_data;           // Flags for every byte of memory accessed
 
   // Initialize an AccessPattern with all zero tallies.
-  AccessPattern(bf_symbol_info_t sinfo, uint64_t addr, uint64_t nbytes, bool st) :
+  AccessPattern(bf_symbol_info_t sinfo, uint64_t addr, uint64_t nbytes,
+                bool st, bool cons) :
     syminfo(sinfo), prev_addr(addr), num_bytes(nbytes),  backward_strides(0),
-    total_strides(0), is_store(st), touched_data(nullptr) {
+    total_strides(0), is_store(st), is_const(cons), touched_data(nullptr) {
     memset(stride_tally, 0, NUM_STRIDES*sizeof(uint64_t));
     if (bf_unique_bytes || bf_mem_footprint) {
       touched_data = new BitPageTable(logical_page_size);
@@ -107,13 +109,13 @@ void initialize_strides (void)
 // Track a call point's strided access pattern.
 extern "C"
 void bf_track_stride (bf_symbol_info_t* syminfo, uint64_t baseaddr,
-                      uint64_t numaddrs, uint8_t load0store1)
+                      uint64_t numaddrs, uint8_t load0store1, uint8_t is_const)
 {
   // Determine if we've previously seen this call point.
   auto iter = stride_data->find(syminfo->ID);
   if (iter == stride_data->end()) {
     // First access from this call point: Create a new tally entry.
-    (*stride_data)[syminfo->ID] = new AccessPattern(*syminfo, baseaddr, numaddrs, bool(load0store1));
+    (*stride_data)[syminfo->ID] = new AccessPattern(*syminfo, baseaddr, numaddrs, bool(load0store1), bool(is_const));
     return;
   }
 
@@ -183,6 +185,7 @@ void bf_report_strides_by_call_point (void)
          << uint8_t(BINOUT_COL_STRING) << "Demangled function name"
          << uint8_t(BINOUT_COL_STRING) << "File name"
          << uint8_t(BINOUT_COL_UINT64) << "Line number"
+         << uint8_t(BINOUT_COL_BOOL)   << "Constant address"
          << uint8_t(BINOUT_COL_UINT64) << "0 word strides";
   for (size_t i = 0; i <= MAX_POW2_STRIDE; i++) {
     string label = to_string(1 << i) + string(" word strides");
@@ -219,6 +222,7 @@ void bf_report_strides_by_call_point (void)
            << demangle_func_name(syminfo->function)
            << (strcmp(syminfo->file, "??") == 0 ? "" : syminfo->file)
            << uint64_t(syminfo->line)
+           << info->is_const
            << info->stride_tally[ZERO_STRIDE];
     for (size_t i = 0; i <= MAX_POW2_STRIDE; i++)
       *bfbin << info->stride_tally[i];
