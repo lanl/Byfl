@@ -236,17 +236,18 @@ namespace bytesflops_pass {
       callinst_create(reuse_dist_prog, arg_list, insert_before);
     }
 
-    // If requested by the user, also insert a call to
-    // bf_track_stride().
+    // If requested by the user, also insert a call to bf_track_stride().
     if (TrackStrides) {
       vector<Value*> arg_list;
       func_syminfo =
         find_value_provenance(*module, &inst, inst_to_string(&inst), insert_before, func_syminfo);
       uint8_t load0store1 = opcode == Instruction::Load ? 0 : 1;
+      uint8_t is_const = all_constant_refs(&inst);
       arg_list.push_back(func_syminfo);
       arg_list.push_back(mem_addr);
       arg_list.push_back(num_bytes);
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
+      arg_list.push_back(ConstantInt::get(bbctx, APInt(8, is_const)));
       callinst_create(track_stride, arg_list, insert_before);
     }
 

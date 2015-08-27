@@ -1036,4 +1036,128 @@ AllocaInst* BytesFlops::find_value_provenance(Module& module,
   return find_value_provenance(module, syminfo, &*insert_before, syminfo_struct);
 }
 
+// Return true if an arbitrary instruction provably returns the same values on
+// every invocation.
+static bool all_constant_refs_helper(Instruction* inst)
+{
+  // Only certain instructions can ever be considered constant.  This list is
+  // largely derived from the Constant Expressions section in the LLVM Language
+  // Reference Manual (http://llvm.org/docs/LangRef.html).
+  unsigned int opcode = inst->getOpcode();
+  switch (opcode) {
+    case Instruction::AShr:
+    case Instruction::Add:
+    case Instruction::AddrSpaceCast:
+    case Instruction::And:
+    case Instruction::BitCast:
+    case Instruction::ExtractElement:
+    case Instruction::ExtractValue:
+    case Instruction::FAdd:
+    case Instruction::FCmp:
+    case Instruction::FDiv:
+    case Instruction::FMul:
+    case Instruction::FPExt:
+    case Instruction::FPToSI:
+    case Instruction::FPToUI:
+    case Instruction::FPTrunc:
+    case Instruction::FRem:
+    case Instruction::FSub:
+    case Instruction::GetElementPtr:
+    case Instruction::ICmp:
+    case Instruction::InsertElement:
+    case Instruction::InsertValue:
+    case Instruction::IntToPtr:
+    case Instruction::LShr:
+    case Instruction::Mul:
+    case Instruction::Or:
+    case Instruction::PtrToInt:
+    case Instruction::SDiv:
+    case Instruction::SExt:
+    case Instruction::SIToFP:
+    case Instruction::SRem:
+    case Instruction::Select:
+    case Instruction::Shl:
+    case Instruction::ShuffleVector:
+    case Instruction::Sub:
+    case Instruction::Trunc:
+    case Instruction::UDiv:
+    case Instruction::UIToFP:
+    case Instruction::URem:
+    case Instruction::Xor:
+    case Instruction::ZExt:
+      // Eligible for being constant
+      break;
+
+    default:
+      // Ineligible for being constant
+      return false;
+      break;
+  }
+
+  // The result of a load instruction is always considered variable.
+  if (dyn_cast<LoadInst>(inst) != nullptr)
+    return false;
+
+  // Examine each operand in turn.
+  for (auto op_iter = inst->op_begin(); op_iter != inst->op_end(); op_iter++) {
+    // Get the current operand.
+    Use* op_use = &*op_iter;
+    Value* op_value = op_use->get();
+
+    // If the operand is a constant, we're good.  Move onto the next operand.
+    if (dyn_cast<Constant>(op_value) != nullptr)
+      continue;
+
+    // If the operand is not an instruction (e.g., it's a function argument),
+    // we consider it non-constant.
+    Instruction* op_inst = dyn_cast<Instruction>(op_value);
+    if (op_inst == nullptr)
+      return false;
+
+    // If the operand is an instruction, recursively check if all of its
+    // operands are constant.
+    if (!all_constant_refs_helper(op_inst))
+      return false;
+  }
+  return true;
+}
+
+// Return true if a load or store instruction provably accesses the same
+// addresses on every invocation.
+bool BytesFlops::all_constant_refs(Instruction* inst)
+{
+  // As a special case, the value operand of a store instruction can be
+  // variable without affecting the overall instruction's constness.
+  Value* ignorable = nullptr;
+  if (auto st = dyn_cast<StoreInst>(inst))
+    ignorable = st->getValueOperand();
+
+  // Examine each operand in turn.
+  for (auto op_iter = inst->op_begin(); op_iter != inst->op_end(); op_iter++) {
+    // Get the current operand.
+    Use* op_use = &*op_iter;
+    Value* op_value = op_use->get();
+
+    // Ignore operands in certain special cases.
+    if (op_value == ignorable)
+      continue;
+
+    // If the operand is a constant, we're good.  Move onto the next operand.
+    if (dyn_cast<Constant>(op_value) != nullptr)
+      continue;
+
+    // If the operand is not an instruction (e.g., it's a function argument),
+    // we consider it variable.
+    Instruction* op_inst = dyn_cast<Instruction>(op_value);
+    if (op_inst == nullptr)
+      return false;
+
+    // If the operand is an instruction, recursively check if all of its
+    // operands are constant.
+    if (!all_constant_refs_helper(op_inst))
+      return false;
+  }
+  return true;
+}
+
 } // namespace bytesflops_pass

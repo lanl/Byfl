@@ -510,6 +510,10 @@ namespace bytesflops_pass {
                                       BasicBlock::iterator& insert_before,
                                       AllocaInst* syminfo_struct);
 
+    // Return true if a load or store instruction provably accesses the same
+    // addresses on every invocation.
+    bool all_constant_refs(Instruction* inst);
+
   public:
     static char ID;
 

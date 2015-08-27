@@ -552,6 +552,7 @@ namespace bytesflops_pass {
       all_function_args.push_back(uint64_arg);
       all_function_args.push_back(uint64_arg);
       all_function_args.push_back(uint8_arg);
+      all_function_args.push_back(uint8_arg);
       void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);
       track_stride = declare_extern_c(void_func_result, "bf_track_stride", &module);
