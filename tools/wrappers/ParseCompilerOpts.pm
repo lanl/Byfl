@@ -66,6 +66,9 @@ sub parse_compiler_options (@)
     my $for_compiler = sub ($$) {
         push @compiler_opts, [$_[0], $_[1]];
     };
+    my $for_compiler_1 = sub ($$) {
+        push @compiler_opts, [$_[0], undef];
+    };
     my $for_linker = sub ($$) {
         push @linker_opts, [$_[0], $_[1]];
     };
@@ -85,14 +88,6 @@ sub parse_compiler_options (@)
                             %build_type = ("compile" => 1);
                         },
                         "E" => sub {
-                            $for_compiler->($_[0], undef);
-                            %build_type = ();
-                        },
-                        "M" => sub {
-                            $for_compiler->($_[0], undef);
-                            %build_type = ();
-                        },
-                        "MM" => sub {
                             $for_compiler->($_[0], undef);
                             %build_type = ();
                         },
@@ -171,9 +166,15 @@ sub parse_compiler_options (@)
                         "x=s" => $for_compiler,
 
                         # Recognize preprocessor options as compiler options.
+                        "M"    => $for_compiler_1,
+                        "MD"   => $for_compiler_1,
                         "MF=s" => $for_compiler,
-                        "MT=s" => $for_compiler,
+                        "MG"   => $for_compiler_1,
+                        "MM"   => $for_compiler_1,
+                        "MMD"  => $for_compiler_1,
+                        "MP"   => $for_compiler_1,
                         "MQ=s" => $for_compiler,
+                        "MT=s" => $for_compiler,
 
                         # Recognize linker options.
                         "L=s" => $for_linker,
