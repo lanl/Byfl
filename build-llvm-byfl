@@ -36,7 +36,7 @@ use_byfl=yes
 use_llvm=yes
 destdir=
 byfl_branch=llvm-3.6
-llvm_branch=tags/RELEASE_360/final
+llvm_branch=tags/RELEASE_362/final
 while getopts j:b:r:tdcCD:x:B:L: opt; do
     case $opt in
         j)
