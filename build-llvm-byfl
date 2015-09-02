@@ -2,8 +2,8 @@
 
 ######################################
 # Automatically do a clean build of  #
-# LLVM trunk and Clang trunk and     #
-# then of Byfl head                  #
+# LLVM 3.7 and Clang 3.7 and then of #
+# Byfl's llvm-3.7 branch             #
 #                                    #
 # By Scott Pakin <pakin@lanl.gov>    #
 ######################################
@@ -35,8 +35,8 @@ llvm_revision=HEAD
 use_byfl=yes
 use_llvm=yes
 destdir=
-byfl_branch=master
-llvm_branch=trunk
+byfl_branch=llvm-3.7
+llvm_branch=tags/RELEASE_370/final
 while getopts j:b:r:tdcCD:x:B:L: opt; do
     case $opt in
         j)
@@ -172,7 +172,7 @@ function run_with_progress () {
             tee -a "$logfile" | \
             stdbuf -oL awk '{printf "%d\n", 100*NR/MAXLN; print > "/dev/stderr"}' MAXLN="$maxlines" | \
             stdbuf -oL uniq 1>&4
-            echo 100 1>&4
+        echo 100 1>&4
     else
         "$@"
     fi
@@ -207,7 +207,7 @@ if [ "$download" = yes ] ; then
         run_with_progress cleanup-llvm 71000 rm -rfv llvm
     fi
 
-    # Download LLVM trunk.
+    # Download LLVM.
     if [ "$use_llvm" = yes ] ; then
         echo "# Downloading LLVM revision $llvm_revision on $llvm_branch into $builddir" 1>&4
         run_with_progress llvm-dl 19000 svn checkout -r "$llvm_revision" "http://llvm.org/svn/llvm-project/llvm/$llvm_branch" llvm
