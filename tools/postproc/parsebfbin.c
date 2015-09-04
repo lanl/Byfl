@@ -373,7 +373,7 @@ static void process_byfl_keyval_table (parse_state_t *state)
       case BINOUT_COL_UINT64:
         read_big_endian(state, sizeof(uint64_t));
         if (valid_bytes + sizeof(uint64_t) > bytes_alloced) {
-          bytes_alloced = bytes_alloced == 0 ? 256 : (bytes_alloced + sizeof(uint64_t)) * 2;
+          bytes_alloced = (bytes_alloced + sizeof(uint64_t)) * 2;
           row_data = (uint8_t *) realloc(row_data, bytes_alloced);
           if (!row_data)
             THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
@@ -387,7 +387,7 @@ static void process_byfl_keyval_table (parse_state_t *state)
         read_string(state);
         string_len = strlen(state->last_value);
         if (valid_bytes + string_len + 1 > bytes_alloced) {
-          bytes_alloced = bytes_alloced == 0 ? 256 : (bytes_alloced + string_len + 1) * 2;
+          bytes_alloced = (bytes_alloced + string_len + 1) * 2;
           row_data = (uint8_t *) realloc(row_data, bytes_alloced);
           if (!row_data)
             THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
@@ -400,7 +400,7 @@ static void process_byfl_keyval_table (parse_state_t *state)
       case BINOUT_COL_BOOL:
         read_big_endian(state, sizeof(uint8_t));
         if (valid_bytes + sizeof(uint64_t) > bytes_alloced) {
-          bytes_alloced = bytes_alloced == 0 ? 256 : (bytes_alloced + sizeof(uint8_t)) * 2;
+          bytes_alloced = (bytes_alloced + sizeof(uint8_t)) * 2;
           row_data = (uint8_t *) realloc(row_data, bytes_alloced);
           if (!row_data)
             THROW_ERROR("Failed to allocate %lu bytes of memory (%s)",
