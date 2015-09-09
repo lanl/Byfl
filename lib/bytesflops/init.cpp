@@ -369,25 +369,23 @@ namespace bytesflops_pass {
     pop_function = 0;
 
     if (TallyByFunction) {
-        // bf_assoc_counters_with_func
-        vector<Type*> func_arg;
+      // bf_assoc_counters_with_func
+      vector<Type*> func_arg;
+      func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
+      FunctionType* void_func_result =
+        FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
+      assoc_counts_with_func =
+        declare_extern_c(void_func_result,
+                         "bf_assoc_counters_with_func",
+                         &module);
 
-        // arg: key ID
-        func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
-        FunctionType* void_func_result =
-          FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
-        assoc_counts_with_func =
-          declare_extern_c(void_func_result,
-                           "bf_assoc_counters_with_func",
-                           &module);
-
-        vector<Type*> taly_func_arg;
-        taly_func_arg.push_back(ptr_to_char_arg);
-        // add 2nd arg for function key
-        taly_func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
-        FunctionType* void_str_int_func_result =
-                  FunctionType::get(Type::getVoidTy(globctx), taly_func_arg, false);
-
+      // bf_incr_func_tally
+      vector<Type*> tally_func_arg;
+      tally_func_arg.push_back(ptr_to_char_arg);
+      tally_func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
+      FunctionType* void_str_int_func_result =
+        FunctionType::get(Type::getVoidTy(globctx), tally_func_arg, false);
+      tally_func_arg.push_back(ptr_to_syminfo_arg);
       tally_function =
         declare_extern_c(void_func_result,
                          "bf_incr_func_tally",

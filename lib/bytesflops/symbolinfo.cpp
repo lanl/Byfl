@@ -180,4 +180,32 @@ InternalSymbolInfo::InternalSymbolInfo(DIGlobalVariable& var, string defn_loc) {
   line = var.getLineNumber();
 }
 
+// Construct an InternalSymbolInfo from a Function.
+InternalSymbolInfo::InternalSymbolInfo(Function* funcptr)
+{
+  // Initialize our fields with placeholder values.
+  if (prng == nullptr)
+    prng = new MersenneTwister("InternalSymbolInfo Function");  // Arbitrary salt
+  ID = prng->next();
+  origin = "text";
+  symbol = "*UNNAMED*";
+  function = "??";
+  file = "??";
+  line = 0;
+  precise = false;
+
+  // Find the function.  Return empty-handed if we can't find it (hopefully an
+  // extremely rare situation).
+  if (func2loc == nullptr)
+    initialize_func2loc(funcptr->getParent());
+  auto fiter = func2loc->find(funcptr);
+  if (fiter == func2loc->end())
+    return;
+  if (funcptr->hasName())
+    symbol = function = funcptr->getName();
+  string_uint_pair& file_line = fiter->second;
+  file = file_line.first;
+  line = file_line.second;
+}
+
 }
