@@ -38,6 +38,13 @@ static key2name_t& key_to_func (void)
     return *mapping;
 }
 
+typedef CachedUnorderedMap<KeyType_t, bf_symbol_info_t> key2info_t;
+static key2info_t& key_to_func_info (void)
+{
+    static key2info_t* mapping = new key2info_t();
+    return *mapping;
+}
+
 typedef std::map<std::string, uint64_t> str2num_t;
 static str2num_t& final_call_tallies (void)
 {
@@ -193,13 +200,17 @@ void bf_enable_counting (int enable)
   bf_suppress_counting = !bool(enable);
 }
 
-// Tally the number of calls to each function.
+// Tally the number of calls to each function.  Store the function's symbol
+// info on its first invocation.
 extern "C"
-void bf_incr_func_tally (KeyType_t keyID)
+void bf_incr_func_tally (KeyType_t keyID, bf_symbol_info_t* syminfo)
 {
   if (bf_suppress_counting)
     return;
   func_call_tallies()[keyID]++;
+  if (syminfo != nullptr &&
+      key_to_func_info().find(keyID) == key_to_func_info().end())
+    key_to_func_info()[keyID] = *syminfo;
 }
 
 extern "C"
@@ -455,7 +466,9 @@ private:
              << uint8_t(BINOUT_COL_STRING) << "Demangled call stack";
     else
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled function name"
-             << uint8_t(BINOUT_COL_STRING) << "Demangled function name";
+             << uint8_t(BINOUT_COL_STRING) << "Demangled function name"
+             << uint8_t(BINOUT_COL_STRING) << "File name"
+             << uint8_t(BINOUT_COL_UINT64) << "Line number";
     *bfbin << uint8_t(BINOUT_COL_NONE);
 
     // Output the data by sorted function name in both textual and
@@ -530,12 +543,28 @@ private:
       *bfbin << invocations
              << funcname_c
              << demangle_func_name(funcname_c);
+      if (!bf_call_stack) {
+        auto symiter = key_to_func_info().find(*fn_iter);
+        if (symiter == key_to_func_info().end())
+          *bfbin << "" << uint64_t(0);
+        else
+          *bfbin << symiter->second.file << uint64_t(symiter->second.line);
+      }
     }
     *bfbin << uint8_t(BINOUT_ROW_NONE);
     delete all_funcs;
 
     // Output, both textually and in binary, invocation tallies for
     // all called functions, not just instrumented functions.
+    vector<const char*> all_called_funcs;
+    for (str2num_t::iterator sm_iter = final_call_tallies().begin();
+         sm_iter != final_call_tallies().end();
+         sm_iter++)
+      all_called_funcs.push_back(sm_iter->first.c_str());
+    unordered_map<string, bf_symbol_info_t> fname_to_info;
+    for (auto fiter = key_to_func_info().begin(); fiter != key_to_func_info().end(); fiter++)
+      fname_to_info[string(fiter->second.function)] = fiter->second;
+    sort(all_called_funcs.begin(), all_called_funcs.end(), compare_func_totals);
     *bfout << bf_output_prefix
            << "BYFL_CALLEE_HEADER: "
            << setw(13) << "Invocations" << ' '
@@ -546,14 +575,12 @@ private:
            << uint8_t(BINOUT_COL_BOOL) << "Byfl instrumented"
            << uint8_t(BINOUT_COL_BOOL) << "Exception throwing"
            << uint8_t(BINOUT_COL_STRING) << "Mangled function name"
-           << uint8_t(BINOUT_COL_STRING) << "Demangled function name"
-           << uint8_t(BINOUT_COL_NONE);
-    vector<const char*> all_called_funcs;
-    for (str2num_t::iterator sm_iter = final_call_tallies().begin();
-         sm_iter != final_call_tallies().end();
-         sm_iter++)
-      all_called_funcs.push_back(sm_iter->first.c_str());
-    sort(all_called_funcs.begin(), all_called_funcs.end(), compare_func_totals);
+           << uint8_t(BINOUT_COL_STRING) << "Demangled function name";
+    bool have_loc = fname_to_info.size() > 0;
+    if (have_loc)
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "File name"
+             << uint8_t(BINOUT_COL_UINT64) << "Line number";
+    *bfbin << uint8_t(BINOUT_COL_NONE);
     for (vector<const char*>::iterator fn_iter = all_called_funcs.begin();
          fn_iter != all_called_funcs.end();
          fn_iter++) {
@@ -581,6 +608,13 @@ private:
         *bfbin << uint8_t(BINOUT_ROW_DATA)
                << tally << instrumented << exception_throwing
                << funcname << funcname_demangled;
+        if (have_loc) {
+          auto iiter = fname_to_info.find(string(funcname));
+          if (iiter == fname_to_info.end())
+            *bfbin << "" << uint64_t(0);
+          else
+            *bfbin << iiter->second.file << uint64_t(iiter->second.line);
+        }
         *bfout << '\n';
       }
     }
