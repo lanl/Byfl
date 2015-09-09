@@ -161,7 +161,10 @@ namespace bytesflops_pass {
     // Construct an InternalSymbolInfo directly from a DIGlobalVariable..
     InternalSymbolInfo(DIGlobalVariable& var, string defn_loc);
 
-    // Format our contents and write them to a stream.
+    // Construct an InternalSymbolInfo from a Function.
+    InternalSymbolInfo(Function* funcptr);
+
+  // Format our contents and write them to a stream.
     friend raw_ostream& operator<< (raw_ostream &ros, const InternalSymbolInfo& sym) {
       ros << sym.function << ':' << sym.symbol << " @ " << sym.file << ':' << sym.line;
       return ros;
