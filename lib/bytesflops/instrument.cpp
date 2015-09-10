@@ -425,9 +425,8 @@ namespace bytesflops_pass {
       }
     }
 
-    // Tally the callee (with a distinguishing "+" in front of its
-    // name) in order to keep track of calls to uninstrumented
-    // functions.
+    // Tally the callee (with a distinguishing "+" in front of its name) in
+    // order to keep track of calls to uninstrumented functions.
     if (TallyByFunction) {
       // Generate a key if needed.
       FunctionKeyGen::KeyID keyval;
@@ -437,8 +436,11 @@ namespace bytesflops_pass {
                                                            8*sizeof(FunctionKeyGen::KeyID)),
                                           keyval);
 
-      // Tally the function with the given key.
-      callinst_create(tally_function, key, insert_before);
+      // Tally the function with the given key but null function information.
+      vector<Value*> arg_list;
+      arg_list.push_back(key);
+      arg_list.push_back(null_pointer);
+      callinst_create(tally_function, arg_list, insert_before);
     }
 
     // If data structures are to be monitored, keep track of all
@@ -556,8 +558,11 @@ namespace bytesflops_pass {
                                                            8*sizeof(FunctionKeyGen::KeyID)),
                                           keyval);
 
-      // Tally the function with the given key.
-      callinst_create(tally_function, key, insert_before);
+      // Tally the function with the given key but null function information.
+      vector<Value*> arg_list;
+      arg_list.push_back(key);
+      arg_list.push_back(null_pointer);
+      callinst_create(tally_function, arg_list, insert_before);
     }
 
     // If data structures are to be monitored, keep track of all
@@ -808,6 +813,15 @@ namespace bytesflops_pass {
       BasicBlock::Create(func_ctx, "bf_entry", &function, &old_entry);
     callinst_create(init_if_necessary, new_entry);
 
+    // Branch to the original entry point.
+    BranchInst* br_inst = BranchInst::Create(&old_entry, new_entry);
+
+    // Stack-allocate a bf_symbol_info_t to be used throughout the function.
+    Instruction* first_inst = old_entry.getFirstNonPHIOrDbgOrLifetime();
+    //InternalSymbolInfo first_syminfo(first_inst, inst_to_string(first_inst));
+    InternalSymbolInfo first_syminfo(&function);
+    func_syminfo = find_value_provenance(*module, first_syminfo, br_inst);
+
     // Insert a call at the beginning of the function to bf_push_function() if
     // -bf-call-stack was specified or to bf_incr_func_tally() if -bf-by-func
     // was specified without -bf-call-stack.
@@ -816,22 +830,18 @@ namespace bytesflops_pass {
       ConstantInt * key =
         ConstantInt::get(IntegerType::get(func_ctx, 8*sizeof(FunctionKeyGen::KeyID)),
                          keyval);
-      Constant* argument = map_func_name_to_arg(module, function_name);
-      key_args.push_back(argument);
-      key_args.push_back(key);
-      if (TrackCallStack)
-        callinst_create(push_function, key_args, new_entry);
-      else
-        callinst_create(tally_function, key, new_entry);
+      if (TrackCallStack) {
+        Constant* argument = map_func_name_to_arg(module, function_name);
+        key_args.push_back(argument);
+        key_args.push_back(key);
+        callinst_create(push_function, key_args, br_inst);
+      }
+      else {
+        key_args.push_back(key);
+        key_args.push_back(func_syminfo);
+        callinst_create(tally_function, key_args, br_inst);
+      }
     }
-
-    // Branch to the original entry point.
-    BranchInst* br_inst = BranchInst::Create(&old_entry, new_entry);
-
-    // Stack-allocate a bf_symbol_info_t to be used throughout the function.
-    Instruction* first_inst = old_entry.getFirstNonPHIOrDbgOrLifetime();
-    InternalSymbolInfo first_syminfo(first_inst, inst_to_string(first_inst));
-    func_syminfo = find_value_provenance(*module, first_syminfo, br_inst);
 
     // Iterate over each basic block in turn.
     for (Function::iterator func_iter = function.begin();
