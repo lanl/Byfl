@@ -251,7 +251,8 @@ namespace bytesflops_pass {
     ConstantInt* cond_end_bb;       // 2, basic block ended with a conditional branch
     ConstantInt* zero;        // A 64-bit constant "0"
     ConstantInt* one;         // A 64-bit constant "1"
-    ConstantPointerNull* null_pointer;   // (void *)NULL
+    ConstantPointerNull* null_pointer;           // (void*)NULL
+    ConstantPointerNull* null_syminfo_pointer;   // (bf_symbol_info_t*)NULL
     typedef unordered_map<string, unsigned long> str2ul_t;
     str2ul_t loop_len;        // Number of instructions in each inner loop
     StructType* syminfo_type; // bf_symbol_info_t struct type
