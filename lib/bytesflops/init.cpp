@@ -209,14 +209,6 @@ namespace bytesflops_pass {
     ArrayType* i64array4Dtype = ArrayType::get(i64array3Dtype, NUM_LLVM_OPCODES_POW2);
     inst_deps_histo_var = declare_global_var(module, i64array4Dtype, "bf_inst_deps_histo", false);
 
-    // Assign a few constant values.
-    not_end_of_bb = ConstantInt::get(globctx, APInt(32, 0));
-    uncond_end_bb = ConstantInt::get(globctx, APInt(32, 1));
-    cond_end_bb = ConstantInt::get(globctx, APInt(32, 2));
-    zero = ConstantInt::get(globctx, APInt(64, 0));
-    one = ConstantInt::get(globctx, APInt(64, 1));
-    null_pointer = ConstantPointerNull::get(PointerType::get(IntegerType::get(globctx, 8), 0));
-
     // Declare a few argument types we intend to use in multiple declarations.
     IntegerType* uint8_arg = IntegerType::get(globctx, 8);
     IntegerType* uint64_arg = IntegerType::get(globctx, 64);
@@ -236,6 +228,15 @@ namespace bytesflops_pass {
       syminfo_type->setBody(syminfo_fields, false);
     }
     PointerType* ptr_to_syminfo_arg = PointerType::get(syminfo_type, 0);
+
+    // Assign a few constant values.
+    not_end_of_bb = ConstantInt::get(globctx, APInt(32, 0));
+    uncond_end_bb = ConstantInt::get(globctx, APInt(32, 1));
+    cond_end_bb = ConstantInt::get(globctx, APInt(32, 2));
+    zero = ConstantInt::get(globctx, APInt(64, 0));
+    one = ConstantInt::get(globctx, APInt(64, 1));
+    null_pointer = ConstantPointerNull::get(PointerType::get(IntegerType::get(globctx, 8), 0));
+    null_syminfo_pointer = ConstantPointerNull::get(ptr_to_syminfo_arg);
 
     // Construct a set of functions to instrument and a set of
     // functions not to instrument.
@@ -363,7 +364,8 @@ namespace bytesflops_pass {
     if (TallyByFunction) {
       // bf_assoc_counters_with_func
       vector<Type*> func_arg;
-      func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
+      IntegerType* keyid_arg = IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID));
+      func_arg.push_back(keyid_arg);
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
       assoc_counts_with_func =
@@ -372,20 +374,24 @@ namespace bytesflops_pass {
                          &module);
 
       // bf_incr_func_tally
-      vector<Type*> tally_func_arg;
-      tally_func_arg.push_back(ptr_to_char_arg);
-      tally_func_arg.push_back(IntegerType::get(globctx, 8*sizeof(FunctionKeyGen::KeyID)));
-      FunctionType* void_str_int_func_result =
-        FunctionType::get(Type::getVoidTy(globctx), tally_func_arg, false);
-      tally_func_arg.push_back(ptr_to_syminfo_arg);
+      func_arg.clear();
+      func_arg.push_back(keyid_arg);
+      func_arg.push_back(ptr_to_syminfo_arg);
+      FunctionType* void_int_ptr_func_result =
+        FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
       tally_function =
-        declare_extern_c(void_func_result,
+        declare_extern_c(void_int_ptr_func_result,
                          "bf_incr_func_tally",
                          &module);
 
       if (TrackCallStack) {
         // Inject external declarations for bf_push_function() and
         // bf_pop_function().
+        func_arg.clear();
+        func_arg.push_back(ptr_to_char_arg);
+        func_arg.push_back(keyid_arg);
+        FunctionType* void_str_int_func_result =
+          FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
         push_function =
           declare_extern_c(void_str_int_func_result,
                            "bf_push_function",

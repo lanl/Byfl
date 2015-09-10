@@ -439,7 +439,7 @@ namespace bytesflops_pass {
       // Tally the function with the given key but null function information.
       vector<Value*> arg_list;
       arg_list.push_back(key);
-      arg_list.push_back(null_pointer);
+      arg_list.push_back(null_syminfo_pointer);
       callinst_create(tally_function, arg_list, insert_before);
     }
 
@@ -561,7 +561,7 @@ namespace bytesflops_pass {
       // Tally the function with the given key but null function information.
       vector<Value*> arg_list;
       arg_list.push_back(key);
-      arg_list.push_back(null_pointer);
+      arg_list.push_back(null_syminfo_pointer);
       callinst_create(tally_function, arg_list, insert_before);
     }
 
