@@ -38,9 +38,10 @@ Installation
 
 There are three "release" branches of Byfl on GitHub:
 
-  * `master`, corresponding to LLVM trunk
-  * `llvm-3.6`, corresponding to LLVM 3.6._x_ releases
-  * `llvm-3.5`, corresponding to LLVM 3.5._x_ releases
+  * [`master`](https://github.com/losalamos/Byfl), corresponding to LLVM trunk
+  * [`llvm-3.7`](https://github.com/losalamos/Byfl/tree/llvm-3.7), corresponding to LLVM 3.7._x_ releases
+  * [`llvm-3.6`](https://github.com/losalamos/Byfl/tree/llvm-3.6), corresponding to LLVM 3.6._x_ releases
+  * [`llvm-3.5`](https://github.com/losalamos/Byfl/tree/llvm-3.5), corresponding to LLVM 3.5._x_ releases
 
 Be sure to download the Byfl branch that corresponds to your installed LLVM version.  (Run `llvm-config --version` to check.)  Then, the usual
 ```bash
