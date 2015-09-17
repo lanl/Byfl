@@ -1,0 +1,47 @@
+=head1 NAME
+
+bfbin2hpctk - convert Byfl output to an HPCToolkit database
+
+=head1 SYNOPSIS
+
+B<bfbin2hpctk> I<input_file.byfl>
+
+=head1 DESCRIPTION
+
+By default, applications instrumented with Byfl write measurement data
+to a binary F<.byfl> file.  B<bfbin2hpctk> converts such files to an
+HPCToolkit database, a directory containing an F<experiment.xml> file
+plus copies of all program source files.  These databases can be
+viewed with the
+L<B<hpcviewer>|http://hpctoolkit.org/man/hpcviewer.html> GUI.
+
+B<bfbin2hpctk> considers only the C<Functions> table in the F<.byfl>
+file.  Consequently, applications should be instrumented with
+B<-bf-by-func> or, preferably, B<-bf-call-stack>.  (The latter enables
+B<hpcviewer> to present measurements hierarchically.)
+
+=head1 OPTIONS
+
+B<bfbin2hpctk> has no command-line options.  The program requires the
+name of a F<.byfl> file to read.
+
+=head1 EXAMPLES
+
+Usage is simply
+
+    $ bfbin2hpctk myprog.byfl
+
+which produces a directory called F<hpctoolkit-myprog-database>.  If
+that directory already exists, B<bfbin2hpctk> appends a number to the
+end of the directory name to make it unique.
+
+=head1 SEE ALSO
+
+bfbin2csv(1), bfbin2hdf5(1), bfbin2sqlite3(1), bfbin2xmlss(1),
+bf-clang(1), bf-clang++(1), bf-gcc(1), bf-g++(1), bf-gfortran(1),
+bf-gccgo(1), L<the Byfl home page|https://github.com/losalamos/Byfl>,
+L<the HPCToolkit home page|http://hpctoolkit.org/>
+
+=head1 AUTHOR
+
+Scott Pakin, I<pakin@lanl.gov>
