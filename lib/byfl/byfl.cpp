@@ -407,8 +407,9 @@ private:
       return strcmp(one.first, two.first);
   }
 
-  // Report per-function counter totals.
-  void report_by_function (void) {
+  // Report per-function counter totals.  Return the total number of
+  // uninstrumented calls for later use.
+  void report_by_function (uint64_t* uninstrumented_calls) {
     // Aggregate and sort our function-call data.
     aggregate_call_tallies();
     vector<KeyType_t>* all_funcs = per_func_totals().sorted_keys(compare_keys_to_names);
@@ -584,6 +585,7 @@ private:
       *bfbin << uint8_t(BINOUT_COL_STRING) << "File name"
              << uint8_t(BINOUT_COL_UINT64) << "Line number";
     *bfbin << uint8_t(BINOUT_COL_NONE);
+    *uninstrumented_calls = 0;
     for (vector<const char*>::iterator fn_iter = all_called_funcs.begin();
          fn_iter != all_called_funcs.end();
          fn_iter++) {
@@ -598,6 +600,8 @@ private:
         instrumented = (tally_iter != final_call_tallies().end());
         tally = final_call_tallies()[bf_string_to_symbol(funcname)];
         funcname = unique_name;
+        if (!instrumented)
+          *uninstrumented_calls += tally;
       }
       string funcname_demangled = demangle_func_name(funcname);
       if (tally > 0) {
@@ -765,7 +769,7 @@ private:
   }
 
   // Report the total counter values across all basic blocks.
-  void report_totals (const char* partition, ByteFlopCounters& counter_totals) {
+  void report_totals (const char* partition, ByteFlopCounters& counter_totals, uint64_t uninstrumented_calls) {
     // Precompute various values we intend to report both textually and in the
     // binary output file.
     uint64_t global_bytes = counter_totals.loads + counter_totals.stores;
@@ -905,8 +909,12 @@ private:
            << "Multi-target (switch) branch operations"
            << counter_totals.terminators[BF_END_BB_SWITCH];
     *bfbin << uint8_t(BINOUT_COL_UINT64)
-           << "Function-return operations"
+           << "Observed function-return operations"
            << counter_totals.terminators[BF_END_BB_RETURN];
+    if (bf_per_func)
+      *bfbin << uint8_t(BINOUT_COL_UINT64)
+             << "Inferred function-return operations"
+             << uninstrumented_calls;
     *bfbin << uint8_t(BINOUT_COL_UINT64)
            << "Other branch operations"
            << term_other;
@@ -1420,8 +1428,9 @@ public:
       bf_report_bb_execution();
 
     // Report per-function counter totals.
+    uint64_t uninstrumented_calls = 0;
     if (bf_per_func)
-      report_by_function();
+      report_by_function(&uninstrumented_calls);
 
     // Output a histogram of vector usage.
     if (bf_vectors)
@@ -1441,11 +1450,11 @@ public:
          tag_iter != all_tag_names->cend();
          tag_iter++) {
       const char* tag_name = *tag_iter;
-      report_totals(tag_name, *user_defined_totals()[tag_name]);
+      report_totals(tag_name, *user_defined_totals()[tag_name], 0);
     }
 
     // Report the global counter totals across all basic blocks.
-    report_totals(NULL, global_totals);
+    report_totals(NULL, global_totals, uninstrumented_calls);
 
     // Report the cache performance if it was turned on.
     if (bf_cache_model)
