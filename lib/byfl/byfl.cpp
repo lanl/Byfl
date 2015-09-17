@@ -225,17 +225,20 @@ void bf_record_funcs2keys(uint32_t cnt, const uint64_t* keys,
 // the call stack as a whole, and ensure the individual function name also
 // exists in the hash table.
 extern "C"
-void bf_push_function (const char* funcname, KeyType_t key)
+void bf_push_function (const char* funcname, KeyType_t keyID, bf_symbol_info_t* syminfo)
 {
-  bf_current_func_key = key;
-  bf_func_and_parents =  call_stack->push_function(funcname, key);
+  bf_current_func_key = keyID;
+  bf_func_and_parents =  call_stack->push_function(funcname, keyID);
   uint64_t depth = 1 << call_stack->depth();
-  bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ key;
+  bf_func_and_parents_id = bf_func_and_parents_id ^ depth ^ keyID;
   bf_record_key(bf_func_and_parents, bf_func_and_parents_id);
   if (bf_suppress_counting)
     return;
   func_call_tallies()[bf_func_and_parents_id]++;
-  func_call_tallies()[key] += 0;
+  func_call_tallies()[keyID] += 0;
+  if (syminfo != nullptr &&
+      key_to_func_info().find(bf_func_and_parents_id) == key_to_func_info().end())
+    key_to_func_info()[bf_func_and_parents_id] = *syminfo;
 }
 
 // Pop the top function name from the call stack.
@@ -463,7 +466,9 @@ private:
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Invocations";
     if (bf_call_stack)
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled call stack"
-             << uint8_t(BINOUT_COL_STRING) << "Demangled call stack";
+             << uint8_t(BINOUT_COL_STRING) << "Demangled call stack"
+             << uint8_t(BINOUT_COL_STRING) << "Leaf file name"
+             << uint8_t(BINOUT_COL_UINT64) << "Leaf line number";
     else
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Mangled function name"
              << uint8_t(BINOUT_COL_STRING) << "Demangled function name"
@@ -543,13 +548,11 @@ private:
       *bfbin << invocations
              << funcname_c
              << demangle_func_name(funcname_c);
-      if (!bf_call_stack) {
-        auto symiter = key_to_func_info().find(*fn_iter);
-        if (symiter == key_to_func_info().end())
-          *bfbin << "" << uint64_t(0);
-        else
-          *bfbin << symiter->second.file << uint64_t(symiter->second.line);
-      }
+      auto symiter = key_to_func_info().find(*fn_iter);
+      if (symiter == key_to_func_info().end())
+        *bfbin << "" << uint64_t(0);
+      else
+        *bfbin << symiter->second.file << uint64_t(symiter->second.line);
     }
     *bfbin << uint8_t(BINOUT_ROW_NONE);
     delete all_funcs;

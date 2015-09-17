@@ -834,6 +834,7 @@ namespace bytesflops_pass {
         Constant* argument = map_func_name_to_arg(module, function_name);
         key_args.push_back(argument);
         key_args.push_back(key);
+        key_args.push_back(func_syminfo);
         callinst_create(push_function, key_args, br_inst);
       }
       else {
