@@ -398,10 +398,11 @@ namespace bytesflops_pass {
         func_arg.clear();
         func_arg.push_back(ptr_to_char_arg);
         func_arg.push_back(keyid_arg);
-        FunctionType* void_str_int_func_result =
+	func_arg.push_back(ptr_to_syminfo_arg);
+        FunctionType* void_str_int_ptr_func_result =
           FunctionType::get(Type::getVoidTy(globctx), func_arg, false);
         push_function =
-          declare_extern_c(void_str_int_func_result,
+          declare_extern_c(void_str_int_ptr_func_result,
                            "bf_push_function",
                            &module);
         pop_function = declare_thunk(&module, "bf_pop_function");
