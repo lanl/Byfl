@@ -146,7 +146,7 @@ Scott Pakin, I<pakin@lanl.gov>
 
 =head1 SEE ALSO
 
-awk(1), perl(1), bfbin2hdf5(1), bfbin2hpctk(1), bfbin2sqlite3(1),
-bfbin2xmlss(1), bf-clang(1), bf-clang++(1), bf-gcc(1), bf-g++(1),
-bf-gfortran(1), bf-gccgo(1), L<the Byfl home
+awk(1), perl(1), bfbin2cgrind(1), bfbin2hdf5(1), bfbin2hpctk(1),
+bfbin2sqlite3(1), bfbin2xmlss(1), bf-clang(1), bf-clang++(1),
+bf-gcc(1), bf-g++(1), bf-gfortran(1), bf-gccgo(1), L<the Byfl home
 page|https://github.com/losalamos/Byfl/>
