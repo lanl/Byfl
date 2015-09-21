@@ -7,13 +7,14 @@
 
 CXX = $(H5CXX)
 
-dist_bin_SCRIPTS = bf2cgrind bf-parse-cache-dump
+dist_bin_SCRIPTS = bf-parse-cache-dump
 bin_PROGRAMS =
 man1_MANS =
 man3_MANS = bf_process_byfl_file.3
 CLEANFILES = bf_process_byfl_file.3
 EXTRA_DIST = \
 	bf_process_byfl_file.pod \
+	bfbin2cgrind.pod \
 	bfbin2csv.pod \
 	bfbin2hdf5.pod \
 	bfbin2hpctk.pod \
@@ -68,6 +69,13 @@ CLEANFILES += bfbin2hpctk.1
 bfbin2hpctk_SOURCES = bfbin2hpctk.cpp bfbin2hpctk.h
 bfbin2hpctk_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2hpctk_LDADD = libbfbin.la
+
+bin_PROGRAMS += bfbin2cgrind
+man1_MANS += bfbin2cgrind.1
+CLEANFILES += bfbin2cgrind.1
+bfbin2cgrind_SOURCES = bfbin2cgrind.cpp
+bfbin2cgrind_CPPFLAGS = -I$(top_srcdir)/include
+bfbin2cgrind_LDADD = libbfbin.la
 
 if SQLITE3_AVAILABLE
 bin_PROGRAMS += bfbin2sqlite3
