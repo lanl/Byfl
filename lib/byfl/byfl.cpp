@@ -1391,6 +1391,14 @@ private:
     char hostname[1024];
     if (gethostname(hostname, 1024) == 0)
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Host name" << hostname;
+    char *cwd = getcwd(NULL, 0);
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Working directory" << cwd;
+    free(cwd);
+    if (command_line[0].compare(0, 7, "[failed") != 0) {
+      char *abs_argv0 = realpath(command_line[0].c_str(), NULL);
+      *bfbin << uint8_t(BINOUT_COL_STRING) << "Executable name" << abs_argv0;
+      free(abs_argv0);
+    }
     string end_time(current_local_time("%F %T"));
     if (start_time != "" && end_time != "") {
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Start time" << start_time
