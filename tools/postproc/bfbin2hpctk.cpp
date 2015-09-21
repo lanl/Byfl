@@ -1,9 +1,9 @@
-/****************************************
- * Convert Byfl binary data to suitable *
- * input for HPCToolk's GUI, hpcviewer  *
- *                                      *
- * By Scott Pakin <pakin@lanl.gov>      *
- ****************************************/
+/******************************************
+ * Convert Byfl binary data to suitable   *
+ * input for HPCToolkit's GUI, hpcviewer  *
+ *                                        *
+ * By Scott Pakin <pakin@lanl.gov>        *
+ ******************************************/
 
 #include <iostream>
 #include <cerrno>
@@ -28,16 +28,6 @@ ostream& die (ostream& os)
   os.flush();
   exit(1);
   return os;
-}
-
-// Replace a file extension.
-string replace_extension (const string oldfilename, const string newext)
-{
-  size_t dot_ofs = oldfilename.rfind('.');
-  if (dot_ofs == string::npos)
-    return oldfilename + newext;
-  string newfilename(oldfilename);
-  return newfilename.replace(dot_ofs, string::npos, newext);
 }
 
 // Define a column (name, type, and data) data type.
@@ -101,7 +91,6 @@ public:
     LocalState* lstate;        // Local state on which to operate
 
   public:
-    string funcname;                             // Name of a function
     unordered_map<string, TrieNode*> children;   // All functions it calls
     size_t row;                                  // Row in table_data representing the node if it's a leaf
 
@@ -125,7 +114,7 @@ public:
   size_t id;                   // Unique ID for an arbitrary XML tag
   size_t loadmod_id;           // Unique ID for our one load module (executable)
   unordered_map<string, int> func2id;   // Map from a function name to an ID
-  unordered_map<string, int> fname2id;  // Map from a function name to an ID
+  unordered_map<string, int> fname2id;  // Map from a file name to an ID
   Column* func_col;            // Column in table_data corresponding to function names
   Column* file_col;            // Column in table_data corresponding to file names
   Column* lineno_col;          // Column in table_data corresponding to line numbers
