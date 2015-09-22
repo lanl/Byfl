@@ -81,9 +81,9 @@ public:
   uint64_t bytes_stored = 0;  // Number of bytes stored
   uint64_t load_ops = 0;      // Number of load operations
   uint64_t store_ops = 0;     // Number of store operations
+  bool allocation = true;     // true=known allocation; false=access (unknown allocation)
   uint64_t bytes_alloced = 0; // Total number of bytes allocated (always >= max_size)
   uint64_t num_allocs = 0;    // Number of allocation calls
-  bool allocation = true;     // true=known allocation; false=access (unknown allocation)
   string tag = "";            // User-specified tag
   uint64_t alloc_time = 0;    // Allocation "time" on a global counter
   uint64_t access1_time = 0;  // First access "time" on a global counter

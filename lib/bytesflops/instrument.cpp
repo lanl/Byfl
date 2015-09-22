@@ -817,8 +817,6 @@ namespace bytesflops_pass {
     BranchInst* br_inst = BranchInst::Create(&old_entry, new_entry);
 
     // Stack-allocate a bf_symbol_info_t to be used throughout the function.
-    Instruction* first_inst = old_entry.getFirstNonPHIOrDbgOrLifetime();
-    //InternalSymbolInfo first_syminfo(first_inst, inst_to_string(first_inst));
     InternalSymbolInfo first_syminfo(&function);
     func_syminfo = find_value_provenance(*module, first_syminfo, br_inst);
 
