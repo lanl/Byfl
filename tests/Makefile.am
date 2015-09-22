@@ -8,7 +8,30 @@ TESTS = \
 	bf-clang-no-opts.sh \
 	bf-clang++-no-opts.sh \
 	bf-gcc-no-opts.sh \
-	bf-clang-many-opts.sh
+	bf-clang-many-opts.sh \
+	bfbin2cgrind.sh \
+	bfbin2csv.sh \
+	bfbin2hpctk.sh \
+	bfbin2xmlss.sh
+
+if HDF5_AVAILABLE
+  TESTS += bfbin2hdf5.sh
+endif
+if SQLITE3_AVAILABLE
+  TESTS += bfbin2sqlite3.sh
+endif
+
+TEST_EXTENSIONS = .sh
+
+# All bfbin2* tests depend on simple-clang-many-opts.byfl, which is
+# created as a side effect of running bf-clang-many-opts.sh.
+simple-clang-many-opts.byfl: bf-clang-many-opts.log
+bfbin2csv.log: simple-clang-many-opts.byfl
+bfbin2cgrind.log: simple-clang-many-opts.byfl
+bfbin2hpctk.log: simple-clang-many-opts.byfl
+bfbin2hdf5.log: simple-clang-many-opts.byfl
+bfbin2sqlite3.log: simple-clang-many-opts.byfl
+bfbin2xmlss.log: simple-clang-many-opts.byfl
 
 EXTRA_DIST = \
 	$(TESTS) \
@@ -33,6 +56,11 @@ CLEANFILES = \
 	simple-clang-no-opts.byfl \
 	simple-clang-many-opts \
 	simple-clang-many-opts.byfl \
+	simple-clang-many-opts.csv \
+	simple-clang-many-opts.cgrind \
+	simple-clang-many-opts.h5 \
+	simple-clang-many-opts.db \
+	simple-clang-many-opts.xml \
 	simple-clang++-no-opts \
 	simple-clang++-no-opts.byfl \
 	simple-gcc-no-opts \
@@ -46,3 +74,4 @@ clean-local:
 	$(RM) -r simple-clang-many-opts.dSYM
 	$(RM) -r simple-clang++-no-opts.dSYM
 	$(RM) -r simple-gcc-no-opts.dSYM
+	$(RM) -r hpctoolkit-simple-clang-many-opts-database

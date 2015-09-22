@@ -257,7 +257,10 @@ static void column_header_boolean (void* state, const char* colname)
 static void end_column_header (void* state)
 {
   LocalState* lstate = (LocalState*) state;
-  int retval;
+
+  // Ignore empty tables.
+  if (lstate->create_table[lstate->create_table.length() - 1] == '(')
+    return;
 
   // Create a table.
   lstate->create_table += ");";
@@ -335,7 +338,10 @@ static void write_boolean_value (void* state, uint8_t value)
 static void end_row (void* state)
 {
   LocalState* lstate = (LocalState*) state;
-  int retval;
+
+  // Ignore empty tables.
+  if (lstate->create_table[lstate->create_table.length() - 1] == '(')
+    return;
 
   // Execute the INSERT INTO statement.
   check_return_value(sqlite3_step(lstate->insert_stmt),
@@ -360,6 +366,16 @@ static void end_row (void* state)
 static void end_any_table (void* state)
 {
   LocalState* lstate = (LocalState*) state;
+
+  // Temporary
+  if (lstate->create_table[lstate->create_table.length() - 1] == '(')
+    cerr << "*** " << lstate->create_table << " ***\n";
+
+  // Ignore empty tables.
+  if (lstate->create_table[lstate->create_table.length() - 1] == '(')
+    return;
+
+  // Commit the current transaction.
   execute_sql_statement(lstate, "END TRANSACTION;",
                         "Failed to commit a transaction for table \"" + lstate->tablename + '"');
   check_return_value(sqlite3_finalize(lstate->insert_stmt),

@@ -186,6 +186,10 @@ void end_column (void* state)
 {
   program_state_t* s = (program_state_t*)state;
 
+  // Ignore empty tables.
+  if (s->column_info.size() == 0)
+    return;
+
   // Create a global dataspace.
   s->current_dims = 0;
   hsize_t max_dims = H5S_UNLIMITED;
@@ -234,6 +238,10 @@ void write_bool (void* state, uint8_t value)
 void end_row (void* state)
 {
   program_state_t* s = (program_state_t*)state;
+
+  // Ignore empty tables.
+  if (s->column_info.size() == 0)
+    return;
 
   // Extend the dataset by one row.
   s->current_dims++;
