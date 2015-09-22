@@ -66,9 +66,8 @@ namespace bytesflops_pass {
     if (existing_ctors != nullptr)
       existing_ctors->eraseFromParent();
     Constant* new_ctors = ConstantArray::get(ctor_array, ctor_elems);
-    GlobalVariable* llvm_global_ctors =
-      new GlobalVariable(*module, ctor_array, false, GlobalValue::AppendingLinkage,
-                         new_ctors, "llvm.global_ctors");
+    new GlobalVariable(*module, ctor_array, false, GlobalValue::AppendingLinkage,
+		       new_ctors, "llvm.global_ctors");
   }
 
   /* Create a module constructor function to create the map from function keys
@@ -163,7 +162,6 @@ namespace bytesflops_pass {
           // even need to.
           continue;
         Type* gv_type  = gv_const->getType();   // Data type
-        Type* gv_ptr_type;                      // Type of pointer to data
         if (gv_type->isPointerTy())
           gv_type = gv_type->getPointerElementType();
         uint64_t byte_count = target_data->getTypeStoreSize(gv_type);
