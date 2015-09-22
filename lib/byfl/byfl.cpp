@@ -107,7 +107,7 @@ extern "C" void bf_reset_bb_tallies (void);
 
 // Define a mapping from an instruction's opcode to its arguments' opcodes to a
 // tally.  We ignore instructions with more than two arguments.
-uint64_t bf_inst_deps_histo[NUM_LLVM_OPCODES_POW2][NUM_LLVM_OPCODES_POW2][NUM_LLVM_OPCODES_POW2][2] = {0};
+uint64_t bf_inst_deps_histo[NUM_LLVM_OPCODES_POW2][NUM_LLVM_OPCODES_POW2][NUM_LLVM_OPCODES_POW2][2] = {{{{0}}}};
 
 namespace bytesflops {
 
