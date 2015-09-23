@@ -367,10 +367,6 @@ static void end_any_table (void* state)
 {
   LocalState* lstate = (LocalState*) state;
 
-  // Temporary
-  if (lstate->create_table[lstate->create_table.length() - 1] == '(')
-    cerr << "*** " << lstate->create_table << " ***\n";
-
   // Ignore empty tables.
   if (lstate->create_table[lstate->create_table.length() - 1] == '(')
     return;
