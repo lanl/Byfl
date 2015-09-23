@@ -7,7 +7,6 @@ syntax: glob
 *~
 Makefile.in
 aclocal.m4
-build
 compile
 config.guess
 config.h.in
@@ -17,6 +16,4 @@ depcomp
 install-sh
 ltmain.sh
 missing
-opcode2name.cpp
-opcode2name.h
 test-driver
