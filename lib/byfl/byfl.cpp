@@ -116,6 +116,7 @@ string bf_output_prefix;         // String to output before "BYFL" on every line
 ostream* bfout;                  // Stream to which to send textual output
 BinaryOStream* bfbin;            // Stream to which to send binary output
 ofstream *bfbin_file;            // Underlying file for the above
+string bfbin_filename;           // File name associated with the above
 bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
 bool bf_suppress_counting = false;        // false=normal operation; true=don't update state
 static CallStack* call_stack = nullptr;   // The calling process's current call stack
@@ -298,7 +299,7 @@ bool suppress_output (void)
         binout = cmdline[0];
       binout += ".byfl";
     }
-    string bfbin_filename = shell_expansion(binout.c_str(), "BF_BINOUT");
+    bfbin_filename = shell_expansion(binout.c_str(), "BF_BINOUT");
     if (bfbin_filename == "")
       // Empty string (as opposed to unspecified environment variable): discard
       // all binary data.
@@ -1382,6 +1383,10 @@ public:
 
     // Report anything else we can think to report.
     report_misc_info();
+
+    // Tell the user where to look for more information.
+    if (bfbin_filename != "")
+      *bfout << "BYFL_INFO: More detailed counter data was written to " << bfbin_filename << '\n';
 
     // Flush our output data before exiting.
     bfout->flush();
