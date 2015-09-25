@@ -74,7 +74,6 @@ static name_to_vector_t* user_defined_vector_usage = NULL;
 
 namespace bytesflops {
 
-extern ostream* bfout;
 extern BinaryOStream* bfbin;
 
 // Initialize some of our variables at first use.
@@ -180,22 +179,6 @@ void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* tota
 // Output a histogram of all vector operations encountered.
 void bf_report_vector_operations (size_t call_stack_depth)
 {
-  // Output a textual header line.
-  *bfout << bf_output_prefix
-         << "BYFL_VECTOR_HEADER: "
-         << setw(20) << "Elements" << ' '
-         << setw(20) << "Elt_bits" << ' '
-         << setw(4)  << "Type" << ' '
-         << setw(20) << "Tally";
-  if (bf_per_func) {
-    *bfout << " Function";
-    if (bf_call_stack)
-      for (size_t i=0; i<call_stack_depth-1; i++)
-        *bfout << ' '
-               << "Parent_func_" << i+1;
-  }
-  *bfout << '\n';
-
   // Output a binary table header.
   *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Vector operations";
   *bfbin << uint8_t(BINOUT_COL_UINT64) << "Elements per vector"
@@ -212,8 +195,8 @@ void bf_report_vector_operations (size_t call_stack_depth)
   }
   *bfbin << uint8_t(BINOUT_COL_NONE);
 
-  // Output a histogram both textually and in binary.  Each line
-  // represents one set of vector characteristics from one function.
+  // Output a histogram.  Each line represents one set of vector
+  // characteristics from one function.
   for (name_to_vector_t::iterator vectally_iter = function_vector_usage->begin();
        vectally_iter != function_vector_usage->end();
        vectally_iter++) {
@@ -224,19 +207,10 @@ void bf_report_vector_operations (size_t call_stack_depth)
          tally_iter++) {
       VectorOperation* vecop = tally_iter->first;
       uint64_t tally = tally_iter->second;
-      *bfout << bf_output_prefix
-             << "BYFL_VECTOR:        "
-             << setw(20) << vecop->num_elements << ' '
-             << setw(20) << vecop->element_bits << ' '
-             << (vecop->is_flop ? "FP   " : "Int   ")
-             << setw(20) << tally;
       *bfbin << uint8_t(BINOUT_ROW_DATA)
              << vecop->num_elements << vecop->element_bits << vecop->is_flop << tally;
-      if (bf_per_func) {
-        *bfout << ' ' << funcname;
+      if (bf_per_func)
         *bfbin << funcname << demangle_func_name(funcname);
-      }
-      *bfout << '\n';
     }
   }
   *bfbin << uint8_t(BINOUT_ROW_NONE);

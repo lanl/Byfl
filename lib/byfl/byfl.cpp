@@ -15,8 +15,6 @@ using namespace std;
 
 namespace bytesflops {
 
-static const unsigned int HDR_COL_WIDTH = 20;  // Maxmim characters in a textual column header
-
 // Keep track of basic-block counters on a per-function basis, being careful to
 // work around the "C++ static initialization order fiasco" (cf. the C++ FAQ).
 key2bfc_t& per_func_totals (void)
@@ -414,30 +412,6 @@ private:
     aggregate_call_tallies();
     vector<KeyType_t>* all_funcs = per_func_totals().sorted_keys(compare_keys_to_names);
 
-    // Output a textual header line.
-    *bfout << bf_output_prefix
-           << "BYFL_FUNC_HEADER: "
-           << setw(HDR_COL_WIDTH) << "LD_bytes" << ' '
-           << setw(HDR_COL_WIDTH) << "ST_bytes" << ' '
-           << setw(HDR_COL_WIDTH) << "LD_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "ST_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "Flops" << ' '
-           << setw(HDR_COL_WIDTH) << "FP_bits" << ' '
-           << setw(HDR_COL_WIDTH) << "Int_ops" << ' '
-           << setw(HDR_COL_WIDTH) << "Int_op_bits";
-    if (bf_unique_bytes)
-      *bfout << ' '
-             << setw(HDR_COL_WIDTH) << "Uniq_bytes";
-    *bfout << ' '
-           << setw(HDR_COL_WIDTH) << "Cond_brs" << ' '
-           << setw(HDR_COL_WIDTH) << "Invocations" << ' '
-           << "Function";
-    if (bf_call_stack)
-      for (size_t i=0; i<call_stack->max_depth-1; i++)
-        *bfout << ' '
-               << "Parent_func_" << i+1;
-    *bfout << '\n';
-
     // Output a binary table header.
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Functions";
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Load operations"
@@ -496,29 +470,6 @@ private:
       for (int i = 0; i < BF_END_BB_NUM; i++)
         if (i != BF_END_BB_ANY)
           other_branches -= func_counters->terminators[i];
-      uint64_t unpred_branches =
-        func_counters->terminators[BF_END_BB_COND_NT] +
-        func_counters->terminators[BF_END_BB_COND_T] +
-        func_counters->terminators[BF_END_BB_INDIRECT] +
-        func_counters->terminators[BF_END_BB_SWITCH];
-
-      // Output textual function data.
-      *bfout << bf_output_prefix
-             << "BYFL_FUNC:        "
-             << setw(HDR_COL_WIDTH) << func_counters->loads << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->stores << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->load_ins << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->store_ins << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->flops << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->fp_bits << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->ops - func_counters->flops - func_counters->load_ins - func_counters->store_ins - func_counters->terminators[BF_END_BB_ANY] << ' '
-             << setw(HDR_COL_WIDTH) << func_counters->op_bits;
-      if (bf_unique_bytes)
-        *bfout << ' ' << setw(HDR_COL_WIDTH) << num_uniq_bytes;
-      *bfout << ' '
-             << setw(HDR_COL_WIDTH) << unpred_branches << ' '
-             << setw(HDR_COL_WIDTH) << invocations << ' '
-             << funcname_c << '\n';
 
       // Output binary function data.
       *bfbin << uint8_t(BINOUT_ROW_DATA)
@@ -569,11 +520,6 @@ private:
     for (auto fiter = key_to_func_info().begin(); fiter != key_to_func_info().end(); fiter++)
       fname_to_info[string(fiter->second.function)] = fiter->second;
     sort(all_called_funcs.begin(), all_called_funcs.end(), compare_func_totals);
-    *bfout << bf_output_prefix
-           << "BYFL_CALLEE_HEADER: "
-           << setw(13) << "Invocations" << ' '
-           << "Byfl" << ' '
-           << "Function\n";
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Called functions";
     *bfbin << uint8_t(BINOUT_COL_UINT64) << "Invocations"
            << uint8_t(BINOUT_COL_BOOL) << "Byfl instrumented"
@@ -605,13 +551,6 @@ private:
       }
       string funcname_demangled = demangle_func_name(funcname);
       if (tally > 0) {
-        *bfout << bf_output_prefix
-               << "BYFL_CALLEE: "
-               << setw(HDR_COL_WIDTH) << tally << ' '
-               << (instrumented ? "Yes " : "No  ") << ' '
-               << funcname_demangled;
-        if (funcname_demangled != funcname)
-          *bfout << " [" << funcname << ']';
         *bfbin << uint8_t(BINOUT_ROW_DATA)
                << tally << instrumented << exception_throwing
                << funcname << funcname_demangled;
@@ -622,7 +561,6 @@ private:
           else
             *bfbin << iiter->second.file << uint64_t(iiter->second.line);
         }
-        *bfout << '\n';
       }
     }
     *bfbin << uint8_t(BINOUT_ROW_NONE);
@@ -654,18 +592,9 @@ private:
          ntiter != sorted_inst_mix.cend();
          ntiter++) {
       total_insts += ntiter->second;
-      *bfout << tag << ": " << setw(25) << ntiter->second << ' '
-             << setw(maxopnamelen) << left
-             << ntiter->first << " instructions executed\n"
-             << right;
       *bfbin << uint8_t(BINOUT_COL_UINT64)
              << ntiter->first << ntiter->second;
     }
-    *bfout << tag << ": " << setw(25) << total_insts << ' '
-           << setw(maxopnamelen) << left
-           << "TOTAL" << " instructions executed\n"
-           << right
-           << tag << ": " << separator << '\n';
     *bfbin << uint8_t(BINOUT_COL_NONE);
     return total_insts;
   }
@@ -731,23 +660,6 @@ private:
         max_str_len = info.name.size();
       total_deps += info.tally;
     }
-
-    // Report in textual format the top ten instruction+arguments triples.
-    int nOut = 0;
-    uint64_t partial_total_deps = 0;
-    for (auto iter = deps_histo.begin(); iter != deps_histo.end() && nOut < 10; iter++, nOut++) {
-      InstInfo& info = *iter;
-      *bfout << tag << ": "
-             << setw(25) << info.tally << ' '
-             << setw(max_str_len) << left << info.name << right
-             << " dependencies executed\n";
-      partial_total_deps += info.tally;
-    }
-    *bfout << tag << ": "
-           << setw(25) << total_deps - partial_total_deps << ' '
-           << setw(max_str_len) << ""
-           << " additional dependencies executed\n";
-    *bfout << tag << ": " << separator << '\n';
 
     // Report in binary format all instruction+arguments triples.
     *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Instruction dependencies";
