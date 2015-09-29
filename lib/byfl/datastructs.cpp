@@ -32,7 +32,6 @@ namespace std {
 
 namespace bytesflops {
 
-extern ostream* bfout;
 extern BinaryOStream* bfbin;
 static bool output_ds_tags = false;  // true: user called bf_tag_data_region() at least once; false=no calls
 static uint64_t dstruct_time = 1;    // Current allocation "time"
@@ -436,16 +435,6 @@ void bf_report_data_struct_counts (void)
   }
   sort(interesting_data.begin(), interesting_data.end(), compare_counter_interest);
 
-  // Output a textual header line.
-  *bfout << "BYFL_DATA_STRUCT_HEADER: "
-         << setw(20) << "Size" << ' '
-         << setw(20) << "LD_bytes" << ' '
-         << setw(20) << "ST_bytes" << ' '
-         << setw(20) << "LD_ops" << ' '
-         << setw(20) << "ST_ops" << ' '
-         << setw(29) << left << "Origin" << internal << ' '
-         << "Description" << '\n';
-
   // Output a binary table header.
   *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Data-structure accesses";
   *bfbin << uint8_t(BINOUT_COL_UINT64) << "Number of allocations"
@@ -484,16 +473,6 @@ void bf_report_data_struct_counts (void)
     if (refpos != string::npos)
       short_demangled_origin.erase(refpos);
     const string description = counters->generate_symbol_desc();
-
-    // Output textual data-structure information.
-    *bfout << "BYFL_DATA_STRUCT:        "
-           << setw(20) << counters->max_size << ' '
-           << setw(20) << counters->bytes_loaded << ' '
-           << setw(20) << counters->bytes_stored << ' '
-           << setw(20) << counters->load_ops << ' '
-           << setw(20) << counters->store_ops << ' '
-           << setw(29) << left << short_demangled_origin << internal << ' '
-           << description << '\n';
 
     // Output binary data-structure information.
     *bfbin << uint8_t(BINOUT_ROW_DATA)
