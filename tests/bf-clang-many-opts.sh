@@ -26,19 +26,18 @@ set -x
 
 # Test 2: Do the C compiler and linker work when invoked from the Byfl
 # wrapper script?
-env BF_DISABLE=byfl \
-  "$PERL" -I"$top_srcdir/tools/wrappers" \
-    "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
-                -bf-verbose -O2 -g -o simple-clang-many-opts "$srcdir/simple.c" \
-                -L"$top_builddir/lib/byfl/.libs" \
-                -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -bf-reuse-dist -bf-mem-footprint -bf-types -bf-inst-mix -bf-data-structs -bf-inst-deps
+"$PERL" -I"$top_srcdir/tools/wrappers" \
+  "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
+	      -bf-verbose -O2 -g -o simple-clang-many-opts "$srcdir/simple.c" \
+	      -L"$top_builddir/lib/byfl/.libs" \
+	      -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -bf-reuse-dist -bf-mem-footprint -bf-types -bf-inst-mix -bf-data-structs -bf-inst-deps -bf-strides -bf-disable=byfl
 
 # Test 3: Can the Byfl wrapper script compile, instrument, and link a program?
 "$PERL" -I"$top_srcdir/tools/wrappers" \
   "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
               -bf-verbose -O2 -g -o simple-clang-many-opts "$srcdir/simple.c" \
               -L"$top_builddir/lib/byfl/.libs" \
-              -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -bf-reuse-dist -bf-mem-footprint -bf-types -bf-inst-mix -bf-data-structs -bf-inst-deps
+              -bf-unique-bytes -bf-by-func -bf-call-stack -bf-vectors -bf-every-bb -bf-reuse-dist -bf-mem-footprint -bf-types -bf-inst-mix -bf-data-structs -bf-inst-deps -bf-strides
 
 # Test 4: Does the Byfl-instrumented program run without error?
 env LD_LIBRARY_PATH="$top_builddir/lib/byfl/.libs:$LD_LIBRARY_PATH" \

@@ -32,11 +32,10 @@ set -x
 
 # Test 2: Do the C compiler and linker work when invoked from the Byfl
 # wrapper script?
-env BF_DISABLE=byfl \
-  "$PERL" -I"$top_srcdir/tools/wrappers" \
-    "$bf_gcc" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
-              -bf-verbose -g -o simple-gcc-no-opts "$srcdir/simple.c" \
-              -L"$top_builddir/lib/byfl/.libs"
+"$PERL" -I"$top_srcdir/tools/wrappers" \
+  "$bf_gcc" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
+	    -bf-verbose -g -o simple-gcc-no-opts "$srcdir/simple.c" \
+	    -L"$top_builddir/lib/byfl/.libs" -bf-disable=byfl
 
 # Test 3: Can the Byfl wrapper script compile, instrument, and link a program?
 "$PERL" -I"$top_srcdir/tools/wrappers" \
