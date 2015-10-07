@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/sh -x
 
 #######################################
 # Try compiling a simple program with #
@@ -17,6 +17,9 @@ top_builddir=${top_builddir:-..}
 gcc=${BF_GCC:-gcc}
 bf_gcc="$top_builddir/tools/wrappers/bf-gcc"
 use_dragonegg=${use_dragonegg:-yes}
+
+# Temporary -- for debugging.
+env | sort
 
 # Skip this test if we don't have DragonEgg.
 if [ "x$use_dragonegg" != xyes ] ; then
