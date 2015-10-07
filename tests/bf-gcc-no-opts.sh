@@ -7,6 +7,11 @@
 # By Scott Pakin <pakin@lanl.gov>     #
 #######################################
 
+# Temporary -- for debugging.
+env | sort
+fgrep -r use_dragonegg $top_builddir
+echo "*** In particular for use_dragonegg, $use_dragonegg --> ${use_dragonegg:-yes} ***"
+
 # Define some helper variables.  The ":-" ones will normally be
 # provided by the Makefile.
 AWK=${AWK:-awk}
@@ -17,10 +22,6 @@ top_builddir=${top_builddir:-..}
 gcc=${BF_GCC:-gcc}
 bf_gcc="$top_builddir/tools/wrappers/bf-gcc"
 use_dragonegg=${use_dragonegg:-yes}
-
-# Temporary -- for debugging.
-env | sort
-fgrep -r use_dragonegg $top_builddir
 
 # Skip this test if we don't have DragonEgg.
 if [ "x$use_dragonegg" != xyes ] ; then
