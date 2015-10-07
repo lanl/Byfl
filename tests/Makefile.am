@@ -44,8 +44,7 @@ AM_TESTS_ENVIRONMENT = \
 	srcdir='$(srcdir)'; export srcdir; \
 	top_srcdir='$(top_srcdir)'; export top_srcdir; \
 	top_builddir='$(top_builddir)'; export top_builddir; \
-	use_dragonegg='$(use_dragonegg)'; export use_dragonegg; \
-	echo "*** AM_TESTS_ENVIRONMENT seems to be working; use_dragonegg=$$use_dragonegg ***";
+	use_dragonegg='$(use_dragonegg)'; export use_dragonegg;
 
 # Older versions of Automake, such as what Travis CI is running at the time of
 # this writing, don't support AM_TESTS_ENVIRONMENT but they do support
