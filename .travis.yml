@@ -20,8 +20,8 @@ before_install:
  - export LLVM_CONFIG="llvm-config-${LLVM_VERSION}"
  - export BF_CLANG="clang-${LLVM_VERSION}"
  - export BF_CLANGXX="clang++-${LLVM_VERSION}"
- - export BF_GCC="gcc-{GCC_VERSION}"
- - export BF_GXX="g++{GCC_VERSION}"
+ - export BF_GCC="gcc-${GCC_VERSION}"
+ - export BF_GXX="g++${GCC_VERSION}"
 
 script: 
   - autoreconf -i && ./configure && make distcheck
