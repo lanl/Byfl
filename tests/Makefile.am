@@ -44,7 +44,8 @@ AM_TESTS_ENVIRONMENT = \
 	srcdir='$(srcdir)'; export srcdir; \
 	top_srcdir='$(top_srcdir)'; export top_srcdir; \
 	top_builddir='$(top_builddir)'; export top_builddir; \
-	use_dragonegg='$(use_dragonegg)'; export use_dragonegg;
+	use_dragonegg='$(use_dragonegg)'; export use_dragonegg; \
+	echo "*** AM_TESTS_ENVIRONMENT seems to be working; use_dragonegg=$$use_dragonegg ***";
 
 # bf-clang++ isn't normally symlinked until install time.  Symlink it here.
 bf-clang++-no-opts.sh: bf-clang++

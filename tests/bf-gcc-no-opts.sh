@@ -9,6 +9,7 @@
 
 # Temporary -- for debugging.
 env | sort
+fgrep -r TESTS_ENVIRONMENT "${top_builddir:-..}"
 fgrep -r use_dragonegg "${top_builddir:-..}"
 echo "*** In particular for use_dragonegg, $use_dragonegg --> ${use_dragonegg:-yes} ***"
 
