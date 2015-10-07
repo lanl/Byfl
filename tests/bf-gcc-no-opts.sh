@@ -20,6 +20,7 @@ use_dragonegg=${use_dragonegg:-yes}
 
 # Temporary -- for debugging.
 env | sort
+fgrep -r use_dragonegg $top_builddir
 
 # Skip this test if we don't have DragonEgg.
 if [ "x$use_dragonegg" != xyes ] ; then
