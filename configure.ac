@@ -211,7 +211,7 @@ if test "${DRAGONEGG:-no}" = no ; then
     fi
   done
   ])
-  if test "$ax_cv_file_dragonegg_so" = no ; then
+  if test "x$ax_cv_file_dragonegg_so" = xno ; then
     dnl Define where dragonegg.so *ought* to be but isn't.
     DRAGONEGG="`$LLVM_CONFIG --libdir`/dragonegg.so"
   else
