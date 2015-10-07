@@ -46,6 +46,12 @@ AM_TESTS_ENVIRONMENT = \
 	top_builddir='$(top_builddir)'; export top_builddir; \
 	use_dragonegg='$(use_dragonegg)'; export use_dragonegg;
 
+# Older versions of Automake, such as what Travis CI is running at the time of
+# this writing, don't support AM_TESTS_ENVIRONMENT but they do support
+# TESTS_ENVIRONMENT.  In that case, set TESTS_ENVIRONMENT from
+# AM_TESTS_ENVIRONMENT.
+TESTS_ENVIRONMENT ?= $(AM_TESTS_ENVIRONMENT)
+
 # bf-clang++ isn't normally symlinked until install time.  Symlink it here.
 bf-clang++-no-opts.sh: bf-clang++
 bf-clang++: $(top_builddir)/tools/wrappers/bf-clang
