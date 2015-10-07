@@ -16,7 +16,7 @@ top_srcdir=${top_srcdir:-../..}
 top_builddir=${top_builddir:-..}
 gcc=${BF_GCC:-gcc}
 bf_gcc="$top_builddir/tools/wrappers/bf-gcc"
-use_draongegg=${use_draongegg:-yes}
+use_dragonegg=${use_dragonegg:-yes}
 
 # Skip this test if we don't have DragonEgg.
 if [ "x$use_dragonegg" != xyes ] ; then

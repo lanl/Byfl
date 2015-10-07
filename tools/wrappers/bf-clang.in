@@ -248,11 +248,8 @@ if (defined $build_type{"compile"}) {
 # and its dependencies.
 if (defined $build_type{"link"}) {
     push @command_line, ("-L$byfl_libdir", "-L$llvm_libdir", "-lm");
-    push @command_line, ("-rpath", $byfl_libdir, "-lbyfl", "-lstdc++");
+    push @command_line, ("-rpath", $byfl_libdir, "-lbyfl");
     push @command_line, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;
-    if ($compiler ne "clang++") {
-        push @command_line, "-lstdc++";
-    }
 }
 
 # Run the compiler and/or linker.
