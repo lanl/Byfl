@@ -9,6 +9,8 @@
 
 # Temporary -- for debugging.
 env | sort
+automake --version
+apt-cache search automake
 fgrep -r TESTS_ENVIRONMENT "${top_builddir:-..}"
 fgrep -r use_dragonegg "${top_builddir:-..}"
 echo "*** In particular for use_dragonegg, $use_dragonegg --> ${use_dragonegg:-yes} ***"
