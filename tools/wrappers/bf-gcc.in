@@ -508,6 +508,7 @@ if (defined $build_type{"link"}) {
         push @llvm_ld_options, ("-rpath", $byfl_libdir, "-lbyfl");
         push @llvm_ld_options, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;
     }
+    push @llvm_ld_options, "-lstdc++" if $progname eq "bf-g++";
     push @llvm_ld_options, "-lgfortran" if $progname eq "bf-gfortran";
     push @llvm_ld_options, ("-lgobegin", "-lgo") if $progname eq "bf-gccgo";
 
