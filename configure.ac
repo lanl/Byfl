@@ -74,7 +74,7 @@ AC_CHECK_PROGS([MAKE], [make gmake gnumake], [make])
 dnl We want to log the current timezone name if possible.
 AC_STRUCT_TIMEZONE
 
-dnl Use llvm-config to set our default compiler and linker flags.
+dnl Use llvm-config to determine the current LLVM version.
 AC_CHECK_PROGS([LLVM_CONFIG], [llvm-config], [no])
 if test "$LLVM_CONFIG" = no ; then
    AC_MSG_ERROR([Byfl can't build without the llvm-config tool])
@@ -84,18 +84,31 @@ llvm_version="`$LLVM_CONFIG --version`"
 AC_MSG_RESULT([$llvm_version])
 AC_DEFINE_UNQUOTED([BYFL_LLVM_VERSION], ["$llvm_version"],
   [Define as the version of LLVM against which Byfl was built.])
-if test "${CPPFLAGS:-undefined}" = undefined ; then
-   CPPFLAGS=`${LLVM_CONFIG} --cppflags`
-   echo "$CPPFLAGS" | $GREP -- -D_GNU_SOURCE >/dev/null 2>&1 || CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE"
-fi
-if test "${CFLAGS:-undefined}" = undefined ; then
-   CFLAGS=`${LLVM_CONFIG} --cflags`
-fi
-if test "${CXXFLAGS:-undefined}" = undefined ; then
-   CXXFLAGS=`${LLVM_CONFIG} --cxxflags`
-fi
 AC_SUBST([llvm_libdir], [`${LLVM_CONFIG} --libdir`])
 AC_ARG_VAR([LLVM_CONFIG], [LLVM configuration tool])
+
+dnl Use llvm-config to set our default C preprocessor flags.
+LLVM_CPPFLAGS=`${LLVM_CONFIG} --cppflags`
+echo "$LLVM_CPPFLAGS" | $GREP -- -D_GNU_SOURCE >/dev/null 2>&1 || LLVM_CPPFLAGS="$LLVM_CPPFLAGS -D_GNU_SOURCE"
+AC_SUBST([LLVM_CPPFLAGS], [$LLVM_CPPFLAGS])
+AC_ARG_VAR([EXTRA_CPPFLAGS], [C preprocessor flags to append to those needed by LLVM (i.e., CPPFLAGS = LLVM_CPPFLAGS + EXTRA_CPPFLAGS unless CPPFLAGS is specified explicitly)])
+if test "${CPPFLAGS:-undefined}" = undefined ; then
+   CPPFLAGS="$LLVM_CPPFLAGS $EXTRA_CPPFLAGS"
+fi
+
+dnl Use llvm-config to set our default C compiler flags.
+AC_SUBST([LLVM_CFLAGS], [`${LLVM_CONFIG} --cflags`])
+AC_ARG_VAR([EXTRA_CFLAGS], [C compiler flags to append to those needed by LLVM (i.e., CFLAGS = LLVM_CFLAGS + EXTRA_CFLAGS unless CFLAGS is specified explicitly)])
+if test "${CFLAGS:-undefined}" = undefined ; then
+   CFLAGS="$LLVM_CFLAGS $EXTRA_CFLAGS"
+fi
+
+dnl Use llvm-config to set our default C++ compiler flags.
+AC_SUBST([LLVM_CXXFLAGS], [`${LLVM_CONFIG} --cxxflags`])
+AC_ARG_VAR([EXTRA_CXXFLAGS], [C++ compiler flags to append to those needed by LLVM (i.e., CXXFLAGS = LLVM_CXXFLAGS + EXTRA_CXXFLAGS unless CXXFLAGS is specified explicitly)])
+if test "${CXXFLAGS:-undefined}" = undefined ; then
+   CXXFLAGS="$LLVM_CXXFLAGS $EXTRA_CXXFLAGS"
+fi
 
 dnl Byfl requires C++11.  Abort if we don't have C++11 support.
 AC_PROG_CXX
@@ -204,7 +217,7 @@ if test "${DRAGONEGG:-no}" = no ; then
     [dnl
   # Search for dragonegg.so in various likely places.
   ax_cv_file_dragonegg_so=no
-  for dname in `$LLVM_CONFIG --libdir` `echo $LD_LIBRARY_PATH | $SED 's/:/\n/g'` /usr/local/lib* /usr/lib* ; do
+  for dname in `$LLVM_CONFIG --libdir` `echo "$LD_LIBRARY_PATH" | $SED 's/:/\n/g'` /usr/local/lib* /usr/lib* ; do
     if test -f "$dname/dragonegg.so" ; then
       ax_cv_file_dragonegg_so="$dname/dragonegg.so"
       break
@@ -220,8 +233,8 @@ if test "${DRAGONEGG:-no}" = no ; then
 else
   ax_cv_file_dragonegg_so="$DRAGONEGG"
 fi
-AM_CONDITIONAL([HAVE_DRAGONEGG], [test x$ax_cv_file_dragonegg_so != xno])
-if test x$ax_cv_file_dragonegg_so = xno ; then
+AM_CONDITIONAL([HAVE_DRAGONEGG], [test "x$ax_cv_file_dragonegg_so" != xno])
+if test "x$ax_cv_file_dragonegg_so" = xno ; then
   AC_SUBST([use_dragonegg], [no])
 else
   AC_SUBST([use_dragonegg], [yes])
@@ -277,7 +290,7 @@ fi
 if test $BUILD_BFBIN2SQLITE3 = no ; then
   AC_MSG_WARN([Not building the bfbin2sqlite3 postprocessor because it requires SQLite3 (v3.7.15+)])
 fi
-if test x$ax_cv_file_dragonegg_so != xno -a ! -e "$DRAGONEGG" ; then
+if test "x$ax_cv_file_dragonegg_so" != xno -a ! -e "$DRAGONEGG" ; then
   # The location of the DragonEgg plugin was specified but does not exist.
   AC_MSG_WARN([$DRAGONEGG does not exist; did you specify an incorrect file for the DRAGONEGG variable?])
 fi
