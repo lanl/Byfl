@@ -200,11 +200,11 @@ if [ "$download" = yes ] ; then
     # Delete old files before downloading the new ones.
     if [ "$use_byfl" = yes ] ; then
         echo "# Removing old versions of Byfl from $builddir" 1>&4
-        run_with_progress cleanup-byfl 320 rm -rfv byfl
+        run_with_progress cleanup-byfl 350 rm -rfv byfl
     fi
     if [ "$use_llvm" = yes ] ; then
         echo "# Removing old versions of LLVM and Clang from $builddir" 1>&4
-        run_with_progress cleanup-llvm 66000 rm -rfv llvm
+        run_with_progress cleanup-llvm 110000 rm -rfv llvm
     fi
 
     # Download LLVM.
@@ -258,15 +258,15 @@ if [ "$compile" = yes ] ; then
 
         # Build LLVM and Clang.
         echo "# Compiling LLVM and Clang" 1>&4
-        run_with_progress llvm-build 3900 make -j$numprocs
+        run_with_progress llvm-build 3600 make -j$numprocs
 
         # Install LLVM and Clang.  Out of the goodness of our heart we also
         # install the Clang static analyzer.
         echo "# Installing LLVM and Clang into $destdir$installdir" 1>&4
-        run_with_progress llvm-inst 850 make DESTDIR="$destdir" install
+        run_with_progress llvm-inst 890 make DESTDIR="$destdir" install
         cp -p tools/clang/tools/scan-view/scan-view "$destdir$installdir/bin/scan-view"
         cp -p tools/clang/tools/scan-build/* "$destdir$installdir/bin/"
-        pythondir=$(python -c 'import site; print site.getsitepackages()[0]' | sed "s,.*/lib/,$destdir$installdir/lib/,")
+        pythondir=$(python -c 'import site; print site.getsitepackages()[0]' | sed "s,.*/\\(lib[^/]*\\)/,$destdir$installdir/\\1/,")
         mkdir -p "$pythondir"
         cp -pr tools/clang/tools/scan-view/* "$pythondir/"
         rm "$pythondir/scan-view"
@@ -279,21 +279,21 @@ if [ "$compile" = yes ] ; then
         echo "# Configuring Byfl" 1>&4
         cd byfl
         if [ $configure = yes -o ! -e config.log ] ; then
-            run_with_progress byfl-autogen 22 autoreconf -v -f -i
+            run_with_progress byfl-autogen 21 autoreconf -v -f -i
         fi
         test -e build || mkdir build
         cd build
         if [ $configure = yes -o ! -e config.log ] ; then
-            run_with_progress byfl-config 150 ../configure --prefix="$installdir"
+            run_with_progress byfl-config 140 ../configure --prefix="$installdir"
         fi
 
         # Build Byfl.
         echo "# Compiling Byfl" 1>&4
-        run_with_progress byfl-build 210 make -j$numprocs
+        run_with_progress byfl-build 220 make -j$numprocs
 
         # Install Byfl.
         echo "# Installing Byfl into $destdir$installdir" 1>&4
-        run_with_progress byfl-inst 200 make DESTDIR="$destdir" install
+        run_with_progress byfl-inst 210 make DESTDIR="$destdir" install
     fi
 
     # Test the installation
@@ -309,7 +309,7 @@ int main (void) {
 }
 CFILE
     bf-clang -O2 -bf-libdir="$destdir$installdir/lib" "$cfile" -o "$exefile"
-    run_with_progress byfl-test 20 "$exefile"
+    run_with_progress byfl-test 21 "$exefile"
     rm -f "$cfile" "$exefile"
 
     # Say what we did.
