@@ -36,16 +36,14 @@ MersenneTwister* InternalSymbolInfo::prng = nullptr;
 void InternalSymbolInfo::initialize_func2loc(const Module* module)
 {
   func2loc = new unordered_map<const Function*, string_uint_pair>;
-  DebugInfoFinder finder;
-  finder.processModule(*module);
-  for (const DISubprogram* subprog : finder.subprograms()) {
-    const Function* func = subprog->getFunction();
-    if (func == nullptr)
+  for (const Function& func : module->functions()) {
+    const DISubprogram* subprog = func.getSubprogram();
+    if (subprog == nullptr)
       continue;
     string file = full_file_path(subprog->getDirectory(), subprog->getFilename());
     unsigned int line = subprog->getLine();
     string_uint_pair file_line(file, line);
-    pair<const Function*, string_uint_pair> func_file_line(func, file_line);
+    pair<const Function*, string_uint_pair> func_file_line(&func, file_line);
     func2loc->insert(func_file_line);
   }
 }

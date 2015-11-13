@@ -194,7 +194,7 @@ namespace bytesflops_pass {
         ? cast<LoadInst>(inst).getPointerOperand()
         : cast<StoreInst>(inst).getPointerOperand();
       mem_addr = new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64),
-                                  "", insert_before);
+                                  "", &*insert_before);
       mark_as_byfl(mem_addr);
     }
 
@@ -208,14 +208,14 @@ namespace bytesflops_pass {
         arg_list.push_back(map_func_name_to_arg(module, function_name));
         arg_list.push_back(mem_addr);
         arg_list.push_back(num_bytes);
-        callinst_create(assoc_addrs_with_func, arg_list, insert_before);
+        callinst_create(assoc_addrs_with_func, arg_list, &*insert_before);
       }
 
       // Unconditionally insert a call to bf_assoc_addresses_with_prog().
       vector<Value*> arg_list;
       arg_list.push_back(mem_addr);
       arg_list.push_back(num_bytes);
-      callinst_create(assoc_addrs_with_prog, arg_list, insert_before);
+      callinst_create(assoc_addrs_with_prog, arg_list, &*insert_before);
     }
 
     // If requested by the user, insert a call to bf_touch_cache().
@@ -223,7 +223,7 @@ namespace bytesflops_pass {
       vector<Value*> arg_list;
       arg_list.push_back(mem_addr);
       arg_list.push_back(num_bytes);
-      callinst_create(access_cache, arg_list, insert_before);
+      callinst_create(access_cache, arg_list, &*insert_before);
     }
 
     // If requested by the user, also insert a call to
@@ -233,7 +233,7 @@ namespace bytesflops_pass {
       vector<Value*> arg_list;
       arg_list.push_back(mem_addr);
       arg_list.push_back(num_bytes);
-      callinst_create(reuse_dist_prog, arg_list, insert_before);
+      callinst_create(reuse_dist_prog, arg_list, &*insert_before);
     }
 
     // If requested by the user, also insert a call to bf_track_stride().
@@ -248,7 +248,7 @@ namespace bytesflops_pass {
       arg_list.push_back(num_bytes);
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, is_const)));
-      callinst_create(track_stride, arg_list, insert_before);
+      callinst_create(track_stride, arg_list, &*insert_before);
     }
 
     // If requested by the user, insert a call to bf_access_data_struct().
@@ -260,13 +260,13 @@ namespace bytesflops_pass {
 
       // Acquire the mega-lock before inserting any instrumentation code.
       if (ThreadSafety)
-        callinst_create(take_mega_lock, insert_post_ls);
+        callinst_create(take_mega_lock, &*insert_post_ls);
 
       // Instrument the load or store.
       uint8_t load0store1 = opcode == Instruction::Load ? 0 : 1;
       vector<Value*> arg_list;
       CastInst* imm_mem_addr =
-        new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64), "", insert_post_ls);
+        new PtrToIntInst(mem_ptr, IntegerType::get(bbctx, 64), "", &*insert_post_ls);
       mark_as_byfl(imm_mem_addr);
       func_syminfo =
         find_value_provenance(*module, &inst, inst_to_string(&inst), insert_post_ls, func_syminfo);
@@ -274,11 +274,11 @@ namespace bytesflops_pass {
       arg_list.push_back(imm_mem_addr);
       arg_list.push_back(num_bytes);
       arg_list.push_back(ConstantInt::get(bbctx, APInt(8, load0store1)));
-      callinst_create(access_data_struct, arg_list, insert_post_ls);
+      callinst_create(access_data_struct, arg_list, &*insert_post_ls);
 
       // Release the mega-lock.
       if (ThreadSafety)
-        callinst_create(release_mega_lock, insert_post_ls);
+        callinst_create(release_mega_lock, &*insert_post_ls);
 
       // Advance the iterator to the last piece of code we inserted.  The
       // invoking loop will then advance it again.
@@ -341,14 +341,14 @@ namespace bytesflops_pass {
 
           // Acquire the mega-lock before inserting any instrumentation code.
           if (ThreadSafety)
-            callinst_create(take_mega_lock, insert_post_mem);
+            callinst_create(take_mega_lock, &*insert_post_mem);
 
           // A memory set is treated as a store.
           vector<Value*> arg_list;
           CastInst* mem_addr =
             new PtrToIntInst(memsetfunc->getDest(),
                              IntegerType::get(globctx, 64),
-                             "", insert_post_mem);
+                             "", &*insert_post_mem);
           mark_as_byfl(mem_addr);
           func_syminfo =
             find_value_provenance(*module, inst, inst_to_string(memsetfunc), insert_post_mem, func_syminfo);
@@ -356,11 +356,11 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memsetfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
-          callinst_create(access_data_struct, arg_list, insert_post_mem);
+          callinst_create(access_data_struct, arg_list, &*insert_post_mem);
 
           // Release the mega-lock.
           if (ThreadSafety)
-            callinst_create(release_mega_lock, insert_post_mem);
+            callinst_create(release_mega_lock, &*insert_post_mem);
 
           // Advance the iterator to the last piece of code we inserted.  The
           // invoking loop will then advance it again.
@@ -383,14 +383,14 @@ namespace bytesflops_pass {
 
           // Acquire the mega-lock before inserting any instrumentation code.
           if (ThreadSafety)
-            callinst_create(take_mega_lock, insert_post_mem);
+            callinst_create(take_mega_lock, &*insert_post_mem);
 
           // A memory transfer is treated as a load...
           vector<Value*> arg_list;
           CastInst* mem_addr =
             new PtrToIntInst(memxferfunc->getSource(),
                              IntegerType::get(globctx, 64),
-                             "", insert_post_mem);
+                             "", &*insert_post_mem);
           mark_as_byfl(mem_addr);
           func_syminfo =
             find_value_provenance(*module, inst, inst_to_string(memxferfunc), insert_post_mem, func_syminfo);
@@ -398,24 +398,24 @@ namespace bytesflops_pass {
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 0)));
-          callinst_create(access_data_struct, arg_list, insert_post_mem);
+          callinst_create(access_data_struct, arg_list, &*insert_post_mem);
 
           // ...plus a store.
           arg_list.clear();
           mem_addr =
             new PtrToIntInst(memxferfunc->getDest(),
                              IntegerType::get(globctx, 64),
-                             "", insert_post_mem);
+                             "", &*insert_post_mem);
           mark_as_byfl(mem_addr);
           arg_list.push_back(func_syminfo);  // Recycle the func_syminfo assigned above.
           arg_list.push_back(mem_addr);
           arg_list.push_back(memxferfunc->getLength());
           arg_list.push_back(ConstantInt::get(globctx, APInt(8, 1)));
-          callinst_create(access_data_struct, arg_list, insert_post_mem);
+          callinst_create(access_data_struct, arg_list, &*insert_post_mem);
 
           // Release the mega-lock.
           if (ThreadSafety)
-            callinst_create(release_mega_lock, insert_post_mem);
+            callinst_create(release_mega_lock, &*insert_post_mem);
 
           // Advance the iterator to the last piece of code we inserted.  The
           // invoking loop will then advance it again.
@@ -440,7 +440,7 @@ namespace bytesflops_pass {
       vector<Value*> arg_list;
       arg_list.push_back(key);
       arg_list.push_back(null_syminfo_pointer);
-      callinst_create(tally_function, arg_list, insert_before);
+      callinst_create(tally_function, arg_list, &*insert_before);
     }
 
     // If data structures are to be monitored, keep track of all
@@ -454,7 +454,7 @@ namespace bytesflops_pass {
 
       // Acquire the mega-lock before inserting any instrumentation code.
       if (ThreadSafety)
-        callinst_create(take_mega_lock, insert_post_call);
+        callinst_create(take_mega_lock, &*insert_post_call);
 
       // Determine the number of bytes we allocated.
       unsigned int num_args = call_inst->getNumArgOperands();
@@ -487,7 +487,7 @@ namespace bytesflops_pass {
         byte_count = BinaryOperator::Create(Instruction::Mul,
                                             call_inst->getArgOperand(0),
                                             call_inst->getArgOperand(1),
-                                            "calloc_size", insert_post_call);
+                                            "calloc_size", &*insert_post_call);
       else if (callee_name == "posix_memalign") {
         // posix_memalign -- last argument is the byte count, but
         // first argument is a pointer to the returned pointer.
@@ -506,10 +506,10 @@ namespace bytesflops_pass {
         arg_list.push_back(byte_count);
         if (callee_name == "posix_memalign") {
           arg_list.push_back(call_inst);   // Error code
-          callinst_create(assoc_addrs_with_dstruct_pm, arg_list, insert_post_call);
+          callinst_create(assoc_addrs_with_dstruct_pm, arg_list, &*insert_post_call);
         }
         else
-          callinst_create(assoc_addrs_with_dstruct, arg_list, insert_post_call);
+          callinst_create(assoc_addrs_with_dstruct, arg_list, &*insert_post_call);
       }
 
       // Now determine if we are instead deallocating memory.  If so, invoke
@@ -522,12 +522,12 @@ namespace bytesflops_pass {
         vector<Value*> arg_list;
         ptr_provided = call_inst->getArgOperand(0);
         arg_list.push_back(ptr_provided);
-        callinst_create(disassoc_addrs_with_dstruct, arg_list, insert_post_call);
+        callinst_create(disassoc_addrs_with_dstruct, arg_list, &*insert_post_call);
       }
 
       // Release the mega-lock.
       if (ThreadSafety)
-        callinst_create(release_mega_lock, insert_post_call);
+        callinst_create(release_mega_lock, &*insert_post_call);
 
       // Advance the iterator to the last piece of code we inserted.  The
       // invoking loop will then advance it again.
@@ -562,7 +562,7 @@ namespace bytesflops_pass {
       vector<Value*> arg_list;
       arg_list.push_back(key);
       arg_list.push_back(null_syminfo_pointer);
-      callinst_create(tally_function, arg_list, insert_before);
+      callinst_create(tally_function, arg_list, &*insert_before);
     }
 
     // If data structures are to be monitored, keep track of all
@@ -590,7 +590,7 @@ namespace bytesflops_pass {
         arg_list.push_back(null_pointer);
         arg_list.push_back(invoke_inst);
         arg_list.push_back(byte_count);
-        callinst_create(assoc_addrs_with_dstruct, arg_list, next_insert_before);
+        callinst_create(assoc_addrs_with_dstruct, arg_list, &*next_insert_before);
       }
     }
   }
@@ -616,7 +616,7 @@ namespace bytesflops_pass {
 
         // Acquire the mega-lock before inserting any instrumentation code.
         if (ThreadSafety)
-          callinst_create(take_mega_lock, insert_post_alloca);
+          callinst_create(take_mega_lock, &*insert_post_alloca);
 
         // Determine the number of bytes allocated.
         Type* alloc_type = ainst.getAllocatedType();
@@ -628,27 +628,27 @@ namespace bytesflops_pass {
           elts_per_array = new ZExtInst(ainst.getArraySize(),
                                         IntegerType::get(bbctx, 64),
                                         "nelts",
-                                        insert_post_alloca);
+                                        &*insert_post_alloca);
         BinaryOperator* bytes_alloced =
           BinaryOperator::Create(Instruction::Mul,
                                  bytes_per_elt,
                                  elts_per_array,
                                  "nbytes",
-                                 insert_post_alloca);
+                                 &*insert_post_alloca);
 
         // Instrument the alloca instruction.
         vector<Value*> arg_list;
         PointerType* ptr8ty = Type::getInt8PtrTy(bbctx);
-        CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", insert_post_alloca);
+        CastInst* pointer = new BitCastInst(&ainst, ptr8ty, "alloced", &*insert_post_alloca);
         func_syminfo = find_value_provenance(*module, &ainst, "stack", insert_post_alloca, func_syminfo);
         arg_list.push_back(func_syminfo);
         arg_list.push_back(pointer);
         arg_list.push_back(bytes_alloced);
-        callinst_create(assoc_addrs_with_dstruct_stack, arg_list, insert_post_alloca);
+        callinst_create(assoc_addrs_with_dstruct_stack, arg_list, &*insert_post_alloca);
 
         // Release the mega-lock.
         if (ThreadSafety)
-          callinst_create(release_mega_lock, insert_post_alloca);
+          callinst_create(release_mega_lock, &*insert_post_alloca);
 
         // Advance the iterator to the last piece of code we inserted.  The
         // invoking loop will then advance it again.
@@ -788,7 +788,7 @@ namespace bytesflops_pass {
         arg_list.push_back(get_vector_length(bbctx, vt, one));
         arg_list.push_back(ConstantInt::get(bbctx, APInt(64, total_bits/elt_count)));
         arg_list.push_back(ConstantInt::get(bbctx, APInt(8, 1)));
-        callinst_create(tally_vector, arg_list, insert_before);
+        callinst_create(tally_vector, arg_list, &*insert_before);
       }
       while (0);
   }
@@ -859,11 +859,11 @@ namespace bytesflops_pass {
       // Insert an "unreachable" instruction as a sentinel before the real
       // terminator instruction.  New code is inserted before the real
       // terminator, and instrumentation stops at the sentinel.
-      Instruction* unreachable = new UnreachableInst(bbctx, terminator_inst);
+      Instruction* unreachable = new UnreachableInst(bbctx, &*terminator_inst);
 
       // Acquire the mega-lock before inserting any instrumentation code.
       if (ThreadSafety)
-        callinst_create(take_mega_lock, terminator_inst);
+        callinst_create(take_mega_lock, &*terminator_inst);
 
       // Iterate over the basic block's instructions one-by-one until
       // we reach the sentinal.
@@ -947,7 +947,7 @@ namespace bytesflops_pass {
       // the sentinel terminator.
       insert_end_bb_code(module, keyval, num_insts, must_clear, terminator_inst);
       if (ThreadSafety)
-        callinst_create(release_mega_lock, terminator_inst);
+        callinst_create(release_mega_lock, &*terminator_inst);
       unreachable->eraseFromParent();
     }  // Ends the loop over basic blocks within the function
   }
