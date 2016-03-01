@@ -414,7 +414,7 @@ void LocalState::create_database_dir (void)
 
   // That didn't work.  Keep trying different suffixes until the directory is
   // created successfully.
-  char db_name_str[base_db_name.size() + 25];
+  char* db_name_str = new char[base_db_name.size() + 25];
   int num = getpid();
   while (errno == EEXIST) {
     sprintf(db_name_str, "%s-%d", base_db_name.c_str(), num);
@@ -425,6 +425,7 @@ void LocalState::create_database_dir (void)
   }
   cerr << progname << ": Failed to create directory " << db_name
        << " (" << strerror(errno) << ")\n" << die;
+  delete db_name_str;
 }
 
 // Copy a source file (named by absolute path) into the database directory.
