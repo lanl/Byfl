@@ -177,7 +177,7 @@ void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* tota
 }
 
 // Output a histogram of all vector operations encountered.
-void bf_report_vector_operations (size_t call_stack_depth)
+void bf_report_vector_operations (void)
 {
   // Output a binary table header.
   *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Vector operations";
