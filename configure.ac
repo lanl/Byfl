@@ -91,23 +91,34 @@ dnl Use llvm-config to set our default C preprocessor flags.
 LLVM_CPPFLAGS=`${LLVM_CONFIG} --cppflags`
 echo "$LLVM_CPPFLAGS" | $GREP -- -D_GNU_SOURCE >/dev/null 2>&1 || LLVM_CPPFLAGS="$LLVM_CPPFLAGS -D_GNU_SOURCE"
 AC_SUBST([LLVM_CPPFLAGS], [$LLVM_CPPFLAGS])
-AC_ARG_VAR([EXTRA_CPPFLAGS], [C preprocessor flags to append to those needed by LLVM (i.e., CPPFLAGS = LLVM_CPPFLAGS + EXTRA_CPPFLAGS unless CPPFLAGS is specified explicitly)])
+AC_ARG_VAR([EXTRA_CPPFLAGS],
+  [C preprocessor flags to append to those needed by LLVM (i.e., CPPFLAGS = LLVM_CPPFLAGS + EXTRA_CPPFLAGS unless CPPFLAGS is specified explicitly)])
 if test "${CPPFLAGS:-undefined}" = undefined ; then
    CPPFLAGS="$LLVM_CPPFLAGS $EXTRA_CPPFLAGS"
 fi
 
 dnl Use llvm-config to set our default C compiler flags.
 AC_SUBST([LLVM_CFLAGS], [`${LLVM_CONFIG} --cflags`])
-AC_ARG_VAR([EXTRA_CFLAGS], [C compiler flags to append to those needed by LLVM (i.e., CFLAGS = LLVM_CFLAGS + EXTRA_CFLAGS unless CFLAGS is specified explicitly)])
+AC_ARG_VAR([EXTRA_CFLAGS],
+  [C compiler flags to append to those needed by LLVM (i.e., CFLAGS = LLVM_CFLAGS + EXTRA_CFLAGS unless CFLAGS is specified explicitly)])
 if test "${CFLAGS:-undefined}" = undefined ; then
    CFLAGS="$LLVM_CFLAGS $EXTRA_CFLAGS"
 fi
 
 dnl Use llvm-config to set our default C++ compiler flags.
 AC_SUBST([LLVM_CXXFLAGS], [`${LLVM_CONFIG} --cxxflags`])
-AC_ARG_VAR([EXTRA_CXXFLAGS], [C++ compiler flags to append to those needed by LLVM (i.e., CXXFLAGS = LLVM_CXXFLAGS + EXTRA_CXXFLAGS unless CXXFLAGS is specified explicitly)])
+AC_ARG_VAR([EXTRA_CXXFLAGS],
+  [C++ compiler flags to append to those needed by LLVM (i.e., CXXFLAGS = LLVM_CXXFLAGS + EXTRA_CXXFLAGS unless CXXFLAGS is specified explicitly)])
 if test "${CXXFLAGS:-undefined}" = undefined ; then
    CXXFLAGS="$LLVM_CXXFLAGS $EXTRA_CXXFLAGS"
+fi
+
+dnl Use llvm-config to set our default linker flags.
+AC_SUBST([LLVM_LDFLAGS], [`${LLVM_CONFIG} --ldflags`])
+AC_ARG_VAR([EXTRA_LDFLAGS],
+  [Linker flags to append to those needed by LLVM (i.e., LDFLAGS = LLVM_LDFLAGS + EXTRA_LDFLAGS unless LDFLAGS is specified explicitly)])
+if test "${LDFLAGS:-undefined}" = undefined ; then
+   LDFLAGS="$LLVM_LDFLAGS $EXTRA_LDFLAGS"
 fi
 
 dnl Byfl requires C++11.  Abort if we don't have C++11 support.
