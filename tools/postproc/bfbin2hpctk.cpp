@@ -356,7 +356,7 @@ void LocalState::output_xml (ostream& of)
 
   // Construct a mapping from demangled function name or demangled call stack
   // to ID.
-  size_t func_col_num;
+  size_t func_col_num = (size_t)(-1);
   func_col = nullptr;
   for (size_t i = 0; i < table.size(); i++)
     if (table[i]->name == "Demangled function name" || table[i]->name == "Demangled call stack") {
@@ -414,7 +414,7 @@ void LocalState::create_database_dir (void)
 
   // That didn't work.  Keep trying different suffixes until the directory is
   // created successfully.
-  char db_name_str[base_db_name.size() + 25];
+  char* db_name_str = new char[base_db_name.size() + 25];
   int num = getpid();
   while (errno == EEXIST) {
     sprintf(db_name_str, "%s-%d", base_db_name.c_str(), num);
@@ -425,6 +425,7 @@ void LocalState::create_database_dir (void)
   }
   cerr << progname << ": Failed to create directory " << db_name
        << " (" << strerror(errno) << ")\n" << die;
+  delete db_name_str;
 }
 
 // Copy a source file (named by absolute path) into the database directory.

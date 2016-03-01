@@ -81,7 +81,7 @@ namespace bytesflops {
   extern void bf_get_vector_statistics(const char* tag, uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
   extern void bf_get_vector_statistics(uint64_t* num_ops, uint64_t* total_elts, uint64_t* total_bits);
   extern void bf_abend(void) __attribute__ ((noreturn));
-  extern void bf_report_vector_operations(size_t call_stack_depth);
+  extern void bf_report_vector_operations(void);
   extern void bf_report_data_struct_counts(void);
   extern void bf_report_bb_execution(void);
   extern void bf_partition_unique_addresses(uint64_t* uti, uint64_t *mti);
