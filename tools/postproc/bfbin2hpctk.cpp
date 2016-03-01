@@ -356,7 +356,7 @@ void LocalState::output_xml (ostream& of)
 
   // Construct a mapping from demangled function name or demangled call stack
   // to ID.
-  size_t func_col_num;
+  size_t func_col_num = (size_t)(-1);
   func_col = nullptr;
   for (size_t i = 0; i < table.size(); i++)
     if (table[i]->name == "Demangled function name" || table[i]->name == "Demangled call stack") {

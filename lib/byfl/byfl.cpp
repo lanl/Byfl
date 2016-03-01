@@ -462,7 +462,7 @@ private:
       const char* funcname_c = bf_string_to_symbol(funcname.c_str());
       ByteFlopCounters* func_counters = per_func_totals()[*fn_iter];
       uint64_t invocations = final_call_tallies()[funcname_c];
-      uint64_t num_uniq_bytes;
+      uint64_t num_uniq_bytes = 0;
       if (bf_unique_bytes)
         num_uniq_bytes = bf_mem_footprint ? bf_tally_unique_addresses_tb(funcname_c) : bf_tally_unique_addresses(funcname_c);
 
@@ -569,7 +569,7 @@ private:
 
   // Report the number of times each instruction type was executed.  Return the
   // total number of instructions executed.
-  uint64_t report_instruction_mix (const char* partition, ByteFlopCounters& counter_totals, string& tag) {
+  uint64_t report_instruction_mix (const char* partition, ByteFlopCounters& counter_totals) {
     // Sort the histogram by decreasing opcode tally.
     uint64_t total_insts = 0;
     vector<name_tally> sorted_inst_mix;
@@ -602,7 +602,7 @@ private:
 
   // Report the number of times each {instruction, operand1, operand2} triple
   // type was executed.
-  void report_instruction_deps (string& tag) {
+  void report_instruction_deps (void) {
     // Convert the matrix to a histogram and sort it in decreasing order of
     // tally.
     struct InstInfo {
@@ -1004,12 +1004,12 @@ private:
     // binary formats.
     uint64_t total_insts = 0;
     if (bf_tally_inst_mix)
-      total_insts = report_instruction_mix(partition, counter_totals, tag);
+      total_insts = report_instruction_mix(partition, counter_totals);
 
     // Pretty-print the histogram of instruction dependencies in both textual
     // and binary formats.
     if (bf_tally_inst_deps)
-      report_instruction_deps(tag);
+      report_instruction_deps();
 
     // Output quantiles of working-set sizes.
     if (bf_mem_footprint && !partition) {
@@ -1355,7 +1355,7 @@ public:
 
     // Output a histogram of vector usage.
     if (bf_vectors)
-      bf_report_vector_operations(call_stack->max_depth);
+      bf_report_vector_operations();
 
     // Report per-data-structure counts if requested.
     if (bf_data_structs)
