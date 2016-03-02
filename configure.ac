@@ -4,7 +4,7 @@ dnl ### By Scott Pakin <pakin@lanl.gov> ###
 dnl #######################################
 
 dnl Initialize Autoconf and friends.
-AC_INIT([byfl], [1.4], [pakin@lanl.gov])
+AC_INIT([byfl], [1.5], [pakin@lanl.gov])
 AC_CONFIG_SRCDIR([lib/byfl/byfl.h])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign])
