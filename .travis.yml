@@ -3,6 +3,7 @@ language: cpp
 env:
   - LLVM_VERSION=3.8 GCC_VERSION=4.8
   - LLVM_VERSION=3.8 GCC_VERSION=4.9
+  - LLVM_VERSION=3.8 GCC_VERSION=5
 
 sudo: false
 
@@ -17,16 +18,26 @@ addons:
       - g++-4.8
       - gcc-4.9
       - g++-4.9
+      - gcc-5
+      - g++-5
       - llvm-3.8-dev
       - clang-3.8
+      - libhdf5-serial-dev
+      - libsqlite3-dev
 
 before_install:
  - if [[ $CXX = "g++" ]]; then
      export CXX="g++-${GCC_VERSION}";
-     export CC="gcc-${GCC_VERSION}"; 
-   else 
+     export CC="gcc-${GCC_VERSION}";
+   else
      export CXX="clang++-${LLVM_VERSION}";
      export CC="clang-${LLVM_VERSION}";
+   fi
+ - if `type h5c++ > /dev/null 2>&1`; then
+     export HDF5_CXX="$CXX";
+   else
+     export H5CXX="$CXX";
+     export H5LIBS="-lhdf5 -lhdf5_cpp";
    fi
  - export LLVM_CONFIG="llvm-config-${LLVM_VERSION}"
  - export BF_CLANG="clang-${LLVM_VERSION}"
@@ -34,8 +45,10 @@ before_install:
  - export BF_GCC="gcc-${GCC_VERSION}"
  - export BF_GXX="g++${GCC_VERSION}"
 
-script: 
-  - autoreconf -i && ./configure && make distcheck
+script:
+  - autoreconf -i &&
+    PATH="/usr/lib/ccache:$PATH" ./configure &&
+    make distcheck
 
 compiler:
   - clang
