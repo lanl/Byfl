@@ -45,7 +45,7 @@ endif
 bfbin2hdf5_SOURCES = bfbin2hdf5.cpp
 bfbin2hdf5_CPPFLAGS = -I$(top_srcdir)/include
 bfbin2hdf5_CXXFLAGS = $(H5CXXFLAGS)
-bfbin2hdf5_LDADD = libbfbin.la
+bfbin2hdf5_LDADD = libbfbin.la $(H5LIBS)
 
 if GETOPT_LONG_AVAILABLE
 bin_PROGRAMS += bfbin2csv
