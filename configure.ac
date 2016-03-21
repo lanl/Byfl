@@ -177,18 +177,23 @@ fi
 if test "x$H5CXX" != xno ; then
   AC_CACHE_CHECK([if $H5CXX can compile and link an HDF5 program],
     [ax_cv_link_h5cxx],
-    [orig_CXX="$CXX"
+    [AC_LANG_PUSH([C++])
+     orig_CXX="$CXX"
      CXX="$H5CXX"
-     AC_LANG_PUSH([C++])
+     orig_CXXFLAGS="$CXXFLAGS"
+     CXXFLAGS="$H5CXXFLAGS"
+     orig_LIBS="$LIBS"
+     LIBS="$H5LIBS"
      AC_LINK_IFELSE(
-       [AC_LANG_PROGRAM([[#include <H5Cpp.h>]], [
-  H5::H5File hdf5file("myfile.h5", H5F_ACC_TRUNC);
-  return 0;
-       ])],
+       [AC_LANG_PROGRAM(
+         [[#include <H5Cpp.h>]],
+         [H5::H5File hdf5file("myfile.h5", H5F_ACC_TRUNC);])],
        [ax_cv_link_h5cxx=yes],
        [ax_cv_link_h5cxx=no])
-     AC_LANG_POP([C++])
      CXX="$orig_CXX"
+     CXXFLAGS="$orig_CXXFLAGS"
+     LIBS="$orig_LIBS"
+     AC_LANG_POP([C++])
     ])
 fi
 if test "x$ax_cv_link_h5cxx" = xno ; then
@@ -204,6 +209,10 @@ AM_CONDITIONAL([HDF5_AVAILABLE], [test $BUILD_BFBIN2HDF5 != no])
 AC_ARG_VAR([H5CXXFLAGS], [HDF5 C++ compiler flags])
 if test "x${H5CXXFLAGS-undefined}" = xundefined ; then
   H5CXXFLAGS="$CXXFLAGS"
+fi
+AC_ARG_VAR([H5LIBS], [HDF5 libraries])
+if test "x${H5LIBS-undefined}" = xundefined ; then
+  H5LIBS="$LIBS"
 fi
 
 dnl If getopt_long is available we can build bfbin2text.
