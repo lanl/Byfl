@@ -1,7 +1,7 @@
 Byfl installation
 =================
 
-Byfl relies on [LLVM](http://www.llvm.org/) and [Clang](http://clang.llvm.org/) and can take advantage of [DragonEgg](http://dragonegg.llvm.org/).  The `llvm-3.5` branch of Byfl is designed to work with LLVM/Clang/DragonEgg release 3.5.*x*.  The `llvm-3.6` branch of Byfl is designed to work with LLVM/Clang release 3.6.*x*.  The `llvm-3.7` branch of Byfl is designed to work with LLVM/Clang release 3.7.*x*.  The `master` branch of Byfl is designed to work with LLVM/Clang trunk (i.e., the post-3.7-release development code).
+Byfl relies on [LLVM](http://www.llvm.org/) and [Clang](http://clang.llvm.org/) and can take advantage of [DragonEgg](http://dragonegg.llvm.org/).  The `llvm-3.5` branch of Byfl is designed to work with LLVM/Clang/DragonEgg release 3.5.*x*.  The `llvm-3.6` branch of Byfl is designed to work with LLVM/Clang release 3.6.*x*.  The `llvm-3.7` branch of Byfl is designed to work with LLVM/Clang release 3.7.*x*.  The `llvm-3.8` branch of Byfl is designed to work with LLVM/Clang release 3.8.*x*.  The `master` branch of Byfl is designed to work with LLVM/Clang trunk (i.e., the post-3.8-release development code).
 
 Basic installation
 ------------------

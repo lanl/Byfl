@@ -36,9 +36,10 @@ The name "Byfl" comes from "bytes/flops".  The very first version of the code co
 Installation
 ------------
 
-There are four "release" branches of Byfl on GitHub:
+There are five "release" branches of Byfl on GitHub:
 
   * [`master`](https://github.com/losalamos/Byfl), corresponding to LLVM trunk
+  * [`llvm-3.8`](https://github.com/losalamos/Byfl/tree/llvm-3.8), corresponding to LLVM 3.8._x_ releases
   * [`llvm-3.7`](https://github.com/losalamos/Byfl/tree/llvm-3.7), corresponding to LLVM 3.7._x_ releases
   * [`llvm-3.6`](https://github.com/losalamos/Byfl/tree/llvm-3.6), corresponding to LLVM 3.6._x_ releases
   * [`llvm-3.5`](https://github.com/losalamos/Byfl/tree/llvm-3.5), corresponding to LLVM 3.5._x_ releases
