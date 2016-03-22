@@ -39,10 +39,10 @@ A few extra steps are needed to build Byfl on OS X:
 
 3. Use Homebrew to install Byfl:
 ```bash
-brew install https://github.com/losalamos/Byfl/releases/download/v1.5-llvm-3.7.1/byfl15.rb
+brew install https://github.com/losalamos/Byfl/releases/download/v1.5-llvm-3.8.0/byfl15.rb
 ```
 
-The preceding procedure installs Byfl 1.5 from the `llvm-3.7` branch of Byfl.  If you instead prefer to install a newer, pre-release version of Byfl (still from the `llvm-3.7` branch), you can use Homebrew to install Byfl's dependencies but download Byfl itself from GitHub.
+The preceding procedure installs Byfl 1.5 from the `llvm-3.8` branch of Byfl.  If you instead prefer to install a newer, pre-release version of Byfl (still from the `llvm-3.8` branch), you can use Homebrew to install Byfl's dependencies but download Byfl itself from GitHub.
 
 1. Use Homebrew to install the [GNU Autotools](https://en.wikipedia.org/wiki/GNU_build_system):
 ```bash
@@ -51,18 +51,18 @@ brew install automake
 brew install libtool
 ```
 
-2. Use Homebrew to install [LLVM](http://www.llvm.org/) 3.7:
+2. Use Homebrew to install [LLVM](http://www.llvm.org/) 3.8:
 ```bash
-brew install llvm37
+brew install llvm38
 ```
 
 3. For a basic Byfl installation (see above) you'll need to point Byfl's `../configure` to the Homebrew-versioned `llvm-config` file:
 ```bash
-../configure LLVM_CONFIG=llvm-config-3.7
+../configure LLVM_CONFIG=llvm-config-3.8
 ```
 
 Once you've built and installed Byfl, you'll probably need to set the following environment variables to point Byfl's [compiler wrapper scripts](https://github.com/losalamos/Byfl/wiki) to the version of Clang that Byfl was built against:
 ```bash
-export BF_CLANGXX=clang++-3.7
-export BF_CLANG=clang-3.7
+export BF_CLANGXX=clang++-3.8
+export BF_CLANG=clang-3.8
 ```
