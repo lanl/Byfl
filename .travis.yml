@@ -1,9 +1,9 @@
 language: cpp
 
 env:
-  - LLVM_VERSION=3.8 GCC_VERSION=4.8
-  - LLVM_VERSION=3.8 GCC_VERSION=4.9
-  - LLVM_VERSION=3.8 GCC_VERSION=5
+  - LLVM_VERSION=3.9 GCC_VERSION=4.8
+  - LLVM_VERSION=3.9 GCC_VERSION=4.9
+  - LLVM_VERSION=3.9 GCC_VERSION=5
 
 sudo: false
 
@@ -20,8 +20,8 @@ addons:
       - g++-4.9
       - gcc-5
       - g++-5
-      - llvm-3.8-dev
-      - clang-3.8
+      - llvm-3.9-dev
+      - clang-3.9
       - libhdf5-serial-dev
       - libsqlite3-dev
 
