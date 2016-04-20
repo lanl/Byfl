@@ -1,16 +1,16 @@
 language: cpp
 
 env:
-  - LLVM_VERSION=3.9 GCC_VERSION=4.8
-  - LLVM_VERSION=3.9 GCC_VERSION=4.9
-  - LLVM_VERSION=3.9 GCC_VERSION=5
+  - LLVM_VERSION=3.8 GCC_VERSION=4.8
+  - LLVM_VERSION=3.8 GCC_VERSION=4.9
+  - LLVM_VERSION=3.8 GCC_VERSION=5
 
 sudo: false
 
 addons:
   apt:
     sources:
-      - llvm-toolchain-precise
+      - llvm-toolchain-precise-3.8
       - ubuntu-toolchain-r-test
     packages:
       - ccache
@@ -20,8 +20,9 @@ addons:
       - g++-4.9
       - gcc-5
       - g++-5
-      - llvm-3.9-dev
-      - clang-3.9
+      - llvm-3.8
+      - llvm-3.8-dev
+      - clang-3.8
       - libhdf5-serial-dev
       - libsqlite3-dev
 
@@ -40,6 +41,7 @@ before_install:
      export H5LIBS="-lhdf5 -lhdf5_cpp";
    fi
  - export LLVM_CONFIG="llvm-config-${LLVM_VERSION}"
+ - export EXTRA_CXXFLAGS="-std=c++11"
  - export BF_CLANG="clang-${LLVM_VERSION}"
  - export BF_CLANGXX="clang++-${LLVM_VERSION}"
  - export BF_GCC="gcc-${GCC_VERSION}"
