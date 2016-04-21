@@ -131,7 +131,7 @@ string LocalState::quote_for_xml (const string& in_str)
 // Do the same as the above but accept an rvalue.
 string LocalState::quote_for_xml (const string&& in_str)
 {
-  return quote_for_xml(ref(in_str));
+  return quote_for_xml((const string&)ref(in_str));
 }
 
 // Report a parse error and abort.

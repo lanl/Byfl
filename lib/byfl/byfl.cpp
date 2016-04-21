@@ -75,7 +75,7 @@ static void bf_record_key (const char* funcname, KeyType_t keyID)
     std::cerr << "Fatal Error: duplicate keys found for " << funcname << std::endl;
     bf_abend();
   }
-  map[keyID] = std::move(std::string(funcname));
+  map[keyID] = std::string(funcname);
 }
 
 // bf_categorize_counters() is intended to be overridden by a user-defined

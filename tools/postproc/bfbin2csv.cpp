@@ -287,7 +287,7 @@ static string quote_for_csv (const string& in_str)
 // Do the same as the above but accept an rvalue.
 static string quote_for_csv (const string&& in_str)
 {
-  return quote_for_csv(ref(in_str));
+  return quote_for_csv((const string&)ref(in_str));
 }
 
 // Report a parse error and abort.
