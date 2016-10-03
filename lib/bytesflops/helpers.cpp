@@ -888,13 +888,17 @@ string BytesFlops::inst_to_string(Instruction* inst)
 {
   unordered_map<Instruction*, string>::iterator iter = instruction_to_string.find(inst);
   if (iter == instruction_to_string.end()) {
-    string errstr;
-    raw_string_ostream rso(errstr);
-    rso << "Failed to stringify instruction: ";
-    inst->print(rso);
-    report_fatal_error(errstr);
+    // The string wasn't found.  Compute the string the slow way and return
+    // that.  I never saw this case before LLVM 3.9 but see it a lot,
+    // particularly on Br instructions, since.
+    string inst_str;
+    raw_string_ostream inst_rso(inst_str);
+    inst->print(inst_rso);
+    return inst_str;
   }
-  return iter->second;
+  else
+    // The string was found.  Return it.
+    return iter->second;
 }
 
 // Stack-allocate a bf_symbol_info_t in the generated code based on a
