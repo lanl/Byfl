@@ -4,6 +4,7 @@ env:
   - LLVM_VERSION=3.5 GCC_VERSION=4.8
   - LLVM_VERSION=3.5 GCC_VERSION=4.9
   - LLVM_VERSION=3.5 GCC_VERSION=5
+  - LLVM_VERSION=3.5 GCC_VERSION=6
 
 sudo: false
 
@@ -20,6 +21,8 @@ addons:
       - g++-4.9
       - gcc-5
       - g++-5
+      - gcc-6
+      - g++-6
       - llvm-3.5
       - llvm-3.5-dev
       - clang-3.5
