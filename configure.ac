@@ -12,7 +12,7 @@ LT_INIT
 
 dnl Added @nmhamster to get configure to work correctly on
 dnl RHEL6.5 testbed systems
-AC_CONFIG_MACRO_DIRS([m4])
+AC_CONFIG_MACRO_DIR([m4])
 
 dnl Specify various fixed strings to use in man pages.
 AC_MSG_CHECKING([the precise Byfl version])
