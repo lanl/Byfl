@@ -7,7 +7,6 @@ Basic installation
 ------------------
 
 As long as LLVM's `llvm-config` program is in your path, the Free Software Foundation's canonical installation procedure for an out-of-source build should work:
-
 ```bash
 mkdir build
 cd build
@@ -17,12 +16,14 @@ make install
 ```
 
 Note that `../configure` is included in Byfl releases but does not exist in the Git repository.  To create it, run
-
 ```bash
 autoreconf -f -i
 ```
 
-from the top-level Byfl directory.
+from the top-level Byfl directory.  It's been reported (in [issue #17](https://github.com/lanl/Byfl/issues/17)) that on some systems, the `autoreconf` line must be preceded by
+```bash
+libtoolize
+```
 
 Run `../configure --help` for usage information.  The [FSF's generic installation instructions](http://git.savannah.gnu.org/cgit/automake.git/tree/INSTALL) provide substantially more detail on customizing the configuration.
 
