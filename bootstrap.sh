@@ -2,5 +2,3 @@
 
 libtoolize
 autoreconf -f -i
-
-
