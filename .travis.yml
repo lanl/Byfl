@@ -56,7 +56,6 @@ script:
   - autoreconf -i &&
     PATH="/usr/lib/ccache:$PATH" ./configure CXXFLAGS="$LLVM_CXXFLAGS -std=c++11" CFLAGS="$LLVM_CFLAGS" &&
     make distcheck DISTCHECK_CONFIGURE_FLAGS="CXXFLAGS='$LLVM_CXXFLAGS -std=c++11' LLVM_CFLAGS='$LLVM_CFLAGS'"
-  - cat config.log
 
 compiler:
   - clang
