@@ -49,11 +49,14 @@ before_install:
  - export BF_CLANGXX="clang++-${LLVM_VERSION}"
  - export BF_GCC="gcc-${GCC_VERSION}"
  - export BF_GXX="g++${GCC_VERSION}"
+ - export LLVM_CXXFLAGS=`$LLVM_CONFIG --cxxflags | sed -e 's/-Werror=date-time//g'`
+ - export LLVM_CFLAGS=`$LLVM_CONFIG --cflags | sed -e 's/-Werror=date-time//g'`
 
 script:
   - autoreconf -i &&
-    PATH="/usr/lib/ccache:$PATH" ./configure &&
-    make distcheck
+    PATH="/usr/lib/ccache:$PATH" ./configure CXXFLAGS="$LLVM_CXXFLAGS -std=c++11" CFLAGS="$LLVM_CFLAGS" &&
+    make distcheck DISTCHECK_CONFIGURE_FLAGS="CXXFLAGS='$LLVM_CXXFLAGS -std=c++11' LLVM_CFLAGS='$LLVM_CFLAGS'"
+  - cat config.log
 
 compiler:
   - clang
