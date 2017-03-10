@@ -10,6 +10,10 @@ AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([foreign])
 LT_INIT
 
+dnl Added @nmhamster to get configure to work correctly on
+dnl RHEL6.5 testbed systems
+AC_CONFIG_MACRO_DIR([m4])
+
 dnl Specify various fixed strings to use in man pages.
 AC_MSG_CHECKING([the precise Byfl version])
 MAN_RELEASE="`git rev-parse --short HEAD 2>/dev/null`"
