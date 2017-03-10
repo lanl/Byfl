@@ -15,5 +15,6 @@ configure
 depcomp
 install-sh
 ltmain.sh
+m4
 missing
 test-driver
