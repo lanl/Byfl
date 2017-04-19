@@ -168,15 +168,15 @@ InternalSymbolInfo::InternalSymbolInfo(Value* value, string defn_loc)
 }
 
 // Construct an InternalSymbolInfo from a DIGlobalVariable..
-InternalSymbolInfo::InternalSymbolInfo(DIGlobalVariable& var, string defn_loc) {
+InternalSymbolInfo::InternalSymbolInfo(DIGlobalVariableExpression& var, string defn_loc) {
   if (prng == nullptr)
     prng = new MersenneTwister("InternalSymbolInfo Global");  // Arbitrary salt
   ID = prng->next();
   origin = defn_loc;
-  symbol = var.getName().str();
+  symbol = var.getVariable()->getName().str();
   function = "*GLOBAL*";
-  file = full_file_path(var.getDirectory(), var.getFilename());
-  line = var.getLine();
+  file = full_file_path(var.getVariable()->getDirectory(), var.getVariable()->getFilename());
+  line = var.getVariable()->getLine();
 }
 
 // Construct an InternalSymbolInfo from a Function.
