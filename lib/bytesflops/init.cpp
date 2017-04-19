@@ -136,11 +136,11 @@ namespace bytesflops_pass {
     for (auto gv_iter = gv_list.begin(); gv_iter != gv_list.end(); gv_iter++) {
       // Acquire debug information for one global variable.
       GlobalVariable& gv_var = *gv_iter;
-      SmallVector<DIGlobalVariable*, 1> gvs;
+      SmallVector<DIGlobalVariableExpression*,1> gvs;
       gv_var.getDebugInfo(gvs);
       if (gvs.size() == 0)
         continue;
-      DIGlobalVariable* gv = gvs[0];
+      DIGlobalVariableExpression* gv = gvs[0];
       Type* gv_type  = gv_var.getType();   // Data type
       if (gv_type->isPointerTy())
         gv_type = gv_type->getPointerElementType();
