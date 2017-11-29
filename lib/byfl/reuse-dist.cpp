@@ -184,8 +184,10 @@ RDnode* RDnode::splay(uint64_t target)
   node->right = new_node.left;
 
   // Fix weights up to the node from its previous position.
-  node->left->fix_path_weights(node->time);
-  node->right->fix_path_weights(node->time);
+  if (node->left != nullptr)
+    node->left->fix_path_weights(node->time);
+  if (node->right != nullptr)
+    node->right->fix_path_weights(node->time);
   return node;
 }
 
