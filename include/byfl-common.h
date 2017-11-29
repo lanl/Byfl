@@ -18,11 +18,25 @@
 #include <cxxabi.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <limits.h>
 #ifdef HAVE_CRT_EXTERNS_H
 # include <crt_externs.h>
 #endif
 
 using namespace std;
+
+// This hack for providing std::to_string in GCC 4.8 comes from
+// https://stackoverflow.com/questions/12975341/to-string-is-not-a-member-of-std-says-g-mingw
+namespace std
+{
+  template < typename T > std::string to_string( const T& n )
+    {
+      std::ostringstream stm ;
+      stm << n ;
+      return stm.str() ;
+    }
+}
 
 typedef uint64_t KeyType_t;
 

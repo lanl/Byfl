@@ -13,6 +13,7 @@
 #include <vector>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include "bfbin.h"
 
 using namespace std;
