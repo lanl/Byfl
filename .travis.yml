@@ -3,8 +3,8 @@ language: cpp
 env:
   - LLVM_VERSION=3.9 GCC_VERSION=4.8
   - LLVM_VERSION=3.9 GCC_VERSION=4.9
-  - LLVM_VERSION=3.9 GCC_VERSION=5
   - LLVM_VERSION=3.9 GCC_VERSION=6
+  - LLVM_VERSION=3.9 GCC_VERSION=7
 
 sudo: false
 
@@ -19,10 +19,10 @@ addons:
       - g++-4.8
       - gcc-4.9
       - g++-4.9
-      - gcc-5
-      - g++-5
       - gcc-6
       - g++-6
+      - gcc-7
+      - g++-7
       - llvm-3.9
       - llvm-3.9-dev
       - clang-3.9
