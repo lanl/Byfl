@@ -10,7 +10,7 @@ sudo: false
 addons:
   apt:
     sources:
-      - llvm-toolchain-precise-4.0
+      - llvm-toolchain-trusty-4.0
       - ubuntu-toolchain-r-test
     packages:
       - ccache
