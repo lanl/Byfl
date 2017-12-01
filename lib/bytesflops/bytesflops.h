@@ -159,7 +159,7 @@ namespace bytesflops_pass {
     InternalSymbolInfo(Value* value, string defn_loc);
 
     // Construct an InternalSymbolInfo directly from a DIGlobalVariable..
-    InternalSymbolInfo(DIGlobalVariable& var, string defn_loc);
+    InternalSymbolInfo(DIGlobalVariableExpression& var, string defn_loc);
 
     // Construct an InternalSymbolInfo from a Function.
     InternalSymbolInfo(Function* funcptr);
