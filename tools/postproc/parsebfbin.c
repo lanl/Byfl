@@ -52,7 +52,7 @@
 #define THROW_ERROR(MSG, ...)                                           \
   do {                                                                  \
     if (asprintf(&state->error_message, MSG, __VA_ARGS__) == -1)        \
-      state->error_message = "Something went wrong";                    \
+      state->error_message = strdup("Something went wrong");            \
     longjmp(state->stack_env, 1);                                       \
   }                                                                     \
   while (0)
