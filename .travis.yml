@@ -2,7 +2,6 @@ language: cpp
 
 env:
   - LLVM_VERSION=3.5 GCC_VERSION=4.8
-  - LLVM_VERSION=3.5 GCC_VERSION=4.9
   - LLVM_VERSION=3.5 GCC_VERSION=5
   - LLVM_VERSION=3.5 GCC_VERSION=6
 
@@ -17,8 +16,6 @@ addons:
       - ccache
       - gcc-4.8
       - g++-4.8
-      - gcc-4.9
-      - g++-4.9
       - gcc-5
       - g++-5
       - gcc-6
@@ -44,18 +41,18 @@ before_install:
      export H5LIBS="-lhdf5 -lhdf5_cpp";
    fi
  - export LLVM_CONFIG="llvm-config-${LLVM_VERSION}"
- - export EXTRA_CXXFLAGS="-std=c++11"
+ - export EXTRA_CXXFLAGS="-std=c++11 -fno-rtti"
  - export BF_CLANG="clang-${LLVM_VERSION}"
  - export BF_CLANGXX="clang++-${LLVM_VERSION}"
  - export BF_GCC="gcc-${GCC_VERSION}"
  - export BF_GXX="g++${GCC_VERSION}"
- - export LLVM_CXXFLAGS=`$LLVM_CONFIG --cxxflags | sed -e 's/-Werror=date-time//g'`
- - export LLVM_CFLAGS=`$LLVM_CONFIG --cflags | sed -e 's/-Werror=date-time//g'`
+ - export LLVM_CXXFLAGS="`$LLVM_CONFIG --cxxflags | sed -e 's/-Werror=date-time//g' -e 's/-gsplit-dwarf//g'`"
+ - export LLVM_CFLAGS=`$LLVM_CONFIG --cflags | sed -e 's/-Werror=date-time//g' -e 's/-gsplit-dwarf//g'`
 
 script:
   - autoreconf -i &&
-    PATH="/usr/lib/ccache:$PATH" ./configure CXXFLAGS="$LLVM_CXXFLAGS -std=c++11" CFLAGS="$LLVM_CFLAGS" &&
-    make distcheck DISTCHECK_CONFIGURE_FLAGS="CXXFLAGS='$LLVM_CXXFLAGS -std=c++11' LLVM_CFLAGS='$LLVM_CFLAGS'"
+    PATH="/usr/lib/ccache:$PATH" ./configure CXXFLAGS="$LLVM_CXXFLAGS $EXTRA_CXXFLAGS" CFLAGS="$LLVM_CFLAGS" &&
+    make distcheck DISTCHECK_CONFIGURE_FLAGS="CXXFLAGS='$LLVM_CXXFLAGS $EXTRA_CXXFLAGS' LLVM_CFLAGS='$LLVM_CFLAGS'"
 
 compiler:
   - clang
