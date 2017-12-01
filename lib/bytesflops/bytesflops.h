@@ -12,10 +12,11 @@
 
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/DebugInfo.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instruction.h"
@@ -26,7 +27,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include <llvm/IR/Attributes.h>
 
 #include <iostream>
 #include <fstream>
