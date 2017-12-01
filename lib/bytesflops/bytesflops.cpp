@@ -97,8 +97,7 @@ namespace bytesflops_pass {
             cl::desc("Keep track of data reuse distance"),
             cl::values(clEnumValN(RD_LOADS,  "loads",  "Keep track of loads"),
                        clEnumValN(RD_STORES, "stores", "Keep track of stores"),
-                       clEnumValN(RD_BOTH,   "",       "Keep track of both loads and stores"),
-                       clEnumValEnd));
+                       clEnumValN(RD_BOTH,   "",       "Keep track of both loads and stores")));
   unsigned int rd_bits = 0;    // Same as ReuseDist.getBits() but with RD_BOTH expanded
 
   // Define a command-line option for pruning reuse distance.
