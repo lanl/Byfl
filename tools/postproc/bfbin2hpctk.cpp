@@ -425,7 +425,7 @@ void LocalState::create_database_dir (void)
   }
   cerr << progname << ": Failed to create directory " << db_name
        << " (" << strerror(errno) << ")\n" << die;
-  delete db_name_str;
+  delete[] db_name_str;
 }
 
 // Copy a source file (named by absolute path) into the database directory.
