@@ -63,7 +63,7 @@ namespace bytesflops_pass {
     void_12->setCallingConv(CallingConv::C);
     void_12->setTailCall(false);
     mark_as_byfl(void_12);
-    AttributeSet void_12_PAL;
+    AttributeList void_12_PAL;
     void_12->setAttributes(void_12_PAL);
 
     ReturnInst::Create(ctx, ctor_bb);
