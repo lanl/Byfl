@@ -1,16 +1,16 @@
 language: cpp
 
 env:
-  - LLVM_VERSION=4.0 GCC_VERSION=4.8
-  - LLVM_VERSION=4.0 GCC_VERSION=6
-  - LLVM_VERSION=4.0 GCC_VERSION=7
+  - LLVM_VERSION=5.0 GCC_VERSION=4.8
+  - LLVM_VERSION=5.0 GCC_VERSION=6
+  - LLVM_VERSION=5.0 GCC_VERSION=7
 
 sudo: false
 
 addons:
   apt:
     sources:
-      - llvm-toolchain-trusty-4.0
+      - llvm-toolchain-trusty-5.0
       - ubuntu-toolchain-r-test
     packages:
       - ccache
@@ -20,9 +20,9 @@ addons:
       - g++-6
       - gcc-7
       - g++-7
-      - llvm-4.0
-      - llvm-4.0-dev
-      - clang-4.0
+      - llvm-5.0
+      - llvm-5.0-dev
+      - clang-5.0
       - libhdf5-serial-dev
       - libsqlite3-dev
 
