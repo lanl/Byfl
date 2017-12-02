@@ -916,7 +916,7 @@ AllocaInst* BytesFlops::find_value_provenance(Module& module,
   // Stack-allocate a bf_symbol_info_t in the generated code.
   LLVMContext& globctx = module.getContext();
   if (syminfo_struct == nullptr) {
-    syminfo_struct = new AllocaInst(syminfo_type, "syminfo_struct", &*insert_before);
+    syminfo_struct = new AllocaInst(syminfo_type, 0, "syminfo_struct", &*insert_before);
     syminfo_struct->setAlignment(8);
     mark_as_byfl(syminfo_struct);
   }
