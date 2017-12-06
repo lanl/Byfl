@@ -131,33 +131,50 @@ namespace bytesflops_pass {
     const DataLayout& target_data = module->getDataLayout();
     AllocaInst* syminfo_struct = nullptr;   // bf_symbol_info_t structure
     PointerType* void_ptr = PointerType::get(IntegerType::get(globctx, 8), 0);
-
-    Module::GlobalListType& gv_list = module->getGlobalList();
-    for (auto gv_iter = gv_list.begin(); gv_iter != gv_list.end(); gv_iter++) {
-      // Acquire debug information for one global variable.
-      GlobalVariable& gv_var = *gv_iter;
-      SmallVector<DIGlobalVariable*, 1> gvs;
-      gv_var.getDebugInfo(gvs);
-      if (gvs.size() == 0)
+    for (unsigned c = 0; c < nmd->getNumOperands(); c++) {
+      DICompileUnit* cu = dyn_cast<DICompileUnit>(nmd->getOperand(c));
+      if (cu == nullptr)
         continue;
-      DIGlobalVariable* gv = gvs[0];
-      Type* gv_type  = gv_var.getType();   // Data type
-      if (gv_type->isPointerTy())
-        gv_type = gv_type->getPointerElementType();
-      uint64_t byte_count = target_data.getTypeStoreSize(gv_type);
-      if (byte_count == 0)
-        continue;    // We can never access zero-sized data.
-      StringRef segment = gv_var.isZeroValue() ? ".bss" : ".data";
-      InternalSymbolInfo gv_info(*gv, segment.str());
+      DIGlobalVariableArray gvs = cu->getGlobalVariables();
+      for (unsigned int g = 0; g < gvs.size(); g++) {
+        DIGlobalVariable* gv = gvs[g];
+        StringRef gv_name = gv->getLinkageName();
+        if (gv_name == "")
+          gv_name = gv->getDisplayName();
+        Constant* gv_const = gv->getVariable();
+        if (gv_const == nullptr)
+          // I don't know what situations produce a null Constant, but I have
+          // encountered that in practice.  There's nothing further we can do
+          // here.
+          continue;
+        GlobalVariable* gv_var = dyn_cast<GlobalVariable>(gv_const);
+        if (gv_var == nullptr)
+          // I don't currently know how to handle a Constant that's not also a
+          // GlobalVariable (viz. how to take it's address).  Perhaps we don't
+          // even need to.
+          continue;
+        Type* gv_type  = gv_const->getType();   // Data type
+        if (gv_type->isPointerTy())
+          gv_type = gv_type->getPointerElementType();
+        uint64_t byte_count = target_data.getTypeStoreSize(gv_type);
+        if (byte_count == 0)
+          continue;    // We can never access zero-sized data.
+        StringRef segment = gv_const->isZeroValue() ? ".bss" : ".data";
+        if (gv_var->hasInitializer()) {
+          Constant* gv_init = gv_var->getInitializer();
+          segment = gv_init->isZeroValue() ? ".bss" : ".data";
+        }
+        InternalSymbolInfo gv_info(*gv, segment.str());
 
-      // Inject a call to bf_assoc_addresses_with_sstruct().
-      vector<Value*> arg_list;
-      CastInst* base_addr = new BitCastInst(&gv_var, void_ptr, "const_ptr", ret_inst);
-      syminfo_struct = find_value_provenance(*module, gv_info, ret_inst, syminfo_struct);
-      arg_list.push_back(syminfo_struct);
-      arg_list.push_back(base_addr);
-      arg_list.push_back(ConstantInt::get(globctx, APInt(64, byte_count)));
-      callinst_create(assoc_addrs_with_sstruct, arg_list, ret_inst);
+        // Inject a call to bf_assoc_addresses_with_sstruct().
+        vector<Value*> arg_list;
+        CastInst* base_addr = new BitCastInst(gv_const, void_ptr, "const_ptr", ret_inst);
+        syminfo_struct = find_value_provenance(*module, gv_info, ret_inst, syminfo_struct);
+        arg_list.push_back(syminfo_struct);
+        arg_list.push_back(base_addr);
+        arg_list.push_back(ConstantInt::get(globctx, APInt(64, byte_count)));
+        callinst_create(assoc_addrs_with_sstruct, arg_list, ret_inst);
+      }
     }
   }
 
