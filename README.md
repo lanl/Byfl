@@ -36,14 +36,16 @@ The name "Byfl" comes from "bytes/flops".  The very first version of the code co
 Installation
 ------------
 
-There are six "release" branches of Byfl on GitHub:
+There are eight "release" branches of Byfl on GitHub:
 
-  * [`master`](https://github.com/losalamos/Byfl), corresponding to LLVM trunk
-  * [`llvm-3.9`](https://github.com/losalamos/Byfl/tree/llvm-3.9), corresponding to LLVM 3.9._x_ releases
-  * [`llvm-3.8`](https://github.com/losalamos/Byfl/tree/llvm-3.8), corresponding to LLVM 3.8._x_ releases
-  * [`llvm-3.7`](https://github.com/losalamos/Byfl/tree/llvm-3.7), corresponding to LLVM 3.7._x_ releases
-  * [`llvm-3.6`](https://github.com/losalamos/Byfl/tree/llvm-3.6), corresponding to LLVM 3.6._x_ releases
-  * [`llvm-3.5`](https://github.com/losalamos/Byfl/tree/llvm-3.5), corresponding to LLVM 3.5._x_ releases
+  * [`master`](https://github.com/lanl/Byfl), corresponding to LLVM trunk (often not up to date; best to avoid)
+  * [`llvm-5.0`](https://github.com/lanl/Byfl/tree/llvm-5.0), corresponding to LLVM 5.0._x_ releases
+  * [`llvm-4.0`](https://github.com/lanl/Byfl/tree/llvm-4.0), corresponding to LLVM 4.0._x_ releases
+  * [`llvm-3.9`](https://github.com/lanl/Byfl/tree/llvm-3.9), corresponding to LLVM 3.9._x_ releases
+  * [`llvm-3.8`](https://github.com/lanl/Byfl/tree/llvm-3.8), corresponding to LLVM 3.8._x_ releases
+  * [`llvm-3.7`](https://github.com/lanl/Byfl/tree/llvm-3.7), corresponding to LLVM 3.7._x_ releases
+  * [`llvm-3.6`](https://github.com/lanl/Byfl/tree/llvm-3.6), corresponding to LLVM 3.6._x_ releases
+  * [`llvm-3.5`](https://github.com/lanl/Byfl/tree/llvm-3.5), corresponding to LLVM 3.5._x_ releases
 
 Be sure to download the Byfl branch that corresponds to your installed LLVM version.  (Run `llvm-config --version` to check.)  Then, the usual
 ```bash
@@ -51,21 +53,21 @@ Be sure to download the Byfl branch that corresponds to your installed LLVM vers
 make
 make install
 ```
-procedure should work.  See [INSTALL.md](https://github.com/losalamos/Byfl/blob/master/INSTALL.md) for a more complete explanation.
+procedure should work.  See [INSTALL.md](https://github.com/lanl/Byfl/blob/master/INSTALL.md) for a more complete explanation.
 
 Documentation
 -------------
 
-Byfl documentation is maintained in the [Byfl wiki](https://github.com/losalamos/Byfl/wiki) on GitHub.
+Byfl documentation is maintained in the [Byfl wiki](https://github.com/lanl/Byfl/wiki) on GitHub.
 
 Copyright and license
 ---------------------
 
-Los Alamos National Security, LLC (LANS) owns the copyright to Byfl, which it identifies internally as LA-CC-12-039.  The license is BSD-ish with a "modifications must be indicated" clause.  See [LICENSE.md](https://github.com/losalamos/Byfl/blob/master/LICENSE.md) for the full text.
+Los Alamos National Security, LLC (LANS) owns the copyright to Byfl, which it identifies internally as LA-CC-12-039.  The license is BSD-ish with a "modifications must be indicated" clause.  See [LICENSE.md](https://github.com/lanl/Byfl/blob/master/LICENSE.md) for the full text.
 
 Contact
 -------
 
 Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)
 
-A list of [all contributors to Byfl](https://github.com/losalamos/Byfl/wiki/contributors) is available online.
+A list of [all contributors to Byfl](https://github.com/lanl/Byfl/wiki/contributors) is available online.
