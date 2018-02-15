@@ -24,7 +24,11 @@ libbyfl_la_SOURCES = \
 	tallybytes.cpp \
 	threading.cpp \
 	ubytes.cpp \
-	vectors.cpp
+	vectors.cpp \
+	papi_sde_interface.c \
+	papi_sde_interface.h \
+	papi_sde.c \
+	papi_sde.h
 nodist_libbyfl_la_SOURCES = opcode2name.cpp
 BUILT_SOURCES = opcode2name.cpp
 

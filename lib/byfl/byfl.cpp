@@ -11,6 +11,10 @@
 #include "byfl-common.h"
 #include "callstack.h"
 
+#include "papi_sde.h"
+extern "C"
+void initialize_papi_sde(void);
+
 using namespace std;
 
 namespace bytesflops {
@@ -180,6 +184,7 @@ void bf_initialize_if_necessary (void)
     initialize_data_structures();
     initialize_strides();
     initialize_cache();
+    initialize_papi_sde();
     initialized = true;
   }
 }
