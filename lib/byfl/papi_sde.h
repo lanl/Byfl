@@ -1,3 +1,9 @@
+/*
+ * Interface Byfl to PAPI's software defined events
+ *
+ * By Heike Jagode <jagode@icl.utk.edu>
+ */
+
 #ifndef PAPI_SDE_H
 #define PAPI_SDE_H
 
