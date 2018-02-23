@@ -7,9 +7,6 @@
 #ifndef PAPI_SDE_INTERFACE_H
 #define PAPI_SDE_INTERFACE_H
 
-#include <stdio.h>
-#include <stddef.h>
-
 /* Interface to PAPI SDE functions */
 typedef void* papi_handle_t;
 

@@ -9,11 +9,6 @@
 
 #include "byfl.h"
 #include "byfl-common.h"
-#include "callstack.h"
-
-#include "papi_sde.h"
-extern "C"
-void initialize_papi_sde(void);
 
 using namespace std;
 

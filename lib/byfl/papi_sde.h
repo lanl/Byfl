@@ -7,9 +7,7 @@
 #ifndef PAPI_SDE_H
 #define PAPI_SDE_H
 
-#include <stdint.h>
-#include <stdlib.h>
-#include "papi_sde_interface.h"
+#include "byfl.h"
 
 #define BYFL_MAX_COUNTERS 9
 
@@ -29,5 +27,7 @@ extern uint64_t  bf_flop_count;
 extern uint64_t  bf_fp_bits_count;
 extern uint64_t  bf_op_count;
 extern uint64_t  bf_op_bits_count;
+
+void initialize_papi_sde(void);
 
 #endif

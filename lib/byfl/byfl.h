@@ -38,6 +38,11 @@ namespace bytesflops {
 #include "cachemap.h"
 #include "pagetable.h"
 #include "binaryoutput.h"
+#include "callstack.h"
+#include "papi_sde.h"
+extern "C" {
+#include "papi_sde_interface.h"
+}
 
 // The following constants are defined by the instrumented code.
 extern const char * bf_foofoo;

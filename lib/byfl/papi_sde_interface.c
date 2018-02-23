@@ -4,6 +4,8 @@
  * By Heike Jagode <jagode@icl.utk.edu>
  */
 
+#include <stdio.h>
+#include <stddef.h>
 #include "papi_sde_interface.h"
 
 #pragma weak papi_sde_init
