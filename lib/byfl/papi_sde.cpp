@@ -18,14 +18,14 @@ void initialize_papi_sde(void)
  *  @param[in] sym_reg  -- name of the event
  *  @param[in] event_description -- description of the event
  **/
-void* papi_sde_hook_list_events(void* (*sym_init)(char *, int),
-                                void  (*sym_reg)(void *, char *, long long *),
-                                void  (*sym_desc)(void *, char *, char *))
+void papi_sde_hook_list_events(void* (*sym_init)(const char*, int),
+                               void  (*sym_reg)(void*, const char *, long long *),
+                               void  (*sym_desc)(void*, const char*, const char*))
 {
   int i;
-  void *sde_handle = NULL;
+  void* sde_handle = nullptr;
 
-  char *byfl_counter_name[] = {
+  const char* byfl_counter_name[] = {
     "byfl::load_count",
     "byfl::store_count",
     "byfl::load_ins_count",
@@ -37,7 +37,7 @@ void* papi_sde_hook_list_events(void* (*sym_init)(char *, int),
     "byfl::op_bits_count"
   };
 
-  char *byfl_counter_description[] = {
+  const char* byfl_counter_description[] = {
     "Total number of bytes loaded.",
     "Total number of bytes stored.",
     "Total number of load instructions performed.",
@@ -49,7 +49,7 @@ void* papi_sde_hook_list_events(void* (*sym_init)(char *, int),
     "Total number of bits used by all operations except loads/stores."
   };
 
-  uint64_t * byfl_counter_count[] = {
+  uint64_t* byfl_counter_count[] = {
     &bf_load_count,
     &bf_store_count,
     &bf_load_ins_count,
@@ -66,11 +66,11 @@ void* papi_sde_hook_list_events(void* (*sym_init)(char *, int),
 
   /* papi_sde_register_counter() */
   for (i=0; i<BYFL_MAX_COUNTERS; i++) {
-    (*sym_reg)( sde_handle, byfl_counter_name[i], (long long int *) byfl_counter_count[i] );
+    (*sym_reg)(sde_handle, byfl_counter_name[i], (long long int*) byfl_counter_count[i]);
   }
 
   /* papi_sde_describe_counter() */
   for (i=0; i<BYFL_MAX_COUNTERS; i++) {
-    (*sym_desc)( sde_handle, byfl_counter_name[i], byfl_counter_description[i] );
+    (*sym_desc)(sde_handle, byfl_counter_name[i], byfl_counter_description[i]);
   }
 }

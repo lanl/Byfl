@@ -14,7 +14,7 @@
 
 papi_handle_t
 __attribute__((weak))
-papi_sde_init(char *name_of_library, int event_count)
+papi_sde_init(const char *name_of_library, int event_count)
 {
   printf("weak papi_sde_init called from %s\n", __FILE__);
   void * ptr = NULL;
@@ -23,14 +23,14 @@ papi_sde_init(char *name_of_library, int event_count)
 
 void
 __attribute__((weak))
-papi_sde_register_counter(papi_handle_t handle, char *event_name, long long int *counter)
+papi_sde_register_counter(papi_handle_t handle, const char *event_name, long long int *counter)
 {
   printf("weak papi_sde_register_counter called from %s\n", __FILE__);
 }
 
 void
 __attribute__((weak))
-papi_sde_describe_counter(papi_handle_t handle, char *event_name, char *event_description)
+papi_sde_describe_counter(papi_handle_t handle, const char *event_name, const char *event_description)
 {
   printf("weak papi_sde_describe_counter called from %s\n", __FILE__);
 }

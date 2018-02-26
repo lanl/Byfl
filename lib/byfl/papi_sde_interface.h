@@ -10,14 +10,14 @@
 /* Interface to PAPI SDE functions */
 typedef void* papi_handle_t;
 
-papi_handle_t papi_sde_init(char *name_of_library, int event_count);
-void papi_sde_register_counter(papi_handle_t handle, char *event_name, long long int *counter);
-void papi_sde_describe_counter(papi_handle_t handle, char *event_name, char *event_description );
+papi_handle_t papi_sde_init(const char *name_of_library, int event_count);
+void papi_sde_register_counter(papi_handle_t handle, const char *event_name, long long int *counter);
+void papi_sde_describe_counter(papi_handle_t handle, const char *event_name, const char *event_description);
 
 /* Required for papi_native_avail */
-void *papi_sde_hook_list_events(
-    void *(*sym_init)(char *, int),
-    void  (*sym_reg)(void *, char *, long long *),
-    void  (*sym_desc)(void *, char *, char *));
+void papi_sde_hook_list_events(
+    papi_handle_t (*sym_init)(const char *, int),
+    void          (*sym_reg)(void *, const char *, long long *),
+    void          (*sym_desc)(void *, const char *, const char *));
 
 #endif
