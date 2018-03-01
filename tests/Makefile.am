@@ -7,6 +7,7 @@
 TESTS = \
 	bf-clang-no-opts.sh \
 	bf-clang++-no-opts.sh \
+	bf-flang-no-opts.sh \
 	bf-gcc-no-opts.sh \
 	bf-clang-many-opts.sh \
 	bfbin2cgrind.sh \
@@ -36,7 +37,8 @@ bfbin2xmlss.log: simple-clang-many-opts.byfl
 EXTRA_DIST = \
 	$(TESTS) \
 	simple.c \
-	simple.cpp
+	simple.cpp \
+	simple.f90
 
 AM_TESTS_ENVIRONMENT = \
 	AWK='$(AWK)'; export AWK; \
@@ -44,7 +46,8 @@ AM_TESTS_ENVIRONMENT = \
 	srcdir='$(srcdir)'; export srcdir; \
 	top_srcdir='$(top_srcdir)'; export top_srcdir; \
 	top_builddir='$(top_builddir)'; export top_builddir; \
-	use_dragonegg='$(use_dragonegg)'; export use_dragonegg;
+	use_dragonegg='$(use_dragonegg)'; export use_dragonegg; \
+	use_flang='$(use_flang)'; export use_flang;
 
 # Older versions of Automake, such as what Travis CI is running at the time of
 # this writing, don't support AM_TESTS_ENVIRONMENT but they do support
@@ -56,6 +59,11 @@ TESTS_ENVIRONMENT ?= $(AM_TESTS_ENVIRONMENT)
 bf-clang++-no-opts.sh: bf-clang++
 bf-clang++: $(top_builddir)/tools/wrappers/bf-clang
 	$(LN_S) $(top_builddir)/tools/wrappers/bf-clang bf-clang++
+
+# bf-flang isn't normally symlinked until install time.  Symlink it here.
+bf-flang-no-opts.sh: bf-flang
+bf-flang: $(top_builddir)/tools/wrappers/bf-clang
+	$(LN_S) $(top_builddir)/tools/wrappers/bf-clang bf-flang
 
 CLEANFILES = \
 	simple-clang-no-opts \
@@ -69,6 +77,8 @@ CLEANFILES = \
 	simple-clang-many-opts.xml \
 	simple-clang++-no-opts \
 	simple-clang++-no-opts.byfl \
+	simple-flang-no-opts \
+	simple-flang-no-opts.byfl \
 	simple-gcc-no-opts \
 	simple-gcc-no-opts.byfl \
 	simple.o \
@@ -79,5 +89,6 @@ clean-local:
 	$(RM) -r simple-clang-no-opts.dSYM
 	$(RM) -r simple-clang-many-opts.dSYM
 	$(RM) -r simple-clang++-no-opts.dSYM
+	$(RM) -r simple-flang-no-opts.dSYM
 	$(RM) -r simple-gcc-no-opts.dSYM
 	$(RM) -r hpctoolkit-simple-clang-many-opts-database
