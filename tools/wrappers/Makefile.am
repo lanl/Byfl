@@ -38,6 +38,7 @@ install-parser: $(srcdir)/ParseCompilerOpts.pm
 
 install-compiler-scripts: bf-gcc bf-clang
 	$(LN_S) -f bf-clang $(DESTDIR)$(bindir)/bf-clang++
+	$(LN_S) -f bf-clang $(DESTDIR)$(bindir)/bf-flang
 if HAVE_DRAGONEGG
 	$(LN_S) -f bf-gcc $(DESTDIR)$(bindir)/bf-g++
 	$(LN_S) -f bf-gcc $(DESTDIR)$(bindir)/bf-gfortran
@@ -53,18 +54,24 @@ if HAVE_DRAGONEGG
 else
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicc bf-clang OMPI_CC MPICH_CC $(bindir) > $(DESTDIR)$(bindir)/bf-mpicc
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicxx bf-clang++ OMPI_CXX MPICH_CXX $(bindir) > $(DESTDIR)$(bindir)/bf-mpicxx
+	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpif90 bf-flang OMPI_FC MPICH_F90 $(bindir) > $(DESTDIR)$(bindir)/bf-mpif90
+	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpif77 bf-flang OMPI_F77 MPICH_F77 $(bindir) > $(DESTDIR)$(bindir)/bf-mpif77
 endif
 	chmod 0755 $(DESTDIR)$(bindir)/bf-mpi*
 
 install-man1-pages: bf-gcc bf-clang bf-inst
 	$(INSTALL) -d "$(DESTDIR)$(mandir)/man1"
 	$(RM) "$(DESTDIR)$(mandir)/man1/bf-clang.1" \
-	      "$(DESTDIR)$(mandir)/man1/bf-clang++.1"
+	      "$(DESTDIR)$(mandir)/man1/bf-clang++.1" \
+	      "$(DESTDIR)$(mandir)/man1/bf-flang.1"
 	$(AM_V_GEN) $(POD2MAN) --center="$(MAN_CATEGORY)" --release="$(MAN_RELEASE)" bf-clang > \
 	  "$(DESTDIR)$(mandir)/man1/bf-clang.1"
 	$(AM_V_GEN) cat "$(DESTDIR)$(mandir)/man1/bf-clang.1" | \
 	  $(PERL) -ne 's/clang/clang++/g; s/\bC (compiler|code)/C++ $$1/g; s/myprog\.c/myprog.cpp/g; s/BF_CLANG/BF_CLANGXX/g; print' > \
 	    "$(DESTDIR)$(mandir)/man1/bf-clang++.1"
+	$(AM_V_GEN) cat "$(DESTDIR)$(mandir)/man1/bf-clang.1" | \
+	  $(PERL) -ne 's/clang/flang/g; s/\bC (compiler|code)/Fortran $$1/g; s/myprog\.c/myprog.f90/g; s/BF_CLANG/BF_FLANG/g; print' > \
+	    "$(DESTDIR)$(mandir)/man1/bf-flang.1"
 	$(AM_V_GEN) $(POD2MAN) --center="$(MAN_CATEGORY)" --release="$(MAN_RELEASE)" bf-inst > \
 	  "$(DESTDIR)$(mandir)/man1/bf-inst.1"
 if HAVE_DRAGONEGG
@@ -93,7 +100,7 @@ install-man3-pages: $(srcdir)/ParseCompilerOpts.pm
 install-exec-local: install-parser install-compiler-scripts install-mpi-scripts install-man1-pages install-man3-pages
 
 uninstall-local:
-	for script in bf-clang bf-clang++ bf-gcc bf-g++ bf-gfortran bf-gccgo bf-mpicc bf-mpicxx bf-mpif90 bf-mpif77 bf-inst ; do \
+	for script in bf-clang bf-clang++ bf-flang bf-gcc bf-g++ bf-gfortran bf-gccgo bf-mpicc bf-mpicxx bf-mpif90 bf-mpif77 bf-inst ; do \
 	  $(RM) "$(DESTDIR)$(bindir)/$${script}" ; \
 	  $(RM) "$(DESTDIR)$(mandir)/man1/$${script}.1" ; \
 	done
