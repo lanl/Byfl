@@ -49,11 +49,13 @@ install-mpi-scripts: $(srcdir)/make-bf-mpi
 if HAVE_DRAGONEGG
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicc bf-gcc OMPI_CC MPICH_CC $(bindir) > $(DESTDIR)$(bindir)/bf-mpicc
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicxx bf-g++ OMPI_CXX MPICH_CXX $(bindir) > $(DESTDIR)$(bindir)/bf-mpicxx
+	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpifort bf-gfortran OMPI_FC MPICH_F90 $(bindir) > $(DESTDIR)$(bindir)/bf-mpifort
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpif90 bf-gfortran OMPI_FC MPICH_F90 $(bindir) > $(DESTDIR)$(bindir)/bf-mpif90
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpif77 bf-gfortran OMPI_F77 MPICH_F77 $(bindir) > $(DESTDIR)$(bindir)/bf-mpif77
 else
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicc bf-clang OMPI_CC MPICH_CC $(bindir) > $(DESTDIR)$(bindir)/bf-mpicc
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpicxx bf-clang++ OMPI_CXX MPICH_CXX $(bindir) > $(DESTDIR)$(bindir)/bf-mpicxx
+	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpifort bf-flang OMPI_FC MPICH_F90 $(bindir) > $(DESTDIR)$(bindir)/bf-mpifort
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpif90 bf-flang OMPI_FC MPICH_F90 $(bindir) > $(DESTDIR)$(bindir)/bf-mpif90
 	$(AM_V_GEN) $(PERL) $(srcdir)/make-bf-mpi mpif77 bf-flang OMPI_F77 MPICH_F77 $(bindir) > $(DESTDIR)$(bindir)/bf-mpif77
 endif
@@ -100,7 +102,7 @@ install-man3-pages: $(srcdir)/ParseCompilerOpts.pm
 install-exec-local: install-parser install-compiler-scripts install-mpi-scripts install-man1-pages install-man3-pages
 
 uninstall-local:
-	for script in bf-clang bf-clang++ bf-flang bf-gcc bf-g++ bf-gfortran bf-gccgo bf-mpicc bf-mpicxx bf-mpif90 bf-mpif77 bf-inst ; do \
+	for script in bf-clang bf-clang++ bf-flang bf-gcc bf-g++ bf-gfortran bf-gccgo bf-mpicc bf-mpicxx bf-mpifort bf-mpif90 bf-mpif77 bf-inst ; do \
 	  $(RM) "$(DESTDIR)$(bindir)/$${script}" ; \
 	  $(RM) "$(DESTDIR)$(mandir)/man1/$${script}.1" ; \
 	done
