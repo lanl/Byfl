@@ -62,3 +62,25 @@ if test "x$ax_cv_have_weak_aliases" = xyes ; then
     [Define if the compiler and linker support weak function aliases.])
 fi
 ])
+
+dnl @synopsis AX_CHECK_PROGS_EXIST (VARIABLE, PROGS-TO-CHECK-FOR,
+dnl                                 [VALUE-IF-NOT-FOUND], [PATH])
+dnl
+dnl Perform the same operation as AC_CHECK_PROGS but actually
+dnl verify that the program exists, even if the user specified
+dnl VARIABLE explicitly.
+AC_DEFUN([AX_CHECK_PROGS_EXIST],
+[AC_CHECK_PROGS([$1], [$2], [$3], [$4])
+AS_VAR_IF([$1], ["$3"], , [
+  AC_CACHE_CHECK([if [$]$1 really exists],
+    [ax_cv_prog_$1_exists],
+    [ax_which=`which which`
+     if "$ax_which" "[$]$1" >/dev/null 2>&1 ; then
+       ax_cv_prog_$1_exists=yes
+     else
+       ax_cv_prog_$1_exists=no
+       $1="$3"
+     fi
+    ])
+  ])
+])
