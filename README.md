@@ -53,21 +53,21 @@ Be sure to download the Byfl branch that corresponds to your installed LLVM vers
 make
 make install
 ```
-procedure should work.  See [INSTALL.md](https://github.com/losalamos/Byfl/blob/master/INSTALL.md) for a more complete explanation.
+procedure should work.  See [INSTALL.md](https://github.com/lanl/Byfl/blob/master/INSTALL.md) for a more complete explanation.
 
 Documentation
 -------------
 
-Byfl documentation is maintained in the [Byfl wiki](https://github.com/losalamos/Byfl/wiki) on GitHub.
+Byfl documentation is maintained in the [Byfl wiki](https://github.com/lanl/Byfl/wiki) on GitHub.
 
 Copyright and license
 ---------------------
 
-Los Alamos National Security, LLC (LANS) owns the copyright to Byfl, which it identifies internally as LA-CC-12-039.  The license is BSD-ish with a "modifications must be indicated" clause.  See [LICENSE.md](https://github.com/losalamos/Byfl/blob/master/LICENSE.md) for the full text.
+Los Alamos National Security, LLC (LANS) owns the copyright to Byfl, which it identifies internally as LA-CC-12-039.  The license is BSD-ish with a "modifications must be indicated" clause.  See [LICENSE.md](https://github.com/lanl/Byfl/blob/master/LICENSE.md) for the full text.
 
 Contact
 -------
 
 Scott Pakin, [_pakin@lanl.gov_](mailto:pakin@lanl.gov)
 
-A list of [all contributors to Byfl](https://github.com/losalamos/Byfl/wiki/contributors) is available online.
+A list of [all contributors to Byfl](https://github.com/lanl/Byfl/wiki/contributors) is available online.
