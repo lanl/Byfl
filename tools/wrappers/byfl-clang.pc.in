@@ -15,7 +15,7 @@ libs=-lbyfl @LIBS@ -lstdc++
 
 Name: byfl-clang
 Description: Instrument Clang-compiled programs with Byfl
-URL: https://github.com/losalamos/Byfl
+URL: https://github.com/lanl/Byfl
 Version: @VERSION@
 Cflags: -Xclang -load -Xclang ${plugindir}/bytesflops.so
 Libs: -L${libdir} ${ldflags} ${libs}
