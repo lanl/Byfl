@@ -79,7 +79,7 @@ dnl We want to log the current timezone name if possible.
 AC_STRUCT_TIMEZONE
 
 dnl Use llvm-config to determine the current LLVM version.
-AC_CHECK_PROGS([LLVM_CONFIG], [llvm-config], [no])
+AX_CHECK_PROGS_EXIST([LLVM_CONFIG], [llvm-config], [no])
 if test "$LLVM_CONFIG" = no ; then
    AC_MSG_ERROR([Byfl can't build without the llvm-config tool])
 fi
@@ -130,6 +130,14 @@ AC_PROG_CXX
 AX_CHECK_CXX11
 if test "x$ax_cv_cxx11_CXX" = xno ; then
   AC_MSG_FAILURE([Byfl requires C++11 support; try recompiling with -std=c++11])
+fi
+
+dnl Byfl supports Flang as the Fortran compiler but doesn't require it.
+AC_CHECK_PROGS([FLANG], [flang], [no])
+if test "x$FLANG" = xno ; then
+  AC_SUBST([use_flang], [no])
+else
+  AC_SUBST([use_flang], [yes])
 fi
 
 dnl Byfl can give more informative warning messages if the system supports
