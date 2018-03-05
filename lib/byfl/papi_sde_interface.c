@@ -23,7 +23,7 @@ papi_sde_init(const char *name_of_library, int event_count)
 
 void
 __attribute__((weak))
-papi_sde_register_counter(papi_handle_t handle, const char *event_name, long long int *counter)
+papi_sde_register_counter(papi_handle_t handle, const char *event_name, int cntr_mode, int cntr_type, void *counter)
 {
   printf("weak papi_sde_register_counter called from %s\n", __FILE__);
 }

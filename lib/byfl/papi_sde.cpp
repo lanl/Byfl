@@ -19,7 +19,7 @@ void initialize_papi_sde(void)
  *  @param[in] event_description -- description of the event
  **/
 void papi_sde_hook_list_events(void* (*sym_init)(const char*, int),
-                               void  (*sym_reg)(void*, const char *, long long *),
+                               void  (*sym_reg)(void*, const char*, int, int, void*),
                                void  (*sym_desc)(void*, const char*, const char*))
 {
   int i;
@@ -66,7 +66,8 @@ void papi_sde_hook_list_events(void* (*sym_init)(const char*, int),
 
   /* papi_sde_register_counter() */
   for (i=0; i<BYFL_MAX_COUNTERS; i++) {
-    (*sym_reg)(sde_handle, byfl_counter_name[i], (long long int*) byfl_counter_count[i]);
+    (*sym_reg)(sde_handle, byfl_counter_name[i],
+       SDE_RO|SDE_DELTA, PAPI_SDE_long_long, byfl_counter_count[i]);
   }
 
   /* papi_sde_describe_counter() */
