@@ -44,10 +44,9 @@ on that named pipe:
 =head1 SEE ALSO
 
 bfbin2cgrind(1), bfbin2csv(1), bfbin2hpctk(1), bfbin2sqlite3(1),
-bfbin2xmlss(1), bf-clang(1), bf-clang++(1), bf-gcc(1), bf-g++(1),
-bf-gfortran(1), bf-gccgo(1), L<the Byfl home
-page|https://github.com/lanl/Byfl>, L<the HDF5 home
-page|http://www.hdfgroup.org/HDF5/>
+bfbin2xmlss(1), bf-clang(1), bf-clang++(1), bf-flang(1),
+L<the Byfl home page|https://github.com/lanl/Byfl>,
+L<the HDF5 home page|http://www.hdfgroup.org/HDF5/>
 
 =head1 AUTHOR
 
