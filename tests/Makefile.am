@@ -8,7 +8,6 @@ TESTS = \
 	bf-clang-no-opts.sh \
 	bf-clang++-no-opts.sh \
 	bf-flang-no-opts.sh \
-	bf-gcc-no-opts.sh \
 	bf-clang-many-opts.sh \
 	bfbin2cgrind.sh \
 	bfbin2csv.sh \
@@ -46,7 +45,6 @@ AM_TESTS_ENVIRONMENT = \
 	srcdir='$(srcdir)'; export srcdir; \
 	top_srcdir='$(top_srcdir)'; export top_srcdir; \
 	top_builddir='$(top_builddir)'; export top_builddir; \
-	use_dragonegg='$(use_dragonegg)'; export use_dragonegg; \
 	use_flang='$(use_flang)'; export use_flang;
 
 # Older versions of Automake, such as what Travis CI is running at the time of
