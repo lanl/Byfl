@@ -36,16 +36,14 @@ The name "Byfl" comes from "bytes/flops".  The very first version of the code co
 Installation
 ------------
 
-There are eight "release" branches of Byfl on GitHub:
+There are four "release" branches of Byfl on GitHub:
 
-  * [`master`](https://github.com/lanl/Byfl), corresponding to LLVM trunk (often not up to date; best to avoid)
+  * [`master`](https://github.com/lanl/Byfl), corresponding to LLVM trunk (usually not up to date; best to avoid)
   * [`llvm-5.0`](https://github.com/lanl/Byfl/tree/llvm-5.0), corresponding to LLVM 5.0._x_ releases
   * [`llvm-4.0`](https://github.com/lanl/Byfl/tree/llvm-4.0), corresponding to LLVM 4.0._x_ releases
   * [`llvm-3.9`](https://github.com/lanl/Byfl/tree/llvm-3.9), corresponding to LLVM 3.9._x_ releases
-  * [`llvm-3.8`](https://github.com/lanl/Byfl/tree/llvm-3.8), corresponding to LLVM 3.8._x_ releases
-  * [`llvm-3.7`](https://github.com/lanl/Byfl/tree/llvm-3.7), corresponding to LLVM 3.7._x_ releases
-  * [`llvm-3.6`](https://github.com/lanl/Byfl/tree/llvm-3.6), corresponding to LLVM 3.6._x_ releases
-  * [`llvm-3.5`](https://github.com/lanl/Byfl/tree/llvm-3.5), corresponding to LLVM 3.5._x_ releases
+
+Byfl previously supported LLVM versions 3.5–3.8.  Because these Byfl versions are no longer maintained, the corresponding branches have been removed.  However, they were first snapshotted as tags [`llvm-3.5`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), and [`llvm-3.8`](https://github.com/lanl/Byfl/tree/llvm-3.8-final) in case Byfl is desperately needed for one of those outdated LLVM versions.
 
 Be sure to download the Byfl branch that corresponds to your installed LLVM version.  (Run `llvm-config --version` to check.)  Then, the usual
 ```bash

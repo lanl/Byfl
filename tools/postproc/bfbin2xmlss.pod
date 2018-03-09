@@ -46,10 +46,9 @@ on that named pipe:
 =head1 SEE ALSO
 
 bfbin2cgrind(1), bfbin2csv(1), bfbin2hdf5(1), bfbin2hpctk(1),
-bfbin2sqlite3(1), bf-clang(1), bf-clang++(1), bf-gcc(1), bf-g++(1),
-bf-gfortran(1), bf-gccgo(1), L<the Byfl home
-page|https://github.com/lanl/Byfl>, L<the XML Spreadsheet
-Reference|http://msdn.microsoft.com/en-us/library/aa140066%28office.10%29.aspx>
+bfbin2sqlite3(1), bf-clang(1), bf-clang++(1), bf-flang(1),
+L<the Byfl home page|https://github.com/lanl/Byfl>,
+L<the XML Spreadsheet Reference|http://msdn.microsoft.com/en-us/library/aa140066%28office.10%29.aspx>
 
 =head1 AUTHOR
 
