@@ -38,10 +38,9 @@ end of the directory name to make it unique.
 
 L<hpcviewer|http://hpctoolkit.org/man/hpcviewer.html>(1),
 bfbin2cgrind(1), bfbin2csv(1), bfbin2hdf5(1), bfbin2sqlite3(1),
-bfbin2xmlss(1), bf-clang(1), bf-clang++(1), bf-gcc(1), bf-g++(1),
-bf-gfortran(1), bf-gccgo(1), L<the Byfl home
-page|https://github.com/lanl/Byfl>, L<the HPCToolkit home
-page|http://hpctoolkit.org/>
+bfbin2xmlss(1), bf-clang(1), bf-clang++(1), bf-flang(1),
+L<the Byfl home page|https://github.com/lanl/Byfl>,
+L<the HPCToolkit home page|http://hpctoolkit.org/>
 
 =head1 AUTHOR
 

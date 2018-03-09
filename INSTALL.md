@@ -1,12 +1,12 @@
 Byfl installation
 =================
 
-Byfl relies on [LLVM](http://www.llvm.org/) and [Clang](http://clang.llvm.org/) and can take advantage of [DragonEgg](http://dragonegg.llvm.org/).  The `llvm-3.5` branch of Byfl is designed to work with LLVM/Clang/DragonEgg release 3.5.*x*.  The `llvm-3.6` branch of Byfl is designed to work with LLVM/Clang release 3.6.*x*.  The `llvm-3.7` branch of Byfl is designed to work with LLVM/Clang release 3.7.*x*.  The `llvm-3.8` branch of Byfl is designed to work with LLVM/Clang release 3.8.*x*.  The `master` branch of Byfl is designed to work with LLVM/Clang trunk (i.e., the post-3.8-release development code).
+Byfl relies on [LLVM](http://www.llvm.org/) and [Clang](http://clang.llvm.org/) and can take advantage of [Flang](https://github.com/flang-compiler/flang).  The `llvm-3.9` branch of Byfl is designed to work with LLVM/Clang release 3.9.*x*.  The `llvm-4.0` branch of Byfl is designed to work with LLVM/Clang release 4.0.*x*.  The `llvm-5.0` branch of Byfl is designed to work with LLVM/Clang release 5.0.*x*.  The `master` branch of Byfl is designed to work with LLVM/Clang trunk (i.e., the post-5.0-release development code), but is often not kept up to date and is best avoided.
 
 Basic installation
 ------------------
 
-As long as LLVM's `llvm-config` program is in your path, the Free Software Foundation's canonical installation procedure for an out-of-source build should work:
+As long as LLVM's `llvm-config` program is in your path, the [Free Software Foundation](https://www.fsf.org/)'s canonical installation procedure for an out-of-source build should work:
 ```bash
 mkdir build
 cd build
@@ -27,10 +27,10 @@ libtoolize
 
 Run `../configure --help` for usage information.  The [FSF's generic installation instructions](http://git.savannah.gnu.org/cgit/automake.git/tree/INSTALL) provide substantially more detail on customizing the configuration.
 
-Note that DragonEgg requires [GCC](http://gcc.gnu.org/) versions 4.5-4.8 and LLVM/Clang 3.5.
-
 Installation on Mac OS X
 ------------------------
+
+> These instructions currently apply to a no-longer-supported version of Byfl.  They will be updated eventually.
 
 A few extra steps are needed to build Byfl on OS X:
 

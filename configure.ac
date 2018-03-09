@@ -239,39 +239,6 @@ if test "x$ac_cv_lib_sqlite3_sqlite3_errstr" != xno ; then
 fi
 AM_CONDITIONAL([SQLITE3_AVAILABLE], [test $BUILD_BFBIN2SQLITE3 = yes])
 
-dnl The GCC DragonEgg plugin, while not strictly required by Byfl,
-dnl precludes the use of most of the Byfl wrapper scripts.
-AC_ARG_VAR([DRAGONEGG], [absolute filename of the GCC DragonEgg plugin])
-if test "${DRAGONEGG:-no}" = no ; then
-  # The location of the DragonEgg plugin was not specified -- try to find it.
-  AC_CACHE_CHECK([for dragonegg.so],
-    [ax_cv_file_dragonegg_so],
-    [dnl
-  # Search for dragonegg.so in various likely places.
-  ax_cv_file_dragonegg_so=no
-  for dname in `$LLVM_CONFIG --libdir` `echo "$LD_LIBRARY_PATH" | $SED 's/:/\n/g'` /usr/local/lib* /usr/lib* ; do
-    if test -f "$dname/dragonegg.so" ; then
-      ax_cv_file_dragonegg_so="$dname/dragonegg.so"
-      break
-    fi
-  done
-  ])
-  if test "x$ax_cv_file_dragonegg_so" = xno ; then
-    dnl Define where dragonegg.so *ought* to be but isn't.
-    DRAGONEGG="`$LLVM_CONFIG --libdir`/dragonegg.so"
-  else
-    DRAGONEGG="$ax_cv_file_dragonegg_so"
-  fi
-else
-  ax_cv_file_dragonegg_so="$DRAGONEGG"
-fi
-AM_CONDITIONAL([HAVE_DRAGONEGG], [test "x$ax_cv_file_dragonegg_so" != xno])
-if test "x$ax_cv_file_dragonegg_so" = xno ; then
-  AC_SUBST([use_dragonegg], [no])
-else
-  AC_SUBST([use_dragonegg], [yes])
-fi
-
 dnl Generate all of the Byfl Makefiles and other files.
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([include/Makefile])
@@ -288,12 +255,6 @@ AC_CONFIG_FILES([tools/postproc/bfbin2py], [
   [MAKE="$MAKE"
    GREP="$GREP"])
 AC_CONFIG_FILES([tools/wrappers/Makefile])
-AC_CONFIG_FILES([tools/wrappers/bf-gcc], [
-    cat tools/wrappers/bf-gcc | `$MAKE -s sed-command | $GREP sed` > tools/wrappers/bf-gcc.tmp
-    mv tools/wrappers/bf-gcc.tmp tools/wrappers/bf-gcc
-  ],
-  [MAKE="$MAKE"
-   GREP="$GREP"])
 AC_CONFIG_FILES([tools/wrappers/bf-clang], [
     cat tools/wrappers/bf-clang | `$MAKE -s sed-command | $GREP sed` > tools/wrappers/bf-clang.tmp
     mv tools/wrappers/bf-clang.tmp tools/wrappers/bf-clang
@@ -321,8 +282,4 @@ if test $BUILD_BFBIN2HDF5 = no ; then
 fi
 if test $BUILD_BFBIN2SQLITE3 = no ; then
   AC_MSG_WARN([Not building the bfbin2sqlite3 postprocessor because it requires SQLite3 (v3.7.15+)])
-fi
-if test "x$ax_cv_file_dragonegg_so" != xno -a ! -e "$DRAGONEGG" ; then
-  # The location of the DragonEgg plugin was specified but does not exist.
-  AC_MSG_WARN([$DRAGONEGG does not exist; did you specify an incorrect file for the DRAGONEGG variable?])
 fi
