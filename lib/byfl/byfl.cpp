@@ -1036,8 +1036,8 @@ private:
       // Output every mth quantile in binary format.
       const double pct_change_bin = 0.001;    // Minimum percentage-point change to output in binary format
       *bfbin << uint8_t(BINOUT_TABLE_BASIC) << "Memory locality";
-      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Cache size"
-             << uint8_t(BINOUT_COL_UINT64) << "Upper-bound of hit count"
+      *bfbin << uint8_t(BINOUT_COL_UINT64) << "Capacity in bytes"
+             << uint8_t(BINOUT_COL_UINT64) << "Maximum possible hit count"
              << uint8_t(BINOUT_COL_NONE);
       running_total_bytes = 0;
       running_total_accesses = 0;
