@@ -8,19 +8,21 @@
 
 void initialize_papi_sde(void)
 {
-  papi_sde_hook_list_events(papi_sde_init, papi_sde_register_counter, papi_sde_describe_counter);
+  papi_sde_fptr_struct_t fptr_struct;
+
+  POPULATE_SDE_FPTR_STRUCT(fptr_struct);
+  papi_sde_hook_list_events(&fptr_struct);
 }
 
 
 /** This function registers and (optionally) describes events
  *  available from BYFL for listing in papi_native_avail.
- *  @param[in] sym_init --  function pointer to papi_sde_init
- *  @param[in] sym_reg  -- name of the event
- *  @param[in] event_description -- description of the event
+ *  @param[in] papi_sde_fptr_struct_t fptr_struct
+ *             fptr_struct->init -- function pointer to papi_sde_init
+ *             fptr_struct->register_counter -- name of the event
+ *             fptr_struct->describe_counter -- description of the event
  **/
-void papi_sde_hook_list_events(void* (*sym_init)(const char*, int),
-                               void  (*sym_reg)(void*, const char*, int, int, void*),
-                               void  (*sym_desc)(void*, const char*, const char*))
+papi_handle_t papi_sde_hook_list_events( papi_sde_fptr_struct_t *fptr_struct)
 {
   int i;
   void* sde_handle = nullptr;
@@ -62,16 +64,20 @@ void papi_sde_hook_list_events(void* (*sym_init)(const char*, int),
   };
 
   /* papi_sde_init() */
-  sde_handle = (void *) (*sym_init)("byfl", BYFL_MAX_COUNTERS);
+  sde_handle = fptr_struct->init("byfl");
 
   /* papi_sde_register_counter() */
   for (i=0; i<BYFL_MAX_COUNTERS; i++) {
-    (*sym_reg)(sde_handle, byfl_counter_name[i],
-       SDE_RO|SDE_DELTA, PAPI_SDE_long_long, byfl_counter_count[i]);
+    fptr_struct->register_counter( sde_handle, byfl_counter_name[i],
+      PAPI_SDE_long_long, PAPI_SDE_RO|PAPI_SDE_DELTA,
+      byfl_counter_count[i] );
   }
 
   /* papi_sde_describe_counter() */
   for (i=0; i<BYFL_MAX_COUNTERS; i++) {
-    (*sym_desc)(sde_handle, byfl_counter_name[i], byfl_counter_description[i]);
+    fptr_struct->describe_counter( sde_handle, byfl_counter_name[i],
+      byfl_counter_description[i] );
   }
+
+  return sde_handle;
 }
