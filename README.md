@@ -36,15 +36,14 @@ The name "Byfl" comes from "bytes/flops".  The very first version of the code co
 Installation
 ------------
 
-There are five "release" branches of Byfl on GitHub:
+There are multiple "release" branches of Byfl on GitHub:
 
   * [`master`](https://github.com/lanl/Byfl), corresponding to LLVM trunk (usually not up to date; best to avoid)
   * [`llvm-6.0`](https://github.com/lanl/Byfl/tree/llvm-6.0), corresponding to LLVM 6.0._x_ releases
   * [`llvm-5.0`](https://github.com/lanl/Byfl/tree/llvm-5.0), corresponding to LLVM 5.0._x_ releases
   * [`llvm-4.0`](https://github.com/lanl/Byfl/tree/llvm-4.0), corresponding to LLVM 4.0._x_ releases
-  * [`llvm-3.9`](https://github.com/lanl/Byfl/tree/llvm-3.9), corresponding to LLVM 3.9._x_ releases
 
-Byfl previously supported LLVM versions 3.5–3.8.  Because these Byfl versions are no longer maintained, the corresponding branches have been removed.  However, they were first snapshotted as tags [`llvm-3.5`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), and [`llvm-3.8`](https://github.com/lanl/Byfl/tree/llvm-3.8-final) in case Byfl is desperately needed for one of those outdated LLVM versions.
+Byfl previously supported LLVM versions 3.5–3.9.  Because these Byfl versions are no longer maintained, the corresponding branches have been removed.  However, they were first snapshotted as tags [`llvm-3.5-final`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6-final`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7-final`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), [`llvm-3.8-final`](https://github.com/lanl/Byfl/tree/llvm-3.8-final), and [`llvm-3.9-final`](https://github.com/lanl/Byfl/tree/llvm-3.9-final) in case Byfl is desperately needed for one of those outdated LLVM versions.
 
 Be sure to download the Byfl branch that corresponds to your installed LLVM version.  (Run `llvm-config --version` to check.)  Then, the usual
 ```bash
@@ -62,7 +61,7 @@ Byfl documentation is maintained in the [Byfl wiki](https://github.com/lanl/Byfl
 Copyright and license
 ---------------------
 
-Los Alamos National Security, LLC (LANS) owns the copyright to Byfl, which it identifies internally as LA-CC-12-039.  The license is BSD-ish with a "modifications must be indicated" clause.  See [LICENSE.md](https://github.com/lanl/Byfl/blob/master/LICENSE.md) for the full text.
+Triad National Security, LLC (Triad) owns the copyright to Byfl, which it identifies internally as LA-CC-12-039.  The license is BSD-ish with a "modifications must be indicated" clause.  See [LICENSE.md](https://github.com/lanl/Byfl/blob/master/LICENSE.md) for the full text.
 
 Contact
 -------
