@@ -41,9 +41,8 @@ There are multiple "release" branches of Byfl on GitHub:
   * [`master`](https://github.com/lanl/Byfl), corresponding to LLVM trunk (usually not up to date; best to avoid)
   * [`llvm-6.0`](https://github.com/lanl/Byfl/tree/llvm-6.0), corresponding to LLVM 6.0._x_ releases
   * [`llvm-5.0`](https://github.com/lanl/Byfl/tree/llvm-5.0), corresponding to LLVM 5.0._x_ releases
-  * [`llvm-4.0`](https://github.com/lanl/Byfl/tree/llvm-4.0), corresponding to LLVM 4.0._x_ releases
 
-Byfl previously supported LLVM versions 3.5–3.9.  Because these Byfl versions are no longer maintained, the corresponding branches have been removed.  However, they were first snapshotted as tags [`llvm-3.5-final`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6-final`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7-final`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), [`llvm-3.8-final`](https://github.com/lanl/Byfl/tree/llvm-3.8-final), and [`llvm-3.9-final`](https://github.com/lanl/Byfl/tree/llvm-3.9-final) in case Byfl is desperately needed for one of those outdated LLVM versions.
+Byfl previously supported LLVM versions 3.5–4.0.  Because these Byfl versions are no longer maintained, the corresponding branches have been removed.  However, they were first snapshotted as tags [`llvm-3.5-final`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6-final`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7-final`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), [`llvm-3.8-final`](https://github.com/lanl/Byfl/tree/llvm-3.8-final), [`llvm-3.9-final`](https://github.com/lanl/Byfl/tree/llvm-3.9-final), and [`llvm-4.0-final`](https://github.com/lanl/Byfl/tree/llvm-4.0-final) in case Byfl is desperately needed for one of those outdated LLVM versions.
 
 Be sure to download the Byfl branch that corresponds to your installed LLVM version.  (Run `llvm-config --version` to check.)  Then, the usual
 ```bash
