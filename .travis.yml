@@ -1,9 +1,16 @@
 language: cpp
 
 env:
-  - LLVM_VERSION=6.0 GCC_VERSION=4.8
+
+  - LLVM_VERSION=5.0 GCC_VERSION=6
+  - LLVM_VERSION=5.0 GCC_VERSION=7
+  - LLVM_VERSION=5.0 GCC_VERSION=8
   - LLVM_VERSION=6.0 GCC_VERSION=6
   - LLVM_VERSION=6.0 GCC_VERSION=7
+  - LLVM_VERSION=6.0 GCC_VERSION=8
+  - LLVM_VERSION=7   GCC_VERSION=6
+  - LLVM_VERSION=7   GCC_VERSION=7
+  - LLVM_VERSION=7   GCC_VERSION=8
 
 sudo: false
 
@@ -11,18 +18,22 @@ addons:
   apt:
     sources:
       - llvm-toolchain-trusty-6.0
+      - llvm-toolchain-trusty-7
       - ubuntu-toolchain-r-test
     packages:
       - ccache
-      - gcc-4.8
-      - g++-4.8
       - gcc-6
       - g++-6
       - gcc-7
       - g++-7
+      - gcc-8
+      - g++-8
       - llvm-6.0
       - llvm-6.0-dev
       - clang-6.0
+      - llvm-7
+      - llvm-7-dev
+      - clang-7
       - libhdf5-serial-dev
       - libsqlite3-dev
 
@@ -53,6 +64,7 @@ script:
   - autoreconf -i &&
     PATH="/usr/lib/ccache:$PATH" ./configure CXXFLAGS="$LLVM_CXXFLAGS $EXTRA_CXXFLAGS" CFLAGS="$LLVM_CFLAGS" &&
     make distcheck DISTCHECK_CONFIGURE_FLAGS="CXXFLAGS='$LLVM_CXXFLAGS $EXTRA_CXXFLAGS' LLVM_CFLAGS='$LLVM_CFLAGS'"
+  - find . -name test-suite.log | xargs cat
 
 compiler:
   - clang
