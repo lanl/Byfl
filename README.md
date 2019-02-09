@@ -36,21 +36,15 @@ The name "Byfl" comes from "bytes/flops".  The very first version of the code co
 Installation
 ------------
 
-There are multiple "release" branches of Byfl on GitHub:
-
-  * [`master`](https://github.com/lanl/Byfl), corresponding to LLVM trunk (usually not up to date; best to avoid)
-  * [`llvm-6.0`](https://github.com/lanl/Byfl/tree/llvm-6.0), corresponding to LLVM 6.0._x_ releases
-  * [`llvm-5.0`](https://github.com/lanl/Byfl/tree/llvm-5.0), corresponding to LLVM 5.0._x_ releases
-
-Byfl previously supported LLVM versions 3.5–4.0.  Because these Byfl versions are no longer maintained, the corresponding branches have been removed.  However, they were first snapshotted as tags [`llvm-3.5-final`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6-final`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7-final`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), [`llvm-3.8-final`](https://github.com/lanl/Byfl/tree/llvm-3.8-final), [`llvm-3.9-final`](https://github.com/lanl/Byfl/tree/llvm-3.9-final), and [`llvm-4.0-final`](https://github.com/lanl/Byfl/tree/llvm-4.0-final) in case Byfl is desperately needed for one of those outdated LLVM versions.
-
-Be sure to download the Byfl branch that corresponds to your installed LLVM version.  (Run `llvm-config --version` to check.)  Then, the usual
+Once you've downloaded Byfl, the usual
 ```bash
 ./configure
 make
 make install
 ```
 procedure should work.  See [INSTALL.md](https://github.com/lanl/Byfl/blob/master/INSTALL.md) for a more complete explanation.
+
+Previously, Byfl separately supported LLVM versions 3.5–7.0 because of API differences.  Because LLVM's APIs have stabilized, these Byfl versions are no longer maintained, and the corresponding branches have been removed.  However, they were first snapshotted as the tags [`llvm-3.5-final`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6-final`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7-final`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), [`llvm-3.8-final`](https://github.com/lanl/Byfl/tree/llvm-3.8-final), [`llvm-3.9-final`](https://github.com/lanl/Byfl/tree/llvm-3.9-final), [`llvm-4.0-final`](https://github.com/lanl/Byfl/tree/llvm-4.0-final), [`llvm-5.0-final`](https://github.com/lanl/Byfl/tree/llvm-5.0-final), [`llvm-6.0-final`](https://github.com/lanl/Byfl/tree/llvm-6.0-final), and [`llvm-7.0-final`](https://github.com/lanl/Byfl/tree/llvm-7.0-final) for posterity.
 
 Documentation
 -------------
