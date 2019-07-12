@@ -11,6 +11,10 @@ link_directories(${LLVM_LIBRARY_DIRS})
 list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR} ${PROJECT_SOURCE_DIR}/cmake)
 include(LLVMConfig)
 include(AddLLVM)
+
+# Load other required CMake features.
+include(CheckIncludeFileCXX)
+include(CheckCXXSymbolExists)
 include(ByflUtilities)
 
 # Specify various fixed strings to use in man pages.
@@ -75,6 +79,16 @@ endif (${FLANG_EXECUTABLE})
 # Byfl can give more informative warning messages if the system supports
 # weak function aliases, which, as the time of this writing, OS X does not.
 check_weak_aliases()
+
+# OS X lacks a /proc/self/cmdline file, but it does provide a _NSGetArgv()
+# function to read the caller's command line.
+check_cxx_symbol_exists(_NSGetArgv crt_externs.h HAVE__NSGETARGV)
+
+# The Byfl build process parses Instruction.def.  Ensure it exists.
+check_include_file_cxx(llvm/IR/Instruction.def _have_inst_def)
+if (NOT ${_have_inst_def})
+  message(FATAL_ERROR "Byfl requires the llvm/IR/Instruction.def C++ header file")
+endif (NOT ${_have_inst_def})
 
 # Generate a configuration file.
 configure_file(config.h.in config.h @ONLY)
