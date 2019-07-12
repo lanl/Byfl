@@ -17,6 +17,9 @@ include(CheckIncludeFileCXX)
 include(CheckCXXSymbolExists)
 include(ByflUtilities)
 
+# Byfl requires C++11.
+set(CMAKE_CXX_STANDARD 11)
+
 # Specify various fixed strings to use in man pages.
 include(FindGit)
 if (GIT_FOUND)
@@ -58,7 +61,7 @@ endif (NOT PERL_FOUND)
 include(FindPerlLibs)
 find_program(POD2MAN_EXECUTABLE pod2man${CMAKE_EXECUTABLE_SUFFIX}
   DOC "Program to convert Perl POD files to man pages")
-mark_as_advanced(POD2MAN_RELEASE)
+mark_as_advanced(POD2MAN_EXECUTABLE)
 
 # Store the closest thing we have to an ARCH-VENDOR-OS string.
 set(TARGET_INFORMATION ${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_SYSTEM} CACHE STRING
@@ -75,6 +78,7 @@ if (${FLANG_EXECUTABLE})
 else (${FLANG_EXECUTABLE})
   message(STATUS "Check for a Clang-compatible Fortran compiler - not found")
 endif (${FLANG_EXECUTABLE})
+mark_as_advanced(FLANG_EXECUTABLE)
 
 # Byfl can give more informative warning messages if the system supports
 # weak function aliases, which, as the time of this writing, OS X does not.
@@ -89,6 +93,9 @@ check_include_file_cxx(llvm/IR/Instruction.def _have_inst_def)
 if (NOT ${_have_inst_def})
   message(FATAL_ERROR "Byfl requires the llvm/IR/Instruction.def C++ header file")
 endif (NOT ${_have_inst_def})
+
+# Tally the number of LLVM opcodes.
+tally_llvm_opcodes()
 
 # Generate a configuration file.
 configure_file(config.h.in config.h @ONLY)

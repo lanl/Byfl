@@ -63,3 +63,30 @@ int main (void)
     message(STATUS "${_msg} - no")
   endif (_weak_okay)
 endfunction(check_weak_aliases)
+
+# Tally the number of LLVM opcodes.  Define NUM_LLVM_OPCODES and
+# NUM_LLVM_OPCODES_POW2.  For now, we hard-wire the C++ compiler with the "-E"
+# option as the way to preprocess a C++ file.
+function(tally_llvm_opcodes)
+  # Tally the number of LLVM opcodes.
+  set_var_to_process_output(
+    OUTPUT_VARIABLE _llvm_opcodes
+    MESSAGE "Tallying the number of LLVM opcodes"
+    COMMAND ${PERL_EXECUTABLE} ${PROJECT_SOURCE_DIR}/gen_opcode2name "${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -E" NUM
+    )
+    if (NOT _llvm_opcodes)
+      message(FATAL_ERROR "Cannot continue without knowing the number of LLVM opcodes.")
+    endif (NOT _llvm_opcodes)
+    set(NUM_LLVM_OPCODES ${_llvm_opcodes} PARENT_SCOPE)
+
+    # Round the number of LLVM opcodes up to a power of two.
+  set_var_to_process_output(
+    OUTPUT_VARIABLE _llvm_opcodes_2
+    MESSAGE "Rounding up the number of LLVM opcodes to a power of two"
+    COMMAND ${PERL_EXECUTABLE} ${PROJECT_SOURCE_DIR}/gen_opcode2name "${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -E" NUM_POW2
+    )
+    if (NOT _llvm_opcodes_2)
+      message(FATAL_ERROR "Cannot continue without knowing the number of LLVM opcodes.")
+    endif (NOT _llvm_opcodes_2)
+    set(NUM_LLVM_OPCODES_POW2 ${_llvm_opcodes_2} PARENT_SCOPE)
+endfunction(tally_llvm_opcodes)
