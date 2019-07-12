@@ -8,7 +8,7 @@
 #cmakedefine BYFL_GIT_SHA1 "@BYFL_GIT_SHA1@"
 
 /* Define as a canonical target system description. */
-#cmakedefine BYFL_HOST_TRIPLE "@BYFL_HOST_TRIPLE@"
+#cmakedefine TARGET_DESCRIPTION "@TARGET_DESCRIPTION@"
 
 /* Define as the LLVM major/minor version numbers. */
 #cmakedefine LLVM_VERSION_MAJOR @LLVM_VERSION_MAJOR@

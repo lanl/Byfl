@@ -5,5 +5,5 @@
 # By Scott Pakin <pakin@lanl.gov> #
 ###################################
 
-#add_subdirectory(bytesflops byfl)
 add_subdirectory(bytesflops)
+add_subdirectory(byfl)

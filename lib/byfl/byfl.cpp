@@ -1299,8 +1299,8 @@ private:
 #ifdef BYFL_GIT_SHA1
     *bfbin << uint8_t(BINOUT_COL_STRING) << "Byfl Git commit" << BYFL_GIT_SHA1;
 #endif
-    *bfbin << uint8_t(BINOUT_COL_STRING) << "LLVM version" << BYFL_LLVM_VERSION
-           << uint8_t(BINOUT_COL_STRING) << "Canonical system name" << BYFL_HOST_TRIPLE;
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "LLVM version" << LLVM_PACKAGE_VERSION
+           << uint8_t(BINOUT_COL_STRING) << "Canonical system name" << TARGET_DESCRIPTION;
     char hostname[1024];
     if (gethostname(hostname, 1024) == 0)
       *bfbin << uint8_t(BINOUT_COL_STRING) << "Host name" << hostname;

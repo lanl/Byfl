@@ -17,6 +17,7 @@ link_directories(${LLVM_LIBRARY_DIRS})
 list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR} ${PROJECT_SOURCE_DIR}/cmake)
 include(LLVMConfig)
 include(AddLLVM)
+mark_as_advanced(LLVM_DIR)
 
 # Load other required CMake features.
 include(CheckIncludeFileCXX)
@@ -71,10 +72,9 @@ find_program(POD2MAN_EXECUTABLE pod2man${CMAKE_EXECUTABLE_SUFFIX}
 mark_as_advanced(POD2MAN_EXECUTABLE)
 
 # Store the closest thing we have to an ARCH-VENDOR-OS string.
-set(TARGET_INFORMATION ${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_SYSTEM} CACHE STRING
+set(TARGET_DESCRIPTION ${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_SYSTEM} CACHE STRING
   "Target system identifying information")
-mark_as_advanced(TARGET_INFORMATION)
-set(BYFL_HOST_TRIPLE "${TARGET_INFORMATION}")
+mark_as_advanced(TARGET_DESCRIPTION)
 
 # Byfl supports Flang as the Fortran compiler but doesn't require it.
 set(_flang_msg "Checking for a Clang-compatible Fortran compiler")
@@ -121,6 +121,15 @@ find_package(HDF5 COMPONENTS CXX)
 if (NOT HDF5_FOUND)
   message(WARNING "Not building the bfbin2hdf5 postprocessor because it requires a working HDF5.")
 endif (NOT HDF5_FOUND)
+mark_as_advanced(
+  HDF5_CXX_LIBRARY_dl
+  HDF5_CXX_LIBRARY_hdf5
+  HDF5_CXX_LIBRARY_hdf5_cpp
+  HDF5_CXX_LIBRARY_m
+  HDF5_CXX_LIBRARY_pthread
+  HDF5_CXX_LIBRARY_sz
+  HDF5_CXX_LIBRARY_z
+  )
 
 # If SQLite3 is available we can build bfbin2sqlite3.
 function (check_sqlite3)
