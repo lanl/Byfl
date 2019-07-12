@@ -102,9 +102,28 @@ tally_llvm_opcodes()
 # work around its absence with an unsafe alternative.
 set(CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
 check_cxx_symbol_exists(asprintf stdio.h HAVE_ASPRINTF)
+if (NOT HAVE_ASPRINTF)
+  message(WARNING "Using an unsafe alternative to asprintf, which wasn't found.")
+endif (NOT HAVE_ASPRINTF)
 
-# If HDF5 is installed and seems to work we can try building bfbin2hdf5.
+# If HDF5 is installed and seems to work we can build bfbin2hdf5.
 check_hdf5()
+if (NOT HDF5_AVAILABLE)
+  message(WARNING "Not building the bfbin2hdf5 postprocessor because it requires a working HDF5 with C++11 support.")
+endif (NOT HDF5_AVAILABLE)
+
+# If getopt_long is available we can build bfbin2csv and bfbin2sqlite3.
+check_cxx_symbol_exists(getopt_long getopt.h HAVE_GETOPT_LONG)
+
+# If SQLite3 is available we can build bfbin2sqlite3.
+function (check_sqlite3)
+  set(CMAKE_REQUIRED_LIBRARIES "sqlite3;${CMAKE_REQUIRED_LIBRARIES}")
+  check_cxx_symbol_exists(sqlite3_errstr sqlite3.h SQLITE3_AVAILABLE)
+endfunction (check_sqlite3)
+check_sqlite3()
+if (NOT SQLITE3_AVAILABLE)
+  message(WARNING "Not building the bfbin2sqlite3 postprocessor because it requires SQLite3 (v3.7.15+).")
+endif (NOT SQLITE3_AVAILABLE)
 
 # Generate a configuration file.
 configure_file(config.h.in config.h @ONLY)
