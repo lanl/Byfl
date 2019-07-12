@@ -8,8 +8,9 @@ find_package(LLVM REQUIRED CONFIG)
 add_definitions(${LLVM_DEFINITIONS})
 include_directories(${LLVM_INCLUDE_DIRS})
 link_directories(${LLVM_LIBRARY_DIRS})
-list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR})
+list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR} ${PROJECT_SOURCE_DIR}/cmake)
 include(AddLLVM)
+include(ByflUtilities)
 
 # Specify various fixed strings to use in man pages.
 include(FindGit)
@@ -27,27 +28,31 @@ mark_as_advanced(MAN_CATEGORY)
 set(MAN_RELEASE ${_byfl_man_release} CACHE STRING "Version string to list on Byfl man pages")
 mark_as_advanced(MAN_RELEASE)
 
-# Define the version of Byfl we're currently configuring.
+# Extract the Git branch and commit hash for provenance purposes.
 if (GIT_FOUND)
-  message(STATUS "Detecting the active Byfl Git commit")
-  execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
-    RESULT_VARIABLE _have_byfl_git_sha1
-    OUTPUT_VARIABLE _byfl_git_sha1
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET)
-  if (_have_byfl_git_sha1 EQUAL 0)
-    message(STATUS "Detecting the active Byfl Git commit - ${_byfl_git_sha1}")
-    set(BYFL_GIT_SHA1 ${_byfl_git_sha1})
-  else (_have_byfl_git_sha1 EQUAL 0)
-    message(STATUS "Detecting the active Byfl Git commit - failed")
-  endif (_have_byfl_git_sha1 EQUAL 0)
+  # Git branch
+  set_var_to_process_output(
+    OUTPUT_VARIABLE BYFL_GIT_BRANCH
+    MESSAGE "Detecting the active Byfl Git branch"
+    COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+    )
+
+  # Git commit
+  set_var_to_process_output(
+    OUTPUT_VARIABLE BYFL_GIT_SHA1
+    MESSAGE "Detecting the active Byfl Git commit"
+    COMMAND ${GIT_EXECUTABLE} rev-parse HEAD
+    )
 endif (GIT_FOUND)
 
 # Byfl's MPI wrappers require Perl.
 include(FindPerl)
 if (NOT PERL_FOUND)
-  message(FATAL_ERROR "Byfl requires Perl.")
+  message(FATAL_ERROR "Byfl requires Perl to build.")
 endif (NOT PERL_FOUND)
+find_program(POD2MAN_EXECUTABLE pod2man
+  DOC "Program to convert Perl POD files to man pages")
+mark_as_advanced(POD2MAN_RELEASE)
 
 # Generate a configuration file.
 configure_file(config.h.in config.h @ONLY)
