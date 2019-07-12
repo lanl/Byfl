@@ -22,7 +22,7 @@ function(set_var_to_process_output)
   # Set the output variable only if the command succeeded.
   if (_exec_result EQUAL 0)
     message(STATUS "${EXEC_MESSAGE} - ${_exec_output}")
-    set(${OUTPUT_VARIABLE} ${_exec_output} PARENT_SCOPE)
+    set(${EXEC_OUTPUT_VARIABLE} ${_exec_output} PARENT_SCOPE)
   else (_exec_result EQUAL 0)
     message(STATUS "${EXEC_MESSAGE} - failed")
   endif (_exec_result EQUAL 0)

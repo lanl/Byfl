@@ -54,6 +54,12 @@ find_program(POD2MAN_EXECUTABLE pod2man
   DOC "Program to convert Perl POD files to man pages")
 mark_as_advanced(POD2MAN_RELEASE)
 
+# Store the closest thing we have to an ARCH-VENDOR-OS string.
+set(TARGET_INFORMATION ${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_SYSTEM} CACHE STRING
+  "Target system identifying information")
+mark_as_advanced(TARGET_INFORMATION)
+set(BYFL_HOST_TRIPLE "${TARGET_INFORMATION}")
+
 # Generate a configuration file.
 configure_file(config.h.in config.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
