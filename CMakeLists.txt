@@ -97,6 +97,11 @@ endif (NOT ${_have_inst_def})
 # Tally the number of LLVM opcodes.
 tally_llvm_opcodes()
 
+# The Byfl binary-output library uses asprintf for error reporting but can
+# work around its absence with an unsafe alternative.
+set(CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
+check_cxx_symbol_exists(asprintf stdio.h HAVE_ASPRINTF)
+
 # Generate a configuration file.
 configure_file(config.h.in config.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
