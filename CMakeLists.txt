@@ -23,7 +23,7 @@ if (GIT_FOUND)
 endif (GIT_FOUND)
 if (NOT _have_byfl_git_sha1 EQUAL 0)
   set(_byfl_man_release "${PACKAGE_VERSION}")
-endif (NOT _have_byfl_git_sha1 EQUAL 0)  
+endif (NOT _have_byfl_git_sha1 EQUAL 0)
 set(MAN_CATEGORY "Byfl tools" CACHE STRING "Category string to list on Byfl man pages")
 mark_as_advanced(MAN_CATEGORY)
 set(MAN_RELEASE ${_byfl_man_release} CACHE STRING "Version string to list on Byfl man pages")
@@ -52,7 +52,7 @@ if (NOT PERL_FOUND)
   message(FATAL_ERROR "Byfl requires Perl to build.")
 endif (NOT PERL_FOUND)
 include(FindPerlLibs)
-find_program(POD2MAN_EXECUTABLE pod2man
+find_program(POD2MAN_EXECUTABLE pod2man${CMAKE_EXECUTABLE_SUFFIX}
   DOC "Program to convert Perl POD files to man pages")
 mark_as_advanced(POD2MAN_RELEASE)
 
@@ -61,6 +61,20 @@ set(TARGET_INFORMATION ${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_SYSTEM} CACHE STRING
   "Target system identifying information")
 mark_as_advanced(TARGET_INFORMATION)
 set(BYFL_HOST_TRIPLE "${TARGET_INFORMATION}")
+
+# Byfl supports Flang as the Fortran compiler but doesn't require it.
+message(STATUS "Check for a Clang-compatible Fortran compiler")
+find_program(FLANG_EXECUTABLE flang${CMAKE_EXECUTABLE_SUFFIX}
+  DOC "LLVM-based Fortran compiler")
+if (${FLANG_EXECUTABLE})
+  message(STATUS "Check for a Clang-compatible Fortran compiler - ${FLANG_EXECUTABLE}")
+else (${FLANG_EXECUTABLE})
+  message(STATUS "Check for a Clang-compatible Fortran compiler - not found")
+endif (${FLANG_EXECUTABLE})
+
+# Byfl can give more informative warning messages if the system supports
+# weak function aliases, which, as the time of this writing, OS X does not.
+check_weak_aliases()
 
 # Generate a configuration file.
 configure_file(config.h.in config.h @ONLY)

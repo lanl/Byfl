@@ -12,7 +12,7 @@ function(set_var_to_process_output)
   cmake_parse_arguments(PARSE_ARGV 0 EXEC "" "${oneValueArgs}" "${multiValueArgs}")
 
   # Execute the command.
-  message(STATUS ${EXEC_MESSAGE})  
+  message(STATUS ${EXEC_MESSAGE})
   execute_process(COMMAND ${EXEC_COMMAND}
     RESULT_VARIABLE _exec_result
     OUTPUT_VARIABLE _exec_output
@@ -27,3 +27,39 @@ function(set_var_to_process_output)
     message(STATUS "${EXEC_MESSAGE} - failed")
   endif (_exec_result EQUAL 0)
 endfunction(set_var_to_process_output)
+
+# Determine if the system can handle weak function aliases.  (At the
+# time of this writing, OS X cannot.)  If so, define HAVE_WEAK_ALIASES.
+function(check_weak_aliases)
+  # Construct a test file.
+  set(_msg "Detecting if weak function aliases are supported")
+  message(STATUS ${_msg})
+  file(WRITE
+    ${CMAKE_BINARY_DIR}/CMakeTmp/testWeakAliases.c
+    [=[
+int my_function_impl (void)
+{
+  return 0;
+}
+
+int my_function (void) __attribute__((weak, alias("my_function_impl")));
+
+int main (void)
+{
+  return my_function();
+}
+]=])
+
+  # See if the test file compiles.
+  try_compile(
+    _weak_okay
+    ${CMAKE_BINARY_DIR}
+    ${CMAKE_BINARY_DIR}/CMakeTmp/testWeakAliases.c
+    )
+  if (_weak_okay)
+    message(STATUS "${_msg} - yes")
+    set(HAVE_WEAK_ALIASES PARENT_SCOPE)
+  else (_weak_okay)
+    message(STATUS "${_msg} - no")
+  endif (_weak_okay)
+endfunction(check_weak_aliases)
