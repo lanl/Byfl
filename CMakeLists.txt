@@ -18,7 +18,7 @@ include(CheckCXXSymbolExists)
 include(ByflUtilities)
 
 # Byfl requires C++11.
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED 11)
 
 # Specify various fixed strings to use in man pages.
 include(FindGit)
@@ -70,13 +70,14 @@ mark_as_advanced(TARGET_INFORMATION)
 set(BYFL_HOST_TRIPLE "${TARGET_INFORMATION}")
 
 # Byfl supports Flang as the Fortran compiler but doesn't require it.
-message(STATUS "Check for a Clang-compatible Fortran compiler")
+set(_flang_msg "Checking for a Clang-compatible Fortran compiler")
+message(STATUS ${_flang_msg})
 find_program(FLANG_EXECUTABLE flang${CMAKE_EXECUTABLE_SUFFIX}
   DOC "LLVM-based Fortran compiler")
 if (${FLANG_EXECUTABLE})
-  message(STATUS "Check for a Clang-compatible Fortran compiler - ${FLANG_EXECUTABLE}")
+  message(STATUS "${_flang_msg} - ${FLANG_EXECUTABLE}")
 else (${FLANG_EXECUTABLE})
-  message(STATUS "Check for a Clang-compatible Fortran compiler - not found")
+  message(STATUS "${_flang_msg} - not found")
 endif (${FLANG_EXECUTABLE})
 mark_as_advanced(FLANG_EXECUTABLE)
 
@@ -101,6 +102,9 @@ tally_llvm_opcodes()
 # work around its absence with an unsafe alternative.
 set(CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
 check_cxx_symbol_exists(asprintf stdio.h HAVE_ASPRINTF)
+
+# If HDF5 is installed and seems to work we can try building bfbin2hdf5.
+check_hdf5()
 
 # Generate a configuration file.
 configure_file(config.h.in config.h @ONLY)
