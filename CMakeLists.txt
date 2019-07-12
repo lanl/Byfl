@@ -1,3 +1,9 @@
+###################################
+# Build all of Byfl               #
+#                                 #
+# By Scott Pakin <pakin@lanl.gov> #
+###################################
+
 # Declare our project information.
 cmake_minimum_required(VERSION 3.12)
 project(Byfl)
@@ -16,6 +22,7 @@ include(AddLLVM)
 include(CheckIncludeFileCXX)
 include(CheckCXXSymbolExists)
 include(ByflUtilities)
+include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # Byfl requires C++11.
 set(CMAKE_CXX_STANDARD_REQUIRED 11)
@@ -130,4 +137,4 @@ configure_file(config.h.in config.h @ONLY)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # Build all of our subdirectories.
-#add_subdirectory(lib)
+add_subdirectory(lib)
