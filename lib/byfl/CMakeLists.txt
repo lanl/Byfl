@@ -35,3 +35,9 @@ add_custom_command(
   MAIN_DEPENDENCY ${PROJECT_SOURCE_DIR}/gen_opcode2name
   COMMENT "Generaring opcode2name.cpp"
   )
+
+# Install the library.
+install(
+  TARGETS byfl
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  )

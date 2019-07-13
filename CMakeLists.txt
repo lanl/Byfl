@@ -22,8 +22,12 @@ mark_as_advanced(LLVM_DIR)
 # Load other required CMake features.
 include(CheckIncludeFileCXX)
 include(CheckCXXSymbolExists)
+include(GNUInstallDirs)
 include(ByflUtilities)
 include_directories(${PROJECT_SOURCE_DIR}/include)
+
+# Let the user choose between static and shared libraries.
+option(BUILD_SHARED_LIBS "Build the Byfl run-time library as a shared library" OFF)
 
 # Byfl requires C++11.
 set(CMAKE_CXX_STANDARD_REQUIRED 11)
