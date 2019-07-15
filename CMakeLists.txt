@@ -152,3 +152,4 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 # Build all of our subdirectories.
 add_subdirectory(lib)
 add_subdirectory(include)
+add_subdirectory(tools)
