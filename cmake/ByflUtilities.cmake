@@ -80,19 +80,35 @@ function(tally_llvm_opcodes)
     MESSAGE "Tallying the number of LLVM opcodes"
     COMMAND ${PERL_EXECUTABLE} ${PROJECT_SOURCE_DIR}/gen_opcode2name "${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -E" NUM
     )
-    if (NOT _llvm_opcodes)
-      message(FATAL_ERROR "Cannot continue without knowing the number of LLVM opcodes.")
-    endif (NOT _llvm_opcodes)
-    set(NUM_LLVM_OPCODES ${_llvm_opcodes} PARENT_SCOPE)
+  if (NOT _llvm_opcodes)
+    message(FATAL_ERROR "Cannot continue without knowing the number of LLVM opcodes.")
+  endif (NOT _llvm_opcodes)
+  set(NUM_LLVM_OPCODES ${_llvm_opcodes} PARENT_SCOPE)
 
-    # Round the number of LLVM opcodes up to a power of two.
+  # Round the number of LLVM opcodes up to a power of two.
   set_var_to_process_output(
     OUTPUT_VARIABLE _llvm_opcodes_2
     MESSAGE "Rounding up the number of LLVM opcodes to a power of two"
     COMMAND ${PERL_EXECUTABLE} ${PROJECT_SOURCE_DIR}/gen_opcode2name "${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -E" NUM_POW2
     )
-    if (NOT _llvm_opcodes_2)
-      message(FATAL_ERROR "Cannot continue without knowing the number of LLVM opcodes.")
-    endif (NOT _llvm_opcodes_2)
-    set(NUM_LLVM_OPCODES_POW2 ${_llvm_opcodes_2} PARENT_SCOPE)
+  if (NOT _llvm_opcodes_2)
+    message(FATAL_ERROR "Cannot continue without knowing the number of LLVM opcodes.")
+  endif (NOT _llvm_opcodes_2)
+  set(NUM_LLVM_OPCODES_POW2 ${_llvm_opcodes_2} PARENT_SCOPE)
 endfunction(tally_llvm_opcodes)
+
+# =============================================================================
+# Build a man page from a Perl POD file.
+# =============================================================================
+function(add_man_from_pod MAN POD)
+  get_filename_component(_ext ${MAN} EXT)
+  string(SUBSTRING ${_ext} 1 -1 _section)
+  file(RELATIVE_PATH _relfile ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/${MAN})
+  add_custom_target(
+    ${MAN} ALL
+    DEPENDS ${POD}
+    COMMAND ${POD2MAN_EXECUTABLE} --section=${_section} --release=${MAN_RELEASE} --center=${MAN_CATEGORY} ${CMAKE_CURRENT_SOURCE_DIR}/${POD} ${MAN}
+    COMMENT "Building man page ${_relfile}"
+    VERBATIM
+    )
+endfunction(add_man_from_pod)
