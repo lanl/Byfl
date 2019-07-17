@@ -5,17 +5,16 @@
 # By Scott Pakin <pakin@lanl.gov>      #
 ########################################
 
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-libdir=@libdir@
-includedir=@includedir@
-plugindir=@plugindir@
-ldflags=@LDFLAGS@
-libs=-lbyfl @LIBS@ -lstdc++
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=@CMAKE_INSTALL_PREFIX@
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+plugindir=@CMAKE_INSTALL_FULL_PLUGINDIR@
+libs=-lbyfl @CMAKE_EXE_LINKER_FLAGS@ -lstdc++
 
 Name: byfl-clang
 Description: Instrument Clang-compiled programs with Byfl
 URL: https://github.com/lanl/Byfl
-Version: @VERSION@
+Version: @PACKAGE_VERSION@
 Cflags: -Xclang -load -Xclang ${plugindir}/bytesflops.so
-Libs: -L${libdir} ${ldflags} ${libs}
+Libs: ${libs}
