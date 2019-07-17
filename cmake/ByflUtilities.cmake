@@ -104,12 +104,19 @@ function(add_man_from_pod MAN POD)
   get_filename_component(_ext ${MAN} EXT)
   string(SUBSTRING ${_ext} 1 -1 _section)
   file(RELATIVE_PATH _relfile ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/${MAN})
+  get_filename_component(_man_base ${MAN} NAME_WE)
   add_custom_target(
     ${MAN} ALL
     DEPENDS ${POD}
-    COMMAND ${POD2MAN_EXECUTABLE} --section=${_section} --release=${MAN_RELEASE} --center=${MAN_CATEGORY} ${CMAKE_CURRENT_SOURCE_DIR}/${POD} ${MAN}
+    COMMAND ${POD2MAN_EXECUTABLE} --name="${_man_base}" --section=${_section} --release=${MAN_RELEASE} --center=${MAN_CATEGORY} ${CMAKE_CURRENT_SOURCE_DIR}/${POD} ${MAN}
     COMMENT "Building man page ${_relfile}"
     VERBATIM
+    )
+  get_filename_component(_man_file ${MAN} NAME)
+  string(SUBSTRING ${_section} 0 1 _sec_num)
+  install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/${_man_file}
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man${_sec_num}
     )
 endfunction(add_man_from_pod)
 

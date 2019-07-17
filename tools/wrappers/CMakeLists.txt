@@ -39,3 +39,7 @@ install(
   FILES ${CMAKE_CURRENT_BINARY_DIR}/byfl-clang.pc
   DESTINATION ${PKG_CONFIG_DIRECTORY}
   )
+
+# Build and install a man page for the Perl module that parses compiler
+# options.
+add_man_from_pod(ParseCompilerOpts.3pm ParseCompilerOpts.pm)
