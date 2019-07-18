@@ -13,14 +13,16 @@ bfwrap="$2"
 ompivar="$3"
 mpichvar="$4"
 bindir="$5"
+outfile="$6"
 
 # Output a wrapper script to standard output.
-cat <<SCRIPT
+cat <<SCRIPT > "$outfile"
 #! /bin/sh
 
 # Run either Open MPI's or MPICH's $mpiwrap, but instruct it to use $bfwrap.
-$ompivar=$bindir/$bfwrap
-$mpichvar=$bindir/$bfwrap
+$ompivar="$bindir/$bfwrap"
+$mpichvar="$bindir/$bfwrap"
 export $ompivar $mpichvar
 exec $mpiwrap "\$@"
 SCRIPT
+chmod 0755 "$outfile"

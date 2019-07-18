@@ -183,3 +183,18 @@ while (<>) {
 close OUT;
   ]=]
   )
+
+# =============================================================================
+# Generate and install an MPI wrapper script for a Byfl compiler.
+# =============================================================================
+function(add_mpi_wrapper_script MPI_COMP BYFL_COMP OMPI_ENV MPICH_ENV)
+  add_custom_target(
+    bf-${MPI_COMP} ALL
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/make-bf-mpi ${MPI_COMP} ${BYFL_COMP} ${OMPI_ENV} ${MPICH_ENV} "${CMAKE_INSTALL_FULL_BINDIR}" ${CMAKE_CURRENT_BINARY_DIR}/bf-${MPI_COMP}
+    VERBATIM
+    )
+  install(
+    PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bf-${MPI_COMP}
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endfunction(add_mpi_wrapper_script MPI_COMP BYFL_COMP OMPI_ENV MPICH_ENV)

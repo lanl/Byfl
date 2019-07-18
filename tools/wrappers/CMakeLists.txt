@@ -68,10 +68,17 @@ patch_bf_clang_man(flang FLANG Fortran f90)
 # Generate the bf-inst wrapper script.
 configure_file(bf-inst.in bf-inst @ONLY)
 
-# Install all of our scripts.
+# Install all of the non-MPI wrapper scripts.
 install(
   PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bf-clang ${CMAKE_CURRENT_BINARY_DIR}/bf-inst
   DESTINATION ${CMAKE_INSTALL_BINDIR}
   )
 install(CODE "symlink_bf_clang(\"bf-clang++\")")
 install(CODE "symlink_bf_clang(\"bf-flang\")")
+
+# Generate and install of the MPI wrapper scripts.
+add_mpi_wrapper_script(mpicc bf-clang OMPI_CC MPICH_CC)
+add_mpi_wrapper_script(mpicxx bf-clang++ OMPI_CXX MPICH_CXX)
+add_mpi_wrapper_script(mpifort bf-flang OMPI_FC MPICH_F90)
+add_mpi_wrapper_script(mpif90 bf-flang OMPI_FC MPICH_F90)
+add_mpi_wrapper_script(mpif77 bf-flang OMPI_F77 MPICH_F77)
