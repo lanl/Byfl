@@ -1,7 +1,7 @@
 #! /usr/bin/env perl
 
 ####################################################
-# Wrap clang with options for ByFl instrumentation #
+# Wrap clang with options for Byfl instrumentation #
 # By Scott Pakin <pakin@lanl.gov>                  #
 ####################################################
 
@@ -22,9 +22,9 @@ no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 use strict;
 
 # Specify some installation locations.
-my $byfl_plugin = '@plugindir@/bytesflops.so';
-my $byfl_libdir = '@libdir@';
-my $llvm_libdir = '@llvm_libdir@';
+my $byfl_plugin = '@BYFL_PLUGIN_DIRECTORY@/bytesflops.so';
+my $byfl_libdir = '@CMAKE_INSTALL_FULL_LIBDIR@';
+my $llvm_libdir = '@LLVM_LIBRARY_DIR@';
 
 # Store the name of this script and the name of the underlying compiler.
 my $progname = basename $0;

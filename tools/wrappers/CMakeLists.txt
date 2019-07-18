@@ -43,3 +43,23 @@ install(
 # Build and install a man page for the Perl module that parses compiler
 # options.
 add_man_from_pod(ParseCompilerOpts.3pm ParseCompilerOpts.pm)
+
+# Generate the bf-clang wrapper script.
+configure_file(bf-clang.in bf-clang @ONLY)
+
+# Generate the bf-inst wrapper script.
+configure_file(bf-inst.in bf-inst @ONLY)
+
+# Install all of our scripts.
+install(
+  PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bf-clang ${CMAKE_CURRENT_BINARY_DIR}/bf-inst
+  DESTINATION ${CMAKE_INSTALL_BINDIR}
+  )
+install(CODE "
+  message(STATUS \"Installing: ${CMAKE_INSTALL_FULL_BINDIR}/bf-clang++\")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink bf-clang ${CMAKE_INSTALL_FULL_BINDIR}/bf-clang++)
+")
+install(CODE "
+  message(STATUS \"Installing: ${CMAKE_INSTALL_FULL_BINDIR}/bf-flang\")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink bf-clang ${CMAKE_INSTALL_FULL_BINDIR}/bf-flang)
+")

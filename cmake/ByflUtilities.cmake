@@ -126,8 +126,6 @@ endfunction(add_man_from_pod)
 # Also, various cases not relevant to Byfl were removed.
 # =============================================================================
 macro(byfl_add_llvm_loadable_module name)
-  set(BYFL_PLUGIN_DIRECTORY ${CMAKE_INSTALL_FULL_LIBEXECDIR}/byfl CACHE PATH
-    "Directory in which to install the Byfl LLVM plugin")
   llvm_add_library(${name} MODULE ${ARGN})
   install(TARGETS ${name}
     LIBRARY DESTINATION ${BYFL_PLUGIN_DIRECTORY}
