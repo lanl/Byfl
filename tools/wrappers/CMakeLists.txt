@@ -47,23 +47,31 @@ add_man_from_pod(ParseCompilerOpts.3pm ParseCompilerOpts.pm)
 # Generate the bf-clang wrapper script.
 configure_file(bf-clang.in bf-clang @ONLY)
 
+# Generate and install the bf-clang man page.  We don't use add_man_from_pod
+# because bf-clang.1 represents a special case of generating a man page from a
+# generated script file.
+add_custom_target(
+  bf-clang.1 ALL
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/bf-clang
+  COMMAND ${POD2MAN_EXECUTABLE} --name="bf-clang" --section=1 --release=${MAN_RELEASE} --center=${MAN_CATEGORY} ${CMAKE_CURRENT_BINARY_DIR}/bf-clang bf-clang.1
+  VERBATIM
+  )
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/bf-clang.1
+  DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+  )
+
+# Generate and install man pages that are derived from bf-clang.1.
+patch_bf_clang_man(clang++ CLANGXX C++ cpp)
+patch_bf_clang_man(flang FLANG Fortran f90)
+
 # Generate the bf-inst wrapper script.
 configure_file(bf-inst.in bf-inst @ONLY)
 
 # Install all of our scripts.
-#
-# Stupid hack: Declaring a function top-level produces an "Unknown
-# CMake command" error when called from install(CODE ...) [CMake
-# 3.13], but declaring a function from install(CODE ...) works.
 install(
   PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bf-clang ${CMAKE_CURRENT_BINARY_DIR}/bf-inst
   DESTINATION ${CMAKE_INSTALL_BINDIR}
   )
-install(CODE "
-function(symlink_bf_clang NEW)
-  message(STATUS \"Installing: ${CMAKE_INSTALL_FULL_BINDIR}/\${NEW}\")
-  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink bf-clang ${CMAKE_INSTALL_FULL_BINDIR}/\${NEW})
-endfunction(symlink_bf_clang NEW)
-")
 install(CODE "symlink_bf_clang(\"bf-clang++\")")
 install(CODE "symlink_bf_clang(\"bf-flang\")")

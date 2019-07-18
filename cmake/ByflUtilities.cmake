@@ -109,7 +109,6 @@ function(add_man_from_pod MAN POD)
     ${MAN} ALL
     DEPENDS ${POD}
     COMMAND ${POD2MAN_EXECUTABLE} --name="${_man_base}" --section=${_section} --release=${MAN_RELEASE} --center=${MAN_CATEGORY} ${CMAKE_CURRENT_SOURCE_DIR}/${POD} ${MAN}
-    COMMENT "Building man page ${_relfile}"
     VERBATIM
     )
   get_filename_component(_man_file ${MAN} NAME)
@@ -132,3 +131,55 @@ macro(byfl_add_llvm_loadable_module name)
     )
   set_target_properties(${name} PROPERTIES FOLDER "Loadable modules")
 endmacro(byfl_add_llvm_loadable_module name)
+
+# =============================================================================
+# Install a symbolic link pointing to bf-clang.
+#
+# Stupid hack: At least in CMake 3.3, declaring symlink_bf_clang as an
+# ordinary function produces an "Unknown CMake command" error when
+# it's called from install(CODE ...).  Surprisingly, declaring it as a
+# function from within install(CODE ...) works.
+# =============================================================================
+install(CODE "
+function(symlink_bf_clang NEW)
+  message(STATUS \"Installing: ${CMAKE_INSTALL_FULL_BINDIR}/\${NEW}\")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink bf-clang ${CMAKE_INSTALL_FULL_BINDIR}/\${NEW})
+endfunction(symlink_bf_clang NEW)
+")
+
+# =============================================================================
+# Generate and install a variant of the bf-clang.1 man page that represents a
+# different programming language and base compiler.
+#
+# patch_bf_clang_man takes as arguments the base compiler name (e.g., flang), a
+# corresponding environment variable (e.g., FLANG), a language name (e.g.,
+# Fortran), and a file extension (e.g., f90).
+# =============================================================================
+function(patch_bf_clang_man COMP ENV LANG EXT)
+  add_custom_target(
+    bf-${COMP}.1 ALL
+    DEPENDS bf-clang.1
+    COMMAND ${PERL_EXECUTABLE} ${CMAKE_BINARY_DIR}/CMakeTmp/patch-bf-clang-man.pl ${COMP} ${ENV} ${LANG} ${EXT} ${CMAKE_CURRENT_BINARY_DIR}/bf-${COMP}.1 ${CMAKE_CURRENT_BINARY_DIR}/bf-clang.1
+    VERBATIM
+    )
+  install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/bf-${COMP}.1
+    DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
+    )
+endfunction(patch_bf_clang_man COMP ENV LANG EXT)
+
+# Create a helper Perl script for the above that patches bf-clang.1 into a man
+# page for another language/compiler.
+file(
+  WRITE ${CMAKE_BINARY_DIR}/CMakeTmp/patch-bf-clang-man.pl
+  [=[
+use autodie;
+my ($comp, $env, $lang, $ext, $out) = (shift, shift, shift, shift, shift);
+open(OUT, ">", $out);
+while (<>) {
+    s/clang/${comp}/g; s/\bC (compiler|code)/${lang} $1/g; s/myprog\.c/myprog.${ext}/g; s/BF_CLANG/BF_${env}/g;
+    print OUT;
+}
+close OUT;
+  ]=]
+  )
