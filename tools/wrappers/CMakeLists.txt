@@ -51,15 +51,19 @@ configure_file(bf-clang.in bf-clang @ONLY)
 configure_file(bf-inst.in bf-inst @ONLY)
 
 # Install all of our scripts.
+#
+# Stupid hack: Declaring a function top-level produces an "Unknown
+# CMake command" error when called from install(CODE ...) [CMake
+# 3.13], but declaring a function from install(CODE ...) works.
 install(
   PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bf-clang ${CMAKE_CURRENT_BINARY_DIR}/bf-inst
   DESTINATION ${CMAKE_INSTALL_BINDIR}
   )
 install(CODE "
-  message(STATUS \"Installing: ${CMAKE_INSTALL_FULL_BINDIR}/bf-clang++\")
-  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink bf-clang ${CMAKE_INSTALL_FULL_BINDIR}/bf-clang++)
+function(symlink_bf_clang NEW)
+  message(STATUS \"Installing: ${CMAKE_INSTALL_FULL_BINDIR}/\${NEW}\")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink bf-clang ${CMAKE_INSTALL_FULL_BINDIR}/\${NEW})
+endfunction(symlink_bf_clang NEW)
 ")
-install(CODE "
-  message(STATUS \"Installing: ${CMAKE_INSTALL_FULL_BINDIR}/bf-flang\")
-  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink bf-clang ${CMAKE_INSTALL_FULL_BINDIR}/bf-flang)
-")
+install(CODE "symlink_bf_clang(\"bf-clang++\")")
+install(CODE "symlink_bf_clang(\"bf-flang\")")
