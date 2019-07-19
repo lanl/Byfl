@@ -198,3 +198,17 @@ function(add_mpi_wrapper_script MPI_COMP BYFL_COMP OMPI_ENV MPICH_ENV)
     DESTINATION ${CMAKE_INSTALL_BINDIR}
     )
 endfunction(add_mpi_wrapper_script MPI_COMP BYFL_COMP OMPI_ENV MPICH_ENV)
+
+# =============================================================================
+# Compile and install a postprocessing tool for Byfl-generated output.
+#
+# Extra compiler dependencies can be declared with CDEPS, and extra library
+# dependencies can be declared with LDEPS.
+# =============================================================================
+function(add_postprocessing_tool EXE)
+  cmake_parse_arguments(PARSE_ARGV 1 _pproc "" "" "CDEPS;LDEPS")
+  add_executable(${EXE} ${EXE}.cpp bfbin.h ${_pproc_CDEPS})
+  target_link_libraries(${EXE} bfbin ${_pproc_LDEPS})
+  add_man_from_pod(${EXE}.1 ${EXE}.pod)
+  install(TARGETS ${EXE} DESTINATION ${CMAKE_INSTALL_BINDIR})
+endfunction(add_postprocessing_tool EXE)
