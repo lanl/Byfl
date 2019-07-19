@@ -16,6 +16,7 @@ install(FILES bfbin.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/byfl)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 add_library(bfbin-swig parsebfbin-swig.c bfbin-swig.h bfbin.h)
 target_link_libraries(bfbin-swig bfbin pthread)
+install(TARGETS bfbin-swig DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(FILES bfbin-swig.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/byfl)
 
 # Always build and install the converters to XML Spreadsheet, HPC Toolkit, and
@@ -41,7 +42,6 @@ if (HDF5_FOUND)
   set(CMAKE_CXX_COMPILER ${HDF5_CXX_COMPILER_EXECUTABLE})
   add_postprocessing_tool(bfbin2hdf5)
 endif (HDF5_FOUND)
-
 
 # Generate and install an example of parsing Byfl output from Python using
 # SWIG.
