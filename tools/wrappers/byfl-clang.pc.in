@@ -15,6 +15,6 @@ libs=-lbyfl @CMAKE_EXE_LINKER_FLAGS@ -lstdc++
 Name: byfl-clang
 Description: Instrument Clang-compiled programs with Byfl
 URL: https://github.com/lanl/Byfl
-Version: @PACKAGE_VERSION@
+Version: @BYFL_PACKAGE_VERSION@
 Cflags: -Xclang -load -Xclang ${plugindir}/bytesflops.so
 Libs: ${libs}

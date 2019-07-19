@@ -24,7 +24,7 @@ following contents::
                              libraries            = ["bfbin-swig"])
 
     setup(name = 'bfbin',
-          version              = "@PACKAGE_VERSION@",
+          version              = "@BYFL_PACKAGE_VERSION@",
           author               = "Scott Pakin",
           author_email         = "pakin@lanl.gpv",
           description          = "Parse Byfl binary output files",

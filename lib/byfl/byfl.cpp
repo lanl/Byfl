@@ -1292,7 +1292,7 @@ private:
 
     // Report bits of system information that may be useful for reproducibility.
     *bfbin << uint8_t(BINOUT_TABLE_KEYVAL) << "System information";
-    *bfbin << uint8_t(BINOUT_COL_STRING) << "Byfl version" << PACKAGE_VERSION;
+    *bfbin << uint8_t(BINOUT_COL_STRING) << "Byfl version" << BYFL_PACKAGE_VERSION;
 #ifdef BYFL_GIT_BRANCH
     *bfbin << uint8_t(BINOUT_COL_STRING) << "Byfl Git branch" << BYFL_GIT_BRANCH;
 #endif

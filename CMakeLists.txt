@@ -7,7 +7,10 @@
 # Declare our project information.
 cmake_minimum_required(VERSION 3.13)
 project(byfl)
-set(PACKAGE_VERSION "1.6")
+set(PACKAGE_VERSION_MAJOR 1)
+set(PACKAGE_VERSION_MINOR 6)
+set(PACKAGE_VERSION_PATCH 1)
+set(BYFL_PACKAGE_VERSION ${PACKAGE_VERSION_MAJOR}.${PACKAGE_VERSION_MINOR}.${PACKAGE_VERSION_PATCH})
 
 # Load all the LLVM-specific CMake features we require.
 find_package(LLVM REQUIRED CONFIG)
@@ -29,6 +32,10 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 # Let the user choose between static and shared libraries.
 option(BUILD_SHARED_LIBS "Build the Byfl run-time library as a shared library" OFF)
 
+# We don't currently support different build types so hide from the user the
+# option to select a build type.
+mark_as_advanced(CMAKE_BUILD_TYPE)
+
 # Byfl requires C++11.
 set(CMAKE_CXX_STANDARD_REQUIRED 11)
 
@@ -41,7 +48,7 @@ if (GIT_FOUND)
     ERROR_QUIET)
 endif (GIT_FOUND)
 if (NOT _have_byfl_git_sha1 EQUAL 0)
-  set(_byfl_man_release "${PACKAGE_VERSION}")
+  set(_byfl_man_release "${BYFL_PACKAGE_VERSION}")
 endif (NOT _have_byfl_git_sha1 EQUAL 0)
 set(MAN_CATEGORY "Byfl tools" CACHE STRING "Category string to list on Byfl man pages")
 mark_as_advanced(MAN_CATEGORY)
@@ -153,3 +160,16 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(lib)
 add_subdirectory(include)
 add_subdirectory(tools)
+
+# Add support for "make package" and "make package_source".
+set(CPACK_PACKAGE_VERSION "${BYFL_PACKAGE_VERSION}")
+set(CPACK_PACKAGE_VENDOR "Triad National Security, LLC")
+set(CPACK_PACKAGE_CONTACT "Scott Pakin <pakin@lanl.gov>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Program analysis tool based on software performance counters")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/lanl/Byfl")
+set(CPACK_GENERATOR "TGZ" CACHE STRING "Semicolon-separated list of binary package types to generate")
+mark_as_advanced(CPACK_GENERATOR)
+set(CPACK_SOURCE_GENERATOR "TGZ" CACHE STRING "Semicolon-separated list of source package types to generate")
+mark_as_advanced(CPACK_SOURCE_GENERATOR)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "clang-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}")
+include(CPack)
