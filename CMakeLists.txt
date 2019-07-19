@@ -6,7 +6,7 @@
 
 # Declare our project information.
 cmake_minimum_required(VERSION 3.13)
-project(Byfl)
+project(byfl)
 set(PACKAGE_VERSION "1.6")
 
 # Load all the LLVM-specific CMake features we require.

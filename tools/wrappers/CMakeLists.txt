@@ -44,29 +44,18 @@ install(
 # options.
 add_man_from_pod(ParseCompilerOpts.3pm ParseCompilerOpts.pm)
 
-# Generate the bf-clang wrapper script.
+# Generate the bf-clang wrapper script and associated man page.
 configure_file(bf-clang.in bf-clang @ONLY)
-
-# Generate and install the bf-clang man page.  We don't use add_man_from_pod
-# because bf-clang.1 represents a special case of generating a man page from a
-# generated script file.
-add_custom_target(
-  bf-clang.1 ALL
-  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/bf-clang
-  COMMAND ${POD2MAN_EXECUTABLE} --name="bf-clang" --section=1 --release=${MAN_RELEASE} --center=${MAN_CATEGORY} ${CMAKE_CURRENT_BINARY_DIR}/bf-clang bf-clang.1
-  VERBATIM
-  )
-install(
-  FILES ${CMAKE_CURRENT_BINARY_DIR}/bf-clang.1
-  DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
-  )
+add_man_from_pod(bf-clang.1 bf-clang GENERATED)
 
 # Generate and install man pages that are derived from bf-clang.1.
 patch_bf_clang_man(clang++ CLANGXX C++ cpp)
 patch_bf_clang_man(flang FLANG Fortran f90)
 
-# Generate the bf-inst wrapper script.
+# Generate and install the bf-inst wrapper script and associated man page.
 configure_file(bf-inst.in bf-inst @ONLY)
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bf-inst DESTINATION ${CMAKE_INSTALL_BINDIR})
+add_man_from_pod(bf-inst.1 bf-inst GENERATED)
 
 # Install all of the non-MPI wrapper scripts.
 install(

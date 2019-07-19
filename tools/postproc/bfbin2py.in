@@ -18,13 +18,13 @@ following contents::
 
     bfbin_module = Extension('_bfbin',
                              sources              = ["bfbin-swig_wrap.c"],
-                             include_dirs         = ["@includedir@"],
-                             library_dirs         = ["@libdir@"],
-                             runtime_library_dirs = ["@libdir@"],
+                             include_dirs         = ["@CMAKE_INSTALL_FULL_INCLUDEDIR@"],
+                             library_dirs         = ["@CMAKE_INSTALL_FULL_LIBDIR@"],
+                             runtime_library_dirs = ["@CMAKE_INSTALL_FULL_LIBDIR@"],
                              libraries            = ["bfbin-swig"])
 
     setup(name = 'bfbin',
-          version              = "@VERSION@",
+          version              = "@PACKAGE_VERSION@",
           author               = "Scott Pakin",
           author_email         = "pakin@lanl.gpv",
           description          = "Parse Byfl binary output files",
@@ -35,7 +35,7 @@ Then, follow the `SWIG documentation <http://www.swig.org/doc.html>`_
 guideliness on how to build a Python module.  The following command
 should work::
 
-    $ swig -python -o bfbin-swig_wrap.c @includedir@/byfl/bfbin-swig.h
+    $ swig -python -o bfbin-swig_wrap.c @CMAKE_INSTALL_FULL_INCLUDEDIR@/byfl/bfbin-swig.h
     $ python setup.py install
 
 After that, you ought to be able to run ``bfbin2py``.

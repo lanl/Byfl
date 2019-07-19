@@ -98,19 +98,32 @@ function(tally_llvm_opcodes)
 endfunction(tally_llvm_opcodes)
 
 # =============================================================================
-# Build a man page from a Perl POD file.
+# Build a man page from a Perl POD file.  If GENERATED is specified, read the
+# POD file from the current binary directory instead of the current source
+# directory.
 # =============================================================================
 function(add_man_from_pod MAN POD)
+  # Parse our arguments.
+  cmake_parse_arguments(PARSE_ARGV 2 _pod2man GENERATED "" "")
+  if (_pod2man_GENERATED)
+    set(_pod_dir ${CMAKE_CURRENT_BINARY_DIR})
+  else (_pod2man_GENERATED)
+    set(_pod_dir ${CMAKE_CURRENT_SOURCE_DIR})
+  endif (_pod2man_GENERATED)
+
+  # Run pod2man to convert the POD file to a man page.
   get_filename_component(_ext ${MAN} EXT)
   string(SUBSTRING ${_ext} 1 -1 _section)
   file(RELATIVE_PATH _relfile ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/${MAN})
   get_filename_component(_man_base ${MAN} NAME_WE)
   add_custom_target(
     ${MAN} ALL
-    DEPENDS ${POD}
-    COMMAND ${POD2MAN_EXECUTABLE} --name="${_man_base}" --section=${_section} --release=${MAN_RELEASE} --center=${MAN_CATEGORY} ${CMAKE_CURRENT_SOURCE_DIR}/${POD} ${MAN}
+    DEPENDS ${_pod_dir}/${POD}
+    COMMAND ${POD2MAN_EXECUTABLE} --name="${_man_base}" --section=${_section} --release=${MAN_RELEASE} --center=${MAN_CATEGORY} ${_pod_dir}/${POD} ${MAN}
     VERBATIM
     )
+
+  # Install the man page in the appropriate man-page subdirectory.
   get_filename_component(_man_file ${MAN} NAME)
   string(SUBSTRING ${_section} 0 1 _sec_num)
   install(

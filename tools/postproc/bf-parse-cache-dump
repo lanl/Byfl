@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # Usage:
-#   get-accesses.py <filename> l1size [l2size [l3size]]
+#   bf-parse-cache-dump <filename> l1size [l2size [l3size]]
 #   filename        - name of file to parse for total hit values
 #   lNsize          - size of lN cache
 #   Multiple levels are optional, but you must specify the smaller cache sizes
