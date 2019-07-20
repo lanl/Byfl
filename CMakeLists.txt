@@ -27,6 +27,9 @@ include(CheckIncludeFileCXX)
 include(CheckCXXSymbolExists)
 include(GNUInstallDirs)
 include(ByflUtilities)
+include(ByflCPack)
+
+# Point the compiler to the top-level include directory.
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # Let the user choose between static and shared libraries.
@@ -160,16 +163,3 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(lib)
 add_subdirectory(include)
 add_subdirectory(tools)
-
-# Add support for "make package" and "make package_source".
-set(CPACK_PACKAGE_VERSION "${BYFL_PACKAGE_VERSION}")
-set(CPACK_PACKAGE_VENDOR "Triad National Security, LLC")
-set(CPACK_PACKAGE_CONTACT "Scott Pakin <pakin@lanl.gov>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Program analysis tool based on software performance counters")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/lanl/Byfl")
-set(CPACK_GENERATOR "TGZ" CACHE STRING "Semicolon-separated list of binary package types to generate")
-mark_as_advanced(CPACK_GENERATOR)
-set(CPACK_SOURCE_GENERATOR "TGZ" CACHE STRING "Semicolon-separated list of source package types to generate")
-mark_as_advanced(CPACK_SOURCE_GENERATOR)
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "clang-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}")
-include(CPack)
