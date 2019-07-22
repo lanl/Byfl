@@ -6,8 +6,6 @@
 set(CPACK_PACKAGE_VERSION "${BYFL_PACKAGE_VERSION}")
 set(CPACK_PACKAGE_VENDOR "Triad National Security, LLC")
 set(CPACK_PACKAGE_CONTACT "Scott Pakin <pakin@lanl.gov>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Program analysis tool based on software performance counters")
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/lanl/Byfl")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.md")
 

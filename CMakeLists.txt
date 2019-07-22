@@ -6,7 +6,12 @@
 
 # Declare our project information.
 cmake_minimum_required(VERSION 3.13)
-project(byfl)
+project(
+  byfl
+  DESCRIPTION "Program analysis tool based on software performance counters"
+  HOMEPAGE_URL "https://github.com/lanl/Byfl"
+  LANGUAGES C CXX
+  )
 set(PACKAGE_VERSION_MAJOR 1)
 set(PACKAGE_VERSION_MINOR 6)
 set(PACKAGE_VERSION_PATCH 1)
@@ -28,6 +33,7 @@ include(CheckCXXSymbolExists)
 include(GNUInstallDirs)
 include(ByflUtilities)
 include(ByflCPack)
+enable_testing()
 
 # Point the compiler to the top-level include directory.
 include_directories(${PROJECT_SOURCE_DIR}/include)
@@ -163,3 +169,4 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(lib)
 add_subdirectory(include)
 add_subdirectory(tools)
+add_subdirectory(tests)

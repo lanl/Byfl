@@ -16,6 +16,7 @@ add_library(byfl
   callstack.cpp
   callstack.h
   datastructs.cpp
+  opcode2name.cpp
   pagetable.cpp
   pagetable.h
   reuse-dist.cpp
@@ -39,5 +40,6 @@ add_custom_command(
 # Install the library.
 install(
   TARGETS byfl
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   )

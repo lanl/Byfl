@@ -14,17 +14,18 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use File::stat;
 use Getopt::Long qw(GetOptionsFromArray);
-use lib '@perlsitelibdir@';   # Find ParseCompilerOpts if installed in a non-standard location.
+use lib '@PERL_MODULE_DIRECTORY@';   # Find ParseCompilerOpts if installed in a non-standard location.
 use ParseCompilerOpts;
 use v5.10.1;
 use warnings;
 no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 use strict;
 
-# Specify some installation locations.
+# Specify some installation locations and other parameters.
 my $byfl_plugin = '@BYFL_PLUGIN_DIRECTORY@/bytesflops.so';
 my $byfl_libdir = '@CMAKE_INSTALL_FULL_LIBDIR@';
 my $llvm_libdir = '@LLVM_LIBRARY_DIR@';
+my @cxx_libs = split /;/, '@BYFL_LIB_DEPENDS@';
 
 # Store the name of this script and the name of the underlying compiler.
 my $progname = basename $0;
@@ -127,6 +128,7 @@ if (defined $build_type{"link"}) {
     push @command_line, ("-L$byfl_libdir", "-L$llvm_libdir", "-lm");
     push @command_line, ("-rpath", $byfl_libdir, "-lbyfl");
     push @command_line, "-lpthread" if grep {/^-bf-thread-safe$/} @bf_options;
+    push @command_line, @cxx_libs;
 }
 
 # Run the compiler and/or linker.

@@ -27,18 +27,18 @@ set -x
 # Test 2: Do the C compiler and linker work when invoked from the Byfl
 # wrapper script?
 "$PERL" -I"$top_srcdir/tools/wrappers" \
-  "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
+  "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/bytesflops.so" \
 	      -bf-verbose -g -o simple-clang-no-opts "$srcdir/simple.c" \
 	      -L"$top_builddir/lib/byfl/.libs" -bf-disable=byfl
 
 # Test 3: Can the Byfl wrapper script compile, instrument, and link a program?
 "$PERL" -I"$top_srcdir/tools/wrappers" \
-  "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/.libs/bytesflops.so" \
+  "$bf_clang" -bf-plugin="$top_builddir/lib/bytesflops/bytesflops.so" \
               -bf-verbose -g -o simple-clang-no-opts "$srcdir/simple.c" \
-              -L"$top_builddir/lib/byfl/.libs"
+              -L"$top_builddir/lib/byfl"
 
 # Test 4: Does the Byfl-instrumented program run without error?
-env LD_LIBRARY_PATH="$top_builddir/lib/byfl/.libs:$LD_LIBRARY_PATH" \
+env LD_LIBRARY_PATH="$top_builddir/lib/byfl:$LD_LIBRARY_PATH" \
   ./simple-clang-no-opts
 
 # Test 5: Can we postprocess the binary output?  Are the results correct within
