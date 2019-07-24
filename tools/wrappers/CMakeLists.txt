@@ -69,13 +69,25 @@ configure_file(bf-inst.in bf-inst @ONLY)
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bf-inst DESTINATION ${CMAKE_INSTALL_BINDIR})
 add_man_from_pod(bf-inst.1 bf-inst GENERATED)
 
+# Create symbolic links from bf-clang++ and bf-flang to bf-clang.
+add_custom_target(
+  bf-clang++ ALL
+  COMMAND ${CMAKE_COMMAND} -E create_symlink bf-clang bf-clang++
+  )
+add_custom_target(
+  bf-flang ALL
+  COMMAND ${CMAKE_COMMAND} -E create_symlink bf-clang bf-flang
+  )
+
 # Install all of the non-MPI wrapper scripts.
 install(
-  PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bf-clang ${CMAKE_CURRENT_BINARY_DIR}/bf-inst
+  PROGRAMS
+  ${CMAKE_CURRENT_BINARY_DIR}/bf-clang
+  ${CMAKE_CURRENT_BINARY_DIR}/bf-clang++
+  ${CMAKE_CURRENT_BINARY_DIR}/bf-flang
+  ${CMAKE_CURRENT_BINARY_DIR}/bf-inst
   DESTINATION ${CMAKE_INSTALL_BINDIR}
   )
-install(CODE "symlink_bf_clang(\"bf-clang++\")")
-install(CODE "symlink_bf_clang(\"bf-flang\")")
 
 # Generate and install of the MPI wrapper scripts.
 add_mpi_wrapper_script(mpicc bf-clang OMPI_CC MPICH_CC)

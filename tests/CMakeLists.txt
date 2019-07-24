@@ -7,7 +7,7 @@
 ################################ PRELIMINARIES ################################
 
 # For debugging, have "make check" run CTest in verbose mode.
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --verbose)
+add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --extra-verbose)
 
 # We need Bash and AWK for some of our tests.
 include(FindUnixCommands)
@@ -39,6 +39,7 @@ configure_file(
 
 # Define some commonly needed values.
 set(bf_clang ${CMAKE_BINARY_DIR}/tools/wrappers/bf-clang)
+set(bf_clangxx ${CMAKE_BINARY_DIR}/tools/wrappers/bf-clang++)
 set(bytesflops_so ${CMAKE_BINARY_DIR}/lib/bytesflops/bytesflops.so)
 set(byfl_lib_dir ${CMAKE_BINARY_DIR}/lib/byfl)
 set(extra_byfl_options "-bf-unique-bytes;-bf-by-func;-bf-call-stack;-bf-vectors;-bf-every-bb;-bf-reuse-dist;-bf-mem-footprint;-bf-types;-bf-inst-mix;-bf-data-structs;-bf-inst-deps;-bf-strides")
@@ -50,6 +51,13 @@ add_test(
   NAME ClangSmokeTest
   COMMAND
   clang -g -o simple-clang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.c"
+  )
+
+# Do the Clang C++ compiler and linker work at all?
+add_test(
+  NAME ClangXXSmokeTest
+  COMMAND
+  clang++ -g -o simple-clang++-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp"
   )
 
 ############################ BF-CLANG, NO OPTIONS #############################
@@ -64,7 +72,7 @@ add_test(
   -bf-disable=byfl
   )
 
-# Can the Byfl wrapper script compile, instrument, and link a program?
+# Can the Byfl wrapper script compile, instrument, and link a C program?
 add_test(
   NAME BfClangNoOptsCompiles
   COMMAND
@@ -73,7 +81,7 @@ add_test(
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.c -L${byfl_lib_dir}
   )
 
-# Does the Byfl-instrumented program run without error?
+# Does the Byfl-instrumented C program run without error?
 add_test(
   NAME BfClangNoOptsCodeRuns
   COMMAND
@@ -83,7 +91,7 @@ add_test(
   )
 set_property(TEST BfClangNoOptsCodeRuns PROPERTY DEPENDS BfClangNoOptsCompiles)
 
-# Can we postprocess the binary output of a Byfl program?  Are the results
+# Can we postprocess the binary output of a Byfl C program?  Are the results
 # correct within an order of magnitude?
 add_test(
   NAME BfClangNoOptsOutputGood
@@ -107,7 +115,7 @@ add_test(
   -bf-disable=byfl
   )
 
-# Can the Byfl wrapper script compile, instrument, and link a program, even
+# Can the Byfl wrapper script compile, instrument, and link a C++ program, even
 # when extra Byfl options are specified?
 add_test(
   NAME BfClangOptsCompiles
@@ -118,7 +126,7 @@ add_test(
   ${extra_byfl_options}
   )
 
-# Does the Byfl-instrumented program run without error, even when extra Byfl
+# Does the Byfl-instrumented C program run without error, even when extra Byfl
 # options were specified?
 add_test(
   NAME BfClangOptsCodeRuns
@@ -138,3 +146,44 @@ add_test(
   simple-bf-clang-opts.byfl
   )
 set_property(TEST BfClangOptsOutputGood PROPERTY DEPENDS BfClangOptsCodeRuns)
+
+########################### BF-CLANG++, NO OPTIONS ############################
+
+# Do the C++ compiler and linker work when invoked from the Byfl wrapper script?
+add_test(
+  NAME BfClangXXNoByfl
+  COMMAND
+  ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clangxx}
+  -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clang++-no-byfl
+  ${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp -L${byfl_lib_dir}
+  -bf-disable=byfl
+  )
+
+# Can the Byfl wrapper script compile, instrument, and link a C++ program?
+add_test(
+  NAME BfClangXXNoOptsCompiles
+  COMMAND
+  ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clangxx}
+  -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clangxx-no-opts
+  ${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp -L${byfl_lib_dir}
+  )
+
+# Does the Byfl-instrumented C++ program run without error?
+add_test(
+  NAME BfClangXXNoOptsCodeRuns
+  COMMAND
+  ${CMAKE_COMMAND} -E env
+  LD_LIBRARY_PATH="${byfl_lib_dir}:$ENV{LD_LIBRARY_PATH}"
+  ./simple-bf-clangxx-no-opts
+  )
+set_property(TEST BfClangXXNoOptsCodeRuns PROPERTY DEPENDS BfClangXXNoOptsCompiles)
+
+# Can we postprocess the binary output of a Byfl C++ program?  Are the results
+# correct within an order of magnitude?
+add_test(
+  NAME BfClangXXNoOptsOutputGood
+  COMMAND
+  "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/validate-byfl-output.sh"
+  simple-bf-clangxx-no-opts.byfl
+  )
+set_property(TEST BfClangXXNoOptsOutputGood PROPERTY DEPENDS BfClangXXNoOptsCodeRuns)
