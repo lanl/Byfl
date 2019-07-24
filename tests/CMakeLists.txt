@@ -40,6 +40,7 @@ configure_file(
 # Define some commonly needed values.
 set(bf_clang ${CMAKE_BINARY_DIR}/tools/wrappers/bf-clang)
 set(bf_clangxx ${CMAKE_BINARY_DIR}/tools/wrappers/bf-clang++)
+set(bf_flang ${CMAKE_BINARY_DIR}/tools/wrappers/bf-flang)
 set(bytesflops_so ${CMAKE_BINARY_DIR}/lib/bytesflops/bytesflops.so)
 set(byfl_lib_dir ${CMAKE_BINARY_DIR}/lib/byfl)
 set(extra_byfl_options "-bf-unique-bytes;-bf-by-func;-bf-call-stack;-bf-vectors;-bf-every-bb;-bf-reuse-dist;-bf-mem-footprint;-bf-types;-bf-inst-mix;-bf-data-structs;-bf-inst-deps;-bf-strides")
@@ -59,6 +60,15 @@ add_test(
   COMMAND
   clang++ -g -o simple-clang++-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp"
   )
+
+# Do the Flang Fortan compiler and linker work at all?
+if (${FLANG_EXECUTABLE})
+  add_test(
+    NAME FlangSmokeTest
+    COMMAND
+    flang -g -o simple-flang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.f90"
+    )
+endif (${FLANG_EXECUTABLE})
 
 ############################ BF-CLANG, NO OPTIONS #############################
 
@@ -187,3 +197,50 @@ add_test(
   simple-bf-clangxx-no-opts.byfl
   )
 set_property(TEST BfClangXXNoOptsOutputGood PROPERTY DEPENDS BfClangXXNoOptsCodeRuns)
+
+############################ BF-FLANG, NO OPTIONS #############################
+
+# All of the Flang tests are run only if the Flang compiler is present.
+if (${FLANG_EXECUTABLE})
+
+  # Do the Fortran compiler and linker work when invoked from the Byfl wrapper
+  # script?
+  add_test(
+    NAME BfFlangNoByfl
+    COMMAND
+    ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_flang}
+    -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-flang-no-byfl
+    ${CMAKE_CURRENT_SOURCE_DIR}/simple.f90 -L${byfl_lib_dir}
+    -bf-disable=byfl
+    )
+
+  # Can the Byfl wrapper script compile, instrument, and link a C program?
+  add_test(
+    NAME BfFlangNoOptsCompiles
+    COMMAND
+    ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_flang}
+    -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-flang-no-opts
+    ${CMAKE_CURRENT_SOURCE_DIR}/simple.f90 -L${byfl_lib_dir}
+    )
+
+  # Does the Byfl-instrumented C program run without error?
+  add_test(
+    NAME BfFlangNoOptsCodeRuns
+    COMMAND
+    ${CMAKE_COMMAND} -E env
+    LD_LIBRARY_PATH="${byfl_lib_dir}:$ENV{LD_LIBRARY_PATH}"
+    ./simple-bf-flang-no-opts
+    )
+  set_property(TEST BfFlangNoOptsCodeRuns PROPERTY DEPENDS BfFlangNoOptsCompiles)
+
+  # Can we postprocess the binary output of a Byfl C program?  Are the results
+  # correct within an order of magnitude?
+  add_test(
+    NAME BfFlangNoOptsOutputGood
+    COMMAND
+    "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/validate-byfl-output.sh"
+    simple-bf-flang-no-opts.byfl
+    )
+  set_property(TEST BfFlangNoOptsOutputGood PROPERTY DEPENDS BfFlangNoOptsCodeRuns)
+
+endif (${FLANG_EXECUTABLE})
