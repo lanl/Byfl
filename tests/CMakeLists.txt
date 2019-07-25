@@ -99,7 +99,7 @@ endif (${FLANG_EXECUTABLE})
 
 # Do the C compiler and linker work when invoked from the Byfl wrapper script?
 add_test(
-  NAME BfClangNoByfl
+  NAME BfClangNoByflCompiles
   COMMAND
   ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clang}
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clang-no-byfl
@@ -141,7 +141,7 @@ set_property(TEST BfClangNoOptsOutputGood PROPERTY DEPENDS BfClangNoOptsCodeRuns
 # Do the C compiler and linker work when invoked from the Byfl wrapper script,
 # even when extra Byfl options are specified (and not used)?
 add_test(
-  NAME BfClangOptsNoByfl
+  NAME BfClangOptsNoByflCompiles
   COMMAND
   ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clang}
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clang-opts-no-byfl
@@ -186,7 +186,7 @@ set_property(TEST BfClangOptsOutputGood PROPERTY DEPENDS BfClangOptsCodeRuns)
 
 # Do the C++ compiler and linker work when invoked from the Byfl wrapper script?
 add_test(
-  NAME BfClangXXNoByfl
+  NAME BfClangXXNoByflCompiles
   COMMAND
   ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clangxx}
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clang++-no-byfl
@@ -231,7 +231,7 @@ if (${FLANG_EXECUTABLE})
   # Do the Fortran compiler and linker work when invoked from the Byfl wrapper
   # script?
   add_test(
-    NAME BfFlangNoByfl
+    NAME BfFlangNoByflCompiles
     COMMAND
     ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_flang}
     -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-flang-no-byfl
