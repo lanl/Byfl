@@ -24,6 +24,7 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/validate-byfl-output.sh.in"
   [=[
 #!@BASH@
 
+set -x
 int_ops=`"@CMAKE_BINARY_DIR@/tools/postproc/bfbin2csv" --include=Program --flat-output "$1" | "@AWK_EXECUTABLE@" -F, '$3 ~ /Integer operations/ {print $4}'`
 if [ ! -z "$int_ops" ] && [ "$int_ops" -lt 100000 ] ; then
     exit 1
@@ -34,6 +35,30 @@ exit 0
 configure_file(
   "${CMAKE_CURRENT_BINARY_DIR}/validate-byfl-output.sh.in"
   "${CMAKE_CURRENT_BINARY_DIR}/validate-byfl-output.sh"
+  @ONLY
+  )
+
+# Generate a helper script that runs a command and checks that it generated a
+# non-empty output file.
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh.in"
+  [=[
+#!@BASH@
+
+outfile="$1"
+shift
+command="$1"
+shift
+set -x
+"@CMAKE_BINARY_DIR@/tools/postproc/$command" "$@"
+if [ ! -s "$outfile" ] ; then
+    exit 1
+fi
+exit 0
+]=]
+)
+configure_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh"
   @ONLY
   )
 
@@ -244,3 +269,71 @@ if (${FLANG_EXECUTABLE})
   set_property(TEST BfFlangNoOptsOutputGood PROPERTY DEPENDS BfFlangNoOptsCodeRuns)
 
 endif (${FLANG_EXECUTABLE})
+
+########################## ALL POSTPROCESSING TOOLS ###########################
+
+# Can we postprocess the binary output of a Byfl program using bfbin2cgrind?
+add_test(
+  NAME Bfbin2cgrindRuns
+  COMMAND
+  "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh"
+  simple-bf-clang-opts.cgrind
+  bfbin2cgrind simple-bf-clang-opts.byfl simple-bf-clang-opts.cgrind
+  )
+set_property(TEST Bfbin2cgrindRuns PROPERTY DEPENDS BfClangOptsCodeRuns)
+
+# Can we postprocess the binary output of a Byfl program using bfbin2csv?
+add_test(
+  NAME Bfbin2csvRuns
+  COMMAND
+  "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh"
+  simple-bf-clang-opts.csv
+  bfbin2csv simple-bf-clang-opts.byfl -o simple-bf-clang-opts.csv
+  )
+set_property(TEST Bfbin2csvRuns PROPERTY DEPENDS BfClangOptsCodeRuns)
+
+# Can we postprocess the binary output of a Byfl program using bfbin2hdf5?
+# This test runs conditionally on HDF5 being available.
+if (HDF5_FOUND)
+  add_test(
+    NAME Bfbin2hdf5Runs
+    COMMAND
+    "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh"
+    simple-bf-clang-opts.h5
+    bfbin2hdf5 simple-bf-clang-opts.byfl simple-bf-clang-opts.h5
+    )
+  set_property(TEST Bfbin2hdf5Runs PROPERTY DEPENDS BfClangOptsCodeRuns)
+endif (HDF5_FOUND)
+
+# Can we postprocess the binary output of a Byfl program using bfbin2hpctk?
+add_test(
+  NAME Bfbin2hpctkRuns
+  COMMAND
+  "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh"
+  hpctoolkit-simple-bf-clang-opts-database/experiment.xml
+  bfbin2hpctk simple-bf-clang-opts.byfl
+  )
+set_property(TEST Bfbin2hpctkRuns PROPERTY DEPENDS BfClangOptsCodeRuns)
+
+# Can we postprocess the binary output of a Byfl program using bfbin2sqlite3?
+# This test runs conditionally on SQLite3 being available.
+if (SQLITE3_FOUND)
+  add_test(
+    NAME Bfbin2sqlite3Runs
+    COMMAND
+    "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh"
+    simple-bf-clang-opts.db
+    bfbin2sqlite3 simple-bf-clang-opts.byfl -o simple-bf-clang-opts.db
+    )
+  set_property(TEST Bfbin2sqlite3Runs PROPERTY DEPENDS BfClangOptsCodeRuns)
+endif (SQLITE3_FOUND)
+
+# Can we postprocess the binary output of a Byfl program using bfbin2xmlss?
+add_test(
+  NAME Bfbin2xmlssRuns
+  COMMAND
+  "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh"
+  simple-bf-clang-opts.xml
+  bfbin2xmlss simple-bf-clang-opts.byfl simple-bf-clang-opts.xml
+  )
+set_property(TEST Bfbin2xmlssRuns PROPERTY DEPENDS BfClangOptsCodeRuns)
