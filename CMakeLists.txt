@@ -45,6 +45,12 @@ option(BUILD_SHARED_LIBS "Build the Byfl run-time library as a shared library" O
 # option to select a build type.
 mark_as_advanced(CMAKE_BUILD_TYPE)
 
+# Let the user override the Clang compilers we'll use for testing.
+find_program(CLANG_EXECUTABLE clang DOC "Clang C compiler")
+mark_as_advanced(CLANG_EXECUTABLE)
+find_program(CLANGXX_EXECUTABLE clang++ DOC "Clang C++ compiler")
+mark_as_advanced(CLANGXX_EXECUTABLE)
+
 # Byfl requires C++11.
 set(CMAKE_CXX_STANDARD_REQUIRED 11)
 

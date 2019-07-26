@@ -76,14 +76,14 @@ set(extra_byfl_options "-bf-unique-bytes;-bf-by-func;-bf-call-stack;-bf-vectors;
 add_test(
   NAME ClangSmokeTest
   COMMAND
-  clang -g -o simple-clang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.c"
+  ${CLANG_EXECUTABLE} -g -o simple-clang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.c"
   )
 
 # Do the Clang C++ compiler and linker work at all?
 add_test(
   NAME ClangXXSmokeTest
   COMMAND
-  clang++ -g -o simple-clang++-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp"
+  ${CLANGXX_EXECUTABLE} -g -o simple-clang++-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp"
   )
 
 # Do the Flang Fortan compiler and linker work at all?
@@ -91,7 +91,7 @@ if (${FLANG_EXECUTABLE})
   add_test(
     NAME FlangSmokeTest
     COMMAND
-    flang -g -o simple-flang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.f90"
+    ${FLANG_EXECUTABLE} -g -o simple-flang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.f90"
     )
 endif (${FLANG_EXECUTABLE})
 
