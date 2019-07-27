@@ -5,7 +5,7 @@
 ###################################
 
 # Declare our project information.
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.12)
 project(
   byfl
   DESCRIPTION "Program analysis tool based on software performance counters"
@@ -18,10 +18,8 @@ set(PACKAGE_VERSION_PATCH 1)
 set(BYFL_PACKAGE_VERSION ${PACKAGE_VERSION_MAJOR}.${PACKAGE_VERSION_MINOR}.${PACKAGE_VERSION_PATCH})
 
 # Load all the LLVM-specific CMake features we require.
-find_package(LLVM REQUIRED CONFIG)
+find_package(LLVM CONFIG REQUIRED)
 add_definitions(${LLVM_DEFINITIONS})
-include_directories(${LLVM_INCLUDE_DIRS})
-link_directories(${LLVM_LIBRARY_DIRS})
 list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR} ${PROJECT_SOURCE_DIR}/cmake)
 include(LLVMConfig)
 include(AddLLVM)
@@ -35,8 +33,10 @@ include(ByflUtilities)
 include(ByflCPack)
 enable_testing()
 
-# Point the compiler to the top-level include directory.
-include_directories(${PROJECT_SOURCE_DIR}/include)
+# Point the compiler to Byfl's top-level include directory and to LLVM's.  Also
+# point the linker to LLVM's library directory.
+include_directories(${PROJECT_SOURCE_DIR}/include ${LLVM_INCLUDE_DIRS})
+link_directories(${LLVM_LIBRARY_DIRS})
 
 # Let the user choose between static and shared libraries.
 option(BUILD_SHARED_LIBS "Build the Byfl run-time library as a shared library" OFF)
@@ -52,7 +52,7 @@ find_program(CLANGXX_EXECUTABLE clang++ DOC "Clang C++ compiler")
 mark_as_advanced(CLANGXX_EXECUTABLE)
 
 # Byfl requires C++11.
-set(CMAKE_CXX_STANDARD_REQUIRED 11)
+set(CMAKE_CXX_STANDARD 11)
 
 # Specify various fixed strings to use in man pages.
 include(FindGit)
