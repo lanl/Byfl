@@ -551,7 +551,9 @@ namespace bytesflops_pass {
       all_function_args.push_back(ptr_to_char_arg);
       all_function_args.push_back(uint8_arg);
       all_function_args.push_back(uint64_arg);
+#if LLVM_VERSION_MAJOR <= 6
       all_function_args.push_back(IntegerType::get(globctx, 32));
+#endif
       all_function_args.push_back(IntegerType::get(globctx, 1));
       FunctionType* void_func_result =
         FunctionType::get(Type::getVoidTy(globctx), all_function_args, false);

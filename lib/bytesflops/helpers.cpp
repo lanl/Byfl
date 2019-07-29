@@ -551,8 +551,10 @@ void BytesFlops::insert_zero_array_code(Module* module,
   mark_as_byfl(array_addr_cast);
   static ConstantInt* zero_8bit =
     ConstantInt::get(globctx, APInt(8, 0));
+#if LLVM_VERSION_MAJOR <= 6
   static ConstantInt* array_align =
     ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
+#endif
   static ConstantInt* zero_1bit =
     ConstantInt::get(globctx, APInt(1, 0));
   ConstantInt* array_bytes =
@@ -561,7 +563,9 @@ void BytesFlops::insert_zero_array_code(Module* module,
   func_args.push_back(array_addr_cast);
   func_args.push_back(zero_8bit);
   func_args.push_back(array_bytes);
+#if LLVM_VERSION_MAJOR <= 6
   func_args.push_back(array_align);
+#endif
   func_args.push_back(zero_1bit);
   callinst_create(memset_intrinsic, func_args, &*insert_before);
 }
@@ -710,7 +714,9 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
       func_args.push_back(mem_insts_cast);
       func_args.push_back(zero_8bit);
       func_args.push_back(mem_insts_size);
+#if LLVM_VERSION_MAJOR <= 6
       func_args.push_back(mem_insts_align);
+#endif
       func_args.push_back(zero_1bit);
       callinst_create(memset_intrinsic, func_args, &*insert_before);
     }
@@ -739,7 +745,9 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
       func_args.push_back(tally_insts_cast);
       func_args.push_back(zero_8bit);
       func_args.push_back(tally_insts_size);
+#if LLVM_VERSION_MAJOR <= 6
       func_args.push_back(tally_insts_align);
+#endif
       func_args.push_back(zero_1bit);
       callinst_create(memset_intrinsic, func_args, &*insert_before);
     }
