@@ -6,6 +6,16 @@
 
 ################################ PRELIMINARIES ################################
 
+# Define some commonly needed values.
+set(bf_clang ${CMAKE_BINARY_DIR}/tools/wrappers/bf-clang)
+set(bf_clangxx ${CMAKE_BINARY_DIR}/tools/wrappers/bf-clang++)
+set(bf_flang ${CMAKE_BINARY_DIR}/tools/wrappers/bf-flang)
+set(bytesflops_so ${CMAKE_BINARY_DIR}/lib/bytesflops/bytesflops.so)
+set(byfl_lib_dir ${CMAKE_BINARY_DIR}/lib/byfl)
+set(extra_byfl_options "-bf-unique-bytes;-bf-by-func;-bf-call-stack;-bf-vectors;-bf-every-bb;-bf-reuse-dist;-bf-mem-footprint;-bf-types;-bf-inst-mix;-bf-data-structs;-bf-inst-deps;-bf-strides")
+
+# -----------------------------------------------------------------------------
+
 # For debugging, have "make check" run CTest in verbose mode.
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND} --extra-verbose)
 
@@ -18,7 +28,9 @@ find_program(
   )
 mark_as_advanced(AWK_EXECUTABLE)
 
-# Generate a helper script that checks if the Byfl output file looks remotely
+# -----------------------------------------------------------------------------
+
+# Generate a helper script that checks if a Byfl output file looks remotely
 # reasonable.
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/validate-byfl-output.sh.in"
   [=[
@@ -32,14 +44,17 @@ fi
 exit 0
 ]=]
 )
+
 configure_file(
   "${CMAKE_CURRENT_BINARY_DIR}/validate-byfl-output.sh.in"
   "${CMAKE_CURRENT_BINARY_DIR}/validate-byfl-output.sh"
   @ONLY
   )
 
-# Generate a helper script that runs a command and checks that it generated a
-# non-empty output file.
+# -----------------------------------------------------------------------------
+
+# Generate a helper script that runs a postprocessing tool and checks that it
+# generated a non-empty output file.
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh.in"
   [=[
 #!@BASH@
@@ -56,19 +71,53 @@ fi
 exit 0
 ]=]
 )
+
 configure_file(
   "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh.in"
   "${CMAKE_CURRENT_BINARY_DIR}/run-byfl-postproc-tool.sh"
   @ONLY
   )
 
-# Define some commonly needed values.
-set(bf_clang ${CMAKE_BINARY_DIR}/tools/wrappers/bf-clang)
-set(bf_clangxx ${CMAKE_BINARY_DIR}/tools/wrappers/bf-clang++)
-set(bf_flang ${CMAKE_BINARY_DIR}/tools/wrappers/bf-flang)
-set(bytesflops_so ${CMAKE_BINARY_DIR}/lib/bytesflops/bytesflops.so)
-set(byfl_lib_dir ${CMAKE_BINARY_DIR}/lib/byfl)
-set(extra_byfl_options "-bf-unique-bytes;-bf-by-func;-bf-call-stack;-bf-vectors;-bf-every-bb;-bf-reuse-dist;-bf-mem-footprint;-bf-types;-bf-inst-mix;-bf-data-structs;-bf-inst-deps;-bf-strides")
+# -----------------------------------------------------------------------------
+
+# Generate a helper script that compiles source to bitcode, runs bf-inst on the
+# bitcode, and links the result into an executable.
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/run-bf-inst.sh.in"
+  [=[
+#!@BASH@
+
+# Parse the command line.
+compiler="$1"
+shift
+outfile="$1"
+shift
+srcfile="$1"
+shift
+instopts=("$@")
+
+# Define names of intermediate files.
+bcbase="run-bf-inst-$RANDOM"
+bc1="${bcbase}.bc"
+bc2="${bcbase}-inst.bc"
+
+# Parse the list of extra C++ libraries with which to link.
+IFS=";" read -ra cxxlibs <<< "@BYFL_LIB_DEPENDS@"
+
+# Run the compiler, bf-inst, and the compiler (as linker) again.
+set -e
+set -x
+"$compiler" -o "$bc1" -c -emit-llvm "$srcfile"
+"@CMAKE_BINARY_DIR@/tools/wrappers/bf-inst" "${instopts[@]}" -o "$bc2" "$bc1"
+"$compiler" -o "$outfile" "$bc2" -L"@CMAKE_BINARY_DIR@/lib/byfl" -lbyfl "${cxxlibs[@]}"
+exit 0
+]=]
+)
+
+configure_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/run-bf-inst.sh.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/run-bf-inst.sh"
+  @ONLY
+  )
 
 ########################### COMPILER TESTS, NO BYFL ###########################
 
@@ -135,6 +184,26 @@ add_test(
   simple-bf-clang-no-opts.byfl
   )
 set_property(TEST BfClangNoOptsOutputGood PROPERTY DEPENDS BfClangNoOptsCodeRuns)
+
+######################### CLANG + BF-INST, NO OPTIONS #########################
+
+# Can the bf-inst wrapper script instrument a C program?
+add_test(
+  NAME BfInstClangNoOptsCompiles
+  COMMAND
+  "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-bf-inst.sh" "${CLANG_EXECUTABLE}" simple-bf-inst-clang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.c"
+  "-bf-plugin=${bytesflops_so}" "-bf-verbose"
+  )
+
+# Does the bf-inst instrumented C program run without error?
+add_test(
+  NAME BfInstClangNoOptsCodeRuns
+  COMMAND
+  ${CMAKE_COMMAND} -E env
+  LD_LIBRARY_PATH="${byfl_lib_dir}:$ENV{LD_LIBRARY_PATH}"
+  ./simple-bf-inst-clang-no-opts
+  )
+set_property(TEST BfInstClangNoOptsCodeRuns PROPERTY DEPENDS BfInstClangNoOptsCompiles)
 
 ########################### BF-CLANG, MANY OPTIONS ############################
 
