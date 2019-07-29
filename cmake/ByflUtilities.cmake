@@ -78,7 +78,7 @@ function(tally_llvm_opcodes)
   set_var_to_process_output(
     OUTPUT_VARIABLE _llvm_opcodes
     MESSAGE "Tallying the number of LLVM opcodes"
-    COMMAND ${PERL_EXECUTABLE} ${PROJECT_SOURCE_DIR}/gen_opcode2name "${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -E" NUM
+    COMMAND ${PERL_EXECUTABLE} ${PROJECT_SOURCE_DIR}/lib/byfl/gen_opcode2name "${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -E" NUM
     )
   if (NOT _llvm_opcodes)
     message(FATAL_ERROR "Cannot continue without knowing the number of LLVM opcodes.")
@@ -89,7 +89,7 @@ function(tally_llvm_opcodes)
   set_var_to_process_output(
     OUTPUT_VARIABLE _llvm_opcodes_2
     MESSAGE "Rounding up the number of LLVM opcodes to a power of two"
-    COMMAND ${PERL_EXECUTABLE} ${PROJECT_SOURCE_DIR}/gen_opcode2name "${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -E" NUM_POW2
+    COMMAND ${PERL_EXECUTABLE} ${PROJECT_SOURCE_DIR}/lib/byfl/gen_opcode2name "${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -E" NUM_POW2
     )
   if (NOT _llvm_opcodes_2)
     message(FATAL_ERROR "Cannot continue without knowing the number of LLVM opcodes.")
