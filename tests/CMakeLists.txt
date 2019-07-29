@@ -192,7 +192,7 @@ add_test(
   NAME BfInstClangNoOptsCompiles
   COMMAND
   "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-bf-inst.sh" "${CLANG_EXECUTABLE}" simple-bf-inst-clang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.c"
-  "-bf-plugin=${bytesflops_so}" "-bf-verbose"
+  "-bf-plugin=${bytesflops_so}" -bf-verbose
   )
 
 # Does the bf-inst instrumented C program run without error?
@@ -207,7 +207,7 @@ set_property(TEST BfInstClangNoOptsCodeRuns PROPERTY DEPENDS BfInstClangNoOptsCo
 
 ########################### BF-CLANG, MANY OPTIONS ############################
 
-# Do the C compiler and linker work when invoked from the Byfl wrapper script,
+# Do the C compiler and linker work when invoked from the Byfl wrapper script
 # even when extra Byfl options are specified (and not used)?
 add_test(
   NAME BfClangOptsNoByflCompiles
@@ -219,7 +219,7 @@ add_test(
   -bf-disable=byfl
   )
 
-# Can the Byfl wrapper script compile, instrument, and link a C++ program, even
+# Can the Byfl wrapper script compile, instrument, and link a C++ program even
 # when extra Byfl options are specified?
 add_test(
   NAME BfClangOptsCompiles
@@ -230,7 +230,7 @@ add_test(
   ${extra_byfl_options}
   )
 
-# Does the Byfl-instrumented C program run without error, even when extra Byfl
+# Does the Byfl-instrumented C program run without error even when extra Byfl
 # options were specified?
 add_test(
   NAME BfClangOptsCodeRuns
@@ -250,6 +250,28 @@ add_test(
   simple-bf-clang-opts.byfl
   )
 set_property(TEST BfClangOptsOutputGood PROPERTY DEPENDS BfClangOptsCodeRuns)
+
+######################### CLANG + BF-INST, MANY OPTIONS #########################
+
+# Can the bf-inst wrapper script instrument a C program even when extra Byfl
+# options are specified?
+add_test(
+  NAME BfInstClangOptsCompiles
+  COMMAND
+  "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-bf-inst.sh" "${CLANG_EXECUTABLE}" simple-bf-inst-clang-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.c"
+  "-bf-plugin=${bytesflops_so}" -bf-verbose
+  ${extra_byfl_options}
+  )
+
+# Does the bf-inst instrumented C program run without error?
+add_test(
+  NAME BfInstClangOptsCodeRuns
+  COMMAND
+  ${CMAKE_COMMAND} -E env
+  LD_LIBRARY_PATH="${byfl_lib_dir}:$ENV{LD_LIBRARY_PATH}"
+  ./simple-bf-inst-clang-opts
+  )
+set_property(TEST BfInstClangOptsCodeRuns PROPERTY DEPENDS BfInstClangOptsCompiles)
 
 ########################### BF-CLANG++, NO OPTIONS ############################
 
