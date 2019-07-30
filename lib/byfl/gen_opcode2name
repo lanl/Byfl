@@ -1,11 +1,11 @@
 #! /usr/bin/env perl
 
-###################################################
-# Helper library for computing bytes:flops ratios #
-# (script to generate opcode -> string mapping)	  #
-#						  #
-# By Scott Pakin <pakin@lanl.gov>		  #
-###################################################
+#################################################
+# Helper script to generate an opcode -> string #
+# mapping for use by the Byfl run-time library  #
+#                                               #
+# By Scott Pakin <pakin@lanl.gov>               #
+#################################################
 
 use File::Basename;
 use File::Temp qw(tempfile);
@@ -30,14 +30,14 @@ die "${progname}: Failed to find Instruction.def\n" if !defined $inst_def;
 
 # Create a dummy C file that we'll preprocess.
 my ($cfile, $cfilename) = tempfile("op2nm-XXXXXX",
-				   SUFFIX => ".c",
-				   TMPDIR => 1,
-				   UNLINK => 1);
+                                   SUFFIX => ".c",
+                                   TMPDIR => 1,
+                                   UNLINK => 1);
 open(INST_DEF, "<", $inst_def) || die "open(\"$inst_def\"): $!\n";
 while (my $oneline = <INST_DEF>) {
     if ($oneline =~ /^\#define (HANDLE_\w+_INST)\((\w+),\s*(\w+),\s*(\w+)\)\s*$/) {
-	my ($macro, $num, $opcode, $class) = ($1, $2, $3, $4);
-	print $cfile "#define $macro($num, $opcode, $class) ${progname}: $num $opcode\n";
+        my ($macro, $num, $opcode, $class) = ($1, $2, $3, $4);
+        print $cfile "#define $macro($num, $opcode, $class) ${progname}: $num $opcode\n";
     }
 }
 close INST_DEF;
@@ -64,7 +64,7 @@ if ($want eq "NUM") {
 if ($want eq "NUM_POW2") {
     my $num_names_pow2 = $num_names + 2 - 1;
     for (my $i = 1; $i <= 32; $i <<= 1) {
-	$num_names_pow2 |= $num_names_pow2 >> 1;
+        $num_names_pow2 |= $num_names_pow2 >> 1;
     }
     $num_names_pow2++;
     print $num_names_pow2, "\n";
@@ -97,8 +97,8 @@ foreach my $num (0 .. $#opcode_names) {
     my $name = $opcode_names[$num];
     my $comment = sprintf "%3d", $num;
     if (!defined $name) {
-	$name = "Byfl_bug_$num";
-	$comment .= " (should never be used)";
+        $name = "Byfl_bug_$num";
+        $comment .= " (should never be used)";
     }
     my $string = sprintf "    \"%s\"%s", $name, $num < $#opcode_names ? "," : "";
     printf "%-25.25s  // %s\n", $string, $comment;

@@ -21,29 +21,29 @@ addons:
 
 before_install:
   - if [[ $CXX = "g++" ]]; then
-      export CXX="g++-${GCC_VERSION}";
-      export CC="gcc-${GCC_VERSION}";
+      export CXX="/usr/bin/g++-${GCC_VERSION}";
+      export CC="/usr/bin/gcc-${GCC_VERSION}";
     else
-      export CXX="clang++-${LLVM_VERSION}";
-      export CC="clang-${LLVM_VERSION}";
+      export CXX="/usr/bin/clang++-${LLVM_VERSION}";
+      export CC="/usr/bin/clang-${LLVM_VERSION}";
     fi
-  - export BF_CLANG=$(which clang-${LLVM_VERSION})
-  - export BF_CLANGXX=$(which clang++-${LLVM_VERSION})
+  - export BF_CLANG="/usr/bin/clang-${LLVM_VERSION}"
+  - export BF_CLANGXX="/usr/bin/clang++-${LLVM_VERSION}"
   - export HDF5_CXX="$CXX"
   - export HDF5_CXXLINKER="$CXX"
 
 script:
-  - clang --version
-  - gcc --version
   - mkdir build
   - cd build
   - >
       cmake -DCMAKE_INSTALL_PREFIX="$HOME/bytesflops"
       -DCMAKE_PREFIX_PATH=/usr
+      -DCMAKE_MODULE_PATH="/usr/lib/llvm-${LLVM_VERSION}/cmake"
       -DCMAKE_C_COMPILER="$CC"
       -DCMAKE_CXX_COMPILER="$CXX"
       -DCLANG_EXECUTABLE="$BF_CLANG"
       -DCLANGXX_EXECUTABLE="$BF_CLANGXX"
+      -DOPT_EXECUTABLE="/usr/bin/opt-${LLVM_VERSION}"
       -DCMAKE_C_FLAGS="-I/usr/include/llvm-${LLVM_VERSION} -g"
       -DCMAKE_CXX_FLAGS="-I/usr/include/llvm-${LLVM_VERSION} -g -fno-rtti"
       ..

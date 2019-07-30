@@ -50,6 +50,8 @@ find_program(CLANG_EXECUTABLE clang DOC "Clang C compiler")
 mark_as_advanced(CLANG_EXECUTABLE)
 find_program(CLANGXX_EXECUTABLE clang++ DOC "Clang C++ compiler")
 mark_as_advanced(CLANGXX_EXECUTABLE)
+find_program(OPT_EXECUTABLE opt DOC "LLVM standalone optimizer")
+mark_as_advanced(OPT_EXECUTABLE)
 
 # Byfl requires C++11.
 set(CMAKE_CXX_STANDARD 11)

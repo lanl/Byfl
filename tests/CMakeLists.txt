@@ -155,6 +155,7 @@ add_test(
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.c -L${byfl_lib_dir}
   -bf-disable=byfl
   )
+set_property(TEST BfClangNoByflCompiles PROPERTY ENVIRONMENT "BF_CLANG=${CLANG_EXECUTABLE}")
 
 # Can the Byfl wrapper script compile, instrument, and link a C program?
 add_test(
@@ -164,6 +165,7 @@ add_test(
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clang-no-opts
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.c -L${byfl_lib_dir}
   )
+set_property(TEST BfClangNoOptsCompiles PROPERTY ENVIRONMENT "BF_CLANG=${CLANG_EXECUTABLE}")
 
 # Does the Byfl-instrumented C program run without error?
 add_test(
@@ -218,6 +220,7 @@ add_test(
   ${extra_byfl_options}
   -bf-disable=byfl
   )
+set_property(TEST BfClangOptsNoByflCompiles PROPERTY ENVIRONMENT "BF_CLANG=${CLANG_EXECUTABLE}")
 
 # Can the Byfl wrapper script compile, instrument, and link a C++ program even
 # when extra Byfl options are specified?
@@ -229,6 +232,7 @@ add_test(
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.c -L${byfl_lib_dir}
   ${extra_byfl_options}
   )
+set_property(TEST BfClangOptsCompiles PROPERTY ENVIRONMENT "BF_CLANG=${CLANG_EXECUTABLE}")
 
 # Does the Byfl-instrumented C program run without error even when extra Byfl
 # options were specified?
@@ -284,6 +288,7 @@ add_test(
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp -L${byfl_lib_dir}
   -bf-disable=byfl
   )
+set_property(TEST BfClangXXNoByflCompiles PROPERTY ENVIRONMENT "BF_CLANGXX=${CLANGXX_EXECUTABLE}")
 
 # Can the Byfl wrapper script compile, instrument, and link a C++ program?
 add_test(
@@ -293,6 +298,7 @@ add_test(
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clangxx-no-opts
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp -L${byfl_lib_dir}
   )
+set_property(TEST BfClangXXNoOptsCompiles PROPERTY ENVIRONMENT "BF_CLANGXX=${CLANGXX_EXECUTABLE}")
 
 # Does the Byfl-instrumented C++ program run without error?
 add_test(
@@ -329,6 +335,7 @@ if (${FLANG_EXECUTABLE})
     ${CMAKE_CURRENT_SOURCE_DIR}/simple.f90 -L${byfl_lib_dir}
     -bf-disable=byfl
     )
+  set_property(TEST BfFlangNoByflCompiles PROPERTY ENVIRONMENT "BF_FLANG=${FLANG_EXECUTABLE}")
 
   # Can the Byfl wrapper script compile, instrument, and link a C program?
   add_test(
@@ -338,6 +345,7 @@ if (${FLANG_EXECUTABLE})
     -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-flang-no-opts
     ${CMAKE_CURRENT_SOURCE_DIR}/simple.f90 -L${byfl_lib_dir}
     )
+  set_property(TEST BfFlangNoOptsCompiles PROPERTY ENVIRONMENT "BF_FLANG=${FLANG_EXECUTABLE}")
 
   # Does the Byfl-instrumented C program run without error?
   add_test(
