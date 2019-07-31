@@ -45,7 +45,7 @@ script:
       -DCLANGXX_EXECUTABLE="$BF_CLANGXX"
       -DOPT_EXECUTABLE="/usr/bin/opt-${LLVM_VERSION}"
       -DCMAKE_C_FLAGS="-I/usr/include/llvm-${LLVM_VERSION} -g"
-      -DCMAKE_CXX_FLAGS="-I/usr/include/llvm-${LLVM_VERSION} -g -fno-rtti"
+      -DCMAKE_CXX_FLAGS="-I/usr/include/llvm-${LLVM_VERSION} -g"
       ..
   - make VERBOSE=1 -k
   - make CTEST_OUTPUT_ON_FAILURE=1 test

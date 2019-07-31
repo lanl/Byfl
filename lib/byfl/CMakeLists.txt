@@ -27,6 +27,8 @@ add_library(byfl
   ubytes.cpp
   vectors.cpp
   )
+llvm_update_compile_flags(byfl)
+add_link_opts(byfl)
 
 # Specify how to create opcode2name.cpp.
 add_custom_command(

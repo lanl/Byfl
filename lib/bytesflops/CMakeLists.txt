@@ -23,3 +23,5 @@ byfl_add_llvm_loadable_module(bytesflops
   functionkeygen.h
   symbolinfo.cpp
   )
+llvm_update_compile_flags(bytesflops)
+add_link_opts(bytesflops)
