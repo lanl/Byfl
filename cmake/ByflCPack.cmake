@@ -9,8 +9,14 @@ set(CPACK_PACKAGE_CONTACT "Scott Pakin <pakin@lanl.gov>")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE.md")
 
-# Define generator-specific package metadata.
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "clang-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}")
+# Define Debian-package-specific metadata.
+if (LLVM_PACKAGE_VERSION VERSION_LESS 7.0.0)
+  set(_clang_package "clang-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}")
+else (LLVM_PACKAGE_VERSION VERSION_LESS 7.0.0)
+  set(_clang_package "clang-${LLVM_VERSION_MAJOR}")
+endif (LLVM_PACKAGE_VERSION VERSION_LESS 7.0.0)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "${_clang_package}, perl")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
 # Default to building only .tgz files, but let the user override this decision.
 set(CPACK_GENERATOR "TGZ" CACHE STRING "Semicolon-separated list of binary package types to generate")
