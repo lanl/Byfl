@@ -16,7 +16,7 @@ math(EXPR _prefix_len "${_prefix_len} + 1")
 string(SUBSTRING ${PERL_SITELIBEXP} ${_prefix_len} -1 _rel_sitelib)
 set(
   PERL_MODULE_DIRECTORY
-  ${CMAKE_INSTALL_PREFIX}/${_rel_sitelib}
+  ${_rel_sitelib}
   CACHE PATH
   "Directory in which to install the Byfl Perl module"
   )
@@ -30,7 +30,7 @@ install(
 configure_file(byfl-clang.pc.in byfl-clang.pc @ONLY)
 set(
   PKG_CONFIG_DIRECTORY
-  ${CMAKE_INSTALL_FULL_LIBDIR}/pkgconfig
+  ${CMAKE_INSTALL_LIBDIR}/pkgconfig
   CACHE PATH
   "Directory in which to install a Byfl pkg-config file"
   )
