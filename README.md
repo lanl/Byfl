@@ -15,7 +15,7 @@ for (int row=0; row<100000; row++)
 
 Reading the hardware performance counters (e.g., using [PAPI](http://icl.cs.utk.edu/papi/)) can be misleading.  The performance counters on most processors tally not the number of bytes but rather the number of cache-line accesses.  Because the array is stored in row-major order, each access to `array` will presumably reference a different cache line while each access to `sum` will presumably reference the same cache line.
 
-Byfl does the equivalent of transforming the code into the following:
+Byfl performs the moral equivalent of transforming the code into the following:
 ```C
 unsigned long int bytes accessed = 0;
 double array[100000][100];
@@ -36,15 +36,15 @@ The name "Byfl" comes from "bytes/flops".  The very first version of the code co
 Installation
 ------------
 
-Once you've downloaded Byfl, the usual
+Once you've downloaded Byfl, the usual [CMake](https://cmake.org/) build procedure,
 ```bash
-./configure
+mkdir build
+cd build
+cmake ..
 make
 make install
 ```
-procedure should work.  See [INSTALL.md](https://github.com/lanl/Byfl/blob/master/INSTALL.md) for a more complete explanation.
-
-Previously, Byfl separately supported LLVM versions 3.5–7.0 because of API differences.  Because LLVM's APIs have stabilized, these Byfl versions are no longer maintained, and the corresponding branches have been removed.  However, they were first snapshotted as the tags [`llvm-3.5-final`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6-final`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7-final`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), [`llvm-3.8-final`](https://github.com/lanl/Byfl/tree/llvm-3.8-final), [`llvm-3.9-final`](https://github.com/lanl/Byfl/tree/llvm-3.9-final), [`llvm-4.0-final`](https://github.com/lanl/Byfl/tree/llvm-4.0-final), [`llvm-5.0-final`](https://github.com/lanl/Byfl/tree/llvm-5.0-final), [`llvm-6.0-final`](https://github.com/lanl/Byfl/tree/llvm-6.0-final), and [`llvm-7.0-final`](https://github.com/lanl/Byfl/tree/llvm-7.0-final) for posterity.
+should work, although, depending on your LLVM/Clang installation, you may need to pass `cmake` some configuration options.  See [INSTALL.md](https://github.com/lanl/Byfl/blob/master/INSTALL.md) for a more complete explanation.
 
 Documentation
 -------------

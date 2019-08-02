@@ -67,3 +67,8 @@ Once you've built and installed Byfl, you'll probably need to set the following 
 export BF_CLANGXX=clang++-3.8
 export BF_CLANG=clang-3.8
 ```
+
+Other information
+-----------------
+
+Previously, Byfl separately supported LLVM versions 3.5–7.0 because of API differences.  Because LLVM's APIs have more-or-less stabilized, these Byfl versions are no longer maintained, and the corresponding branches have been removed.  However, they were first snapshotted as the tags [`llvm-3.5-final`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6-final`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7-final`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), [`llvm-3.8-final`](https://github.com/lanl/Byfl/tree/llvm-3.8-final), [`llvm-3.9-final`](https://github.com/lanl/Byfl/tree/llvm-3.9-final), [`llvm-4.0-final`](https://github.com/lanl/Byfl/tree/llvm-4.0-final), [`llvm-5.0-final`](https://github.com/lanl/Byfl/tree/llvm-5.0-final), [`llvm-6.0-final`](https://github.com/lanl/Byfl/tree/llvm-6.0-final), and [`llvm-7.0-final`](https://github.com/lanl/Byfl/tree/llvm-7.0-final) for posterity.
