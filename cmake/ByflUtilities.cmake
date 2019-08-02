@@ -134,13 +134,13 @@ endfunction(add_man_from_pod)
 
 # =============================================================================
 # This macro was adapted from add_llvm_loadable_module in AddLLVM.cmake but
-# modified to install into BYFL_PLUGIN_DIRECTORY instead of lib or lib64.
-# Also, various cases not relevant to Byfl were removed.
+# modified to install into CMAKE_INSTALL_BYFL_PLUGIN_DIR instead of lib or
+# lib64.  Also, various cases not relevant to Byfl were removed.
 # =============================================================================
 macro(byfl_add_llvm_loadable_module name)
   llvm_add_library(${name} MODULE ${ARGN})
   install(TARGETS ${name}
-    LIBRARY DESTINATION ${BYFL_PLUGIN_DIRECTORY}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_BYFL_PLUGIN_DIR}
     )
   set_target_properties(${name} PROPERTIES FOLDER "Loadable modules")
 endmacro(byfl_add_llvm_loadable_module name)

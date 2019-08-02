@@ -30,8 +30,11 @@ set(
   )
 mark_as_advanced(CPACK_SOURCE_IGNORE_FILES)
 
-# Remove "-Source" from the package name.
+# Remove "-Source" from the source package name.
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}")
+
+# Include the LLVM version number in the binary package name.
+set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-llvm-${LLVM_PACKAGE_VERSION}")
 
 # Add support for "make package" and "make package_source".
 include(CPack)
