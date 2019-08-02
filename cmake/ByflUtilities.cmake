@@ -225,3 +225,22 @@ function(add_postprocessing_tool EXE)
   add_man_from_pod(${EXE}.1 ${EXE}.pod)
   install(TARGETS ${EXE} DESTINATION ${CMAKE_INSTALL_BINDIR})
 endfunction(add_postprocessing_tool EXE)
+
+# =============================================================================
+# Find an LLVM/Clang compiler or tool.  Search for the tool first with a
+# "-M.m.p" suffix, then a "-M.m" suffix then a "-M" suffix, and finally no
+# suffix.  The corresponding option is marked as advanced in the
+# graphical/curses interface.
+# =============================================================================
+function(find_llvm_program VAR DOC BASE)
+  find_program(
+    ${VAR}
+    NAMES
+    ${BASE}-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.${LLVM_VERSION_PATCH}
+    ${BASE}-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}
+    ${BASE}-${LLVM_VERSION_MAJOR}
+    ${BASE}
+    DOC ${DOCS}
+    )
+  mark_as_advanced(${VAR})
+endfunction(find_llvm_program VAR DOC BASE)

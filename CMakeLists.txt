@@ -46,18 +46,12 @@ option(BUILD_SHARED_LIBS "Build the Byfl run-time library as a shared library" O
 mark_as_advanced(CMAKE_BUILD_TYPE)
 
 # Let the user override the Clang compilers we'll use for testing.
-find_program(CLANG_EXECUTABLE clang DOC "Clang C compiler")
-mark_as_advanced(CLANG_EXECUTABLE)
-find_program(CLANGXX_EXECUTABLE clang++ DOC "Clang C++ compiler")
-mark_as_advanced(CLANGXX_EXECUTABLE)
-find_program(OPT_EXECUTABLE opt DOC "LLVM standalone optimizer")
-mark_as_advanced(OPT_EXECUTABLE)
-find_program(LLVM_AS_EXECUTABLE llvm-as DOC "LLVM assembler")
-mark_as_advanced(LLVM_AS_EXECUTABLE)
-find_program(LLVM_DIS_EXECUTABLE llvm-dis DOC "LLVM disassembler")
-mark_as_advanced(LLVM_DIS_EXECUTABLE)
-find_program(LLVM_NM_EXECUTABLE llvm-nm DOC "LLVM symbol-table reader")
-mark_as_advanced(LLVM_NM_EXECUTABLE)
+find_llvm_program(CLANG_EXECUTABLE "Clang C compiler" clang)
+find_llvm_program(CLANGXX_EXECUTABLE "Clang C++ compiler" clang++)
+find_llvm_program(OPT_EXECUTABLE "LLVM standalone optimizer" opt)
+find_llvm_program(LLVM_AS_EXECUTABLE "LLVM assembler" llvm-as)
+find_llvm_program(LLVM_DIS_EXECUTABLE "LLVM disassembler" llvm-dis)
+find_llvm_program(LLVM_NM_EXECUTABLE "LLVM symbol-table reader" llvm-nm)
 
 # Byfl requires C++11.
 set(CMAKE_CXX_STANDARD 11)
@@ -113,8 +107,7 @@ mark_as_advanced(TARGET_DESCRIPTION)
 # Byfl supports Flang as the Fortran compiler but doesn't require it.
 set(_flang_msg "Checking for a Clang-compatible Fortran compiler")
 message(STATUS ${_flang_msg})
-find_program(FLANG_EXECUTABLE flang${CMAKE_EXECUTABLE_SUFFIX}
-  DOC "LLVM-based Fortran compiler")
+find_llvm_program(FLANG_EXECUTABLE "LLVM-based Fortran compiler" flang)
 if (${FLANG_EXECUTABLE})
   message(STATUS "${_flang_msg} - ${FLANG_EXECUTABLE}")
 else (${FLANG_EXECUTABLE})
