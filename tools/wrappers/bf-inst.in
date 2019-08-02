@@ -17,7 +17,7 @@ use strict;
 my $progname = basename $0;
 
 # Specify some installation locations and executable names.
-my $byfl_plugin = '@BYFL_PLUGIN_DIRECTORY@/bytesflops.so';
+my $byfl_plugin = '@CMAKE_INSTALL_FULL_BYFL_PLUGIN_DIR@/bytesflops.so';
 my $byfl_libdir = '@CMAKE_INSTALL_FULL_LIBDIR@';
 my $llvm_as = '@LLVM_AS_EXECUTABLE@';
 my $llvm_dis = '@LLVM_DIS_EXECUTABLE@';

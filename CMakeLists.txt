@@ -53,6 +53,14 @@ find_llvm_program(LLVM_AS_EXECUTABLE "LLVM assembler" llvm-as)
 find_llvm_program(LLVM_DIS_EXECUTABLE "LLVM disassembler" llvm-dis)
 find_llvm_program(LLVM_NM_EXECUTABLE "LLVM symbol-table reader" llvm-nm)
 
+# Let the user choose where to install the Byfl plugin.  It defaults to
+# libexec/byfl as opposed to LLVM's default of lib (or lib64) because a plugin
+# is not a library to which an application explicitly links.
+set(CMAKE_INSTALL_BYFL_PLUGIN_DIR ${CMAKE_INSTALL_LIBEXECDIR}/byfl CACHE PATH
+  "Directory in which to install the Byfl LLVM plugin")
+mark_as_advanced(CMAKE_INSTALL_BYFL_PLUGIN_DIR)
+file(TO_NATIVE_PATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BYFL_PLUGIN_DIR}" CMAKE_INSTALL_FULL_BYFL_PLUGIN_DIR)
+
 # Byfl requires C++11.
 set(CMAKE_CXX_STANDARD 11)
 
