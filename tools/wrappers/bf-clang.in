@@ -14,7 +14,7 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use File::stat;
 use Getopt::Long qw(GetOptionsFromArray);
-use lib '@PERL_MODULE_DIRECTORY@';   # Find ParseCompilerOpts if installed in a non-standard location.
+use lib '@PERL_FULL_MODULE_DIRECTORY@';   # Find ParseCompilerOpts if installed in a non-standard location.
 use ParseCompilerOpts;
 use v5.10.1;
 use warnings;

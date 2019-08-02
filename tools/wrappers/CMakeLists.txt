@@ -21,6 +21,7 @@ set(
   "Directory in which to install the Byfl Perl module"
   )
 mark_as_advanced(PERL_MODULE_DIRECTORY)
+file(TO_NATIVE_PATH "${CMAKE_INSTALL_PREFIX}/${PERL_MODULE_DIRECTORY}" PERL_FULL_MODULE_DIRECTORY)
 install(
   FILES ParseCompilerOpts.pm
   DESTINATION ${PERL_MODULE_DIRECTORY}
