@@ -16,9 +16,12 @@ use strict;
 # Store the name of this script.
 my $progname = basename $0;
 
-# Specify some installation locations.
+# Specify some installation locations and executable names.
 my $byfl_plugin = '@BYFL_PLUGIN_DIRECTORY@/bytesflops.so';
 my $byfl_libdir = '@CMAKE_INSTALL_FULL_LIBDIR@';
+my $llvm_as = '@LLVM_AS_EXECUTABLE@';
+my $llvm_dis = '@LLVM_DIS_EXECUTABLE@';
+my $llvm_nm = '@LLVM_NM_EXECUTABLE@';
 my $opt = '@OPT_EXECUTABLE@';
 
 # Let the user increase this script's verbosity.
@@ -109,14 +112,14 @@ sub apply_byfl ($$)
         # ASCII bitcode -- convert to binary for more convenient
         # symbol-table processing.
         $bcfile = $newtemp->();
-        execute_command("llvm-as", $infile, "-o", $bcfile);
+        execute_command($llvm_as, $infile, "-o", $bcfile);
     }
     else {
         # Binary bitcode -- use as is.
         $bcfile = $infile;
     }
     my $already_instrumented = 0;
-    open(NM, "llvm-nm $bcfile|") || die "${progname}: open failed ($!)\n";
+    open(NM, "$llvm_nm $bcfile|") || die "${progname}: open failed ($!)\n";
     while (my $oneline = <NM>) {
         if ($oneline =~ /\bbf_flop_count\b/o) {
             $already_instrumented = 1;
@@ -161,7 +164,7 @@ sub apply_byfl ($$)
     # to ASCII if necessary.
     if ($intype eq "ll") {
         # Have binary; want ASCII
-        execute_command("llvm-dis", $tempfiles[$#tempfiles], "-o", $outfile);
+        execute_command($llvm_dis, $tempfiles[$#tempfiles], "-o", $outfile);
     }
     else {
         # Have binary; want binary
