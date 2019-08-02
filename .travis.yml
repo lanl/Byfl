@@ -4,7 +4,7 @@ dist: xenial
 
 env:
   - LLVM_VERSION=6.0 GCC_VERSION=8
-  - LLVM_VERSION=7 GCC_VERSION=8
+  - LLVM_VERSION=7   GCC_VERSION=8
 
 addons:
   apt:

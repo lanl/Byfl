@@ -60,7 +60,7 @@ static bool uncond_branch_is_mandatory (BranchInst* br_inst)
     if (pred_bb == bb)
       // Branches from bb to succ_bb don't affect our decision.
       continue;
-    const TerminatorInst* pred_bb_term = pred_bb->getTerminator();
+    const Instruction* pred_bb_term = pred_bb->getTerminator();
     const BranchInst* pred_bb_br = dyn_cast<BranchInst>(pred_bb_term);
     if (pred_bb_br == NULL)
       // Instructions other than branches don't affect our decision.
