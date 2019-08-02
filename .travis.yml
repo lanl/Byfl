@@ -5,14 +5,18 @@ dist: xenial
 env:
   - LLVM_VERSION=6.0 GCC_VERSION=8
   - LLVM_VERSION=7   GCC_VERSION=8
+  - LLVM_VERSION=8   GCC_VERSION=8
 
 addons:
   apt:
     sources:
       - ubuntu-toolchain-r-test
+      - llvm-toolchain-xenial-8
       - llvm-toolchain-xenial-7
       - llvm-toolchain-xenial-6.0
     packages:
+      - clang-8
+      - llvm-8-dev
       - clang-7
       - llvm-7-dev
       - clang-6.0
