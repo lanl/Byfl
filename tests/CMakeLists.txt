@@ -10,7 +10,7 @@
 set(bf_clang ${CMAKE_BINARY_DIR}/tools/wrappers/bf-clang)
 set(bf_clangxx ${CMAKE_BINARY_DIR}/tools/wrappers/bf-clang++)
 set(bf_flang ${CMAKE_BINARY_DIR}/tools/wrappers/bf-flang)
-set(bytesflops_so ${CMAKE_BINARY_DIR}/lib/bytesflops/bytesflops.so)
+set(bytesflops_so ${CMAKE_BINARY_DIR}/lib/bytesflops/bytesflops${LLVM_PLUGIN_EXT})
 set(byfl_lib_dir ${CMAKE_BINARY_DIR}/lib/byfl)
 set(extra_byfl_options "-bf-unique-bytes;-bf-by-func;-bf-call-stack;-bf-vectors;-bf-every-bb;-bf-reuse-dist;-bf-mem-footprint;-bf-types;-bf-inst-mix;-bf-data-structs;-bf-inst-deps;-bf-strides")
 

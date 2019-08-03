@@ -22,7 +22,7 @@ no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 use strict;
 
 # Specify some installation locations and other parameters.
-my $byfl_plugin = '@CMAKE_INSTALL_FULL_BYFL_PLUGIN_DIR@/bytesflops.so';
+my $byfl_plugin = '@CMAKE_INSTALL_FULL_BYFL_PLUGIN_DIR@/bytesflops@LLVM_PLUGIN_EXT@';
 my $byfl_libdir = '@CMAKE_INSTALL_FULL_LIBDIR@';
 my $llvm_libdir = '@LLVM_LIBRARY_DIR@';
 my @cxx_libs = split /;/, '@BYFL_LIB_DEPENDS@';
@@ -163,7 +163,7 @@ bf-clang
 [B<-bf-thread-safe>]
 [B<-bf-verbose>]
 [B<-bf-libdir>=I<path/to/byfl/lib/>]
-[B<-bf-plugin>=I<path/to/bytesflops.so>]
+[B<-bf-plugin>=I<path/to/bytesflops@LLVM_PLUGIN_EXT@>]
 [B<-bf-disable>=I<feature>]
 [I<clang_options>...]
 [I<file>...]
@@ -262,9 +262,9 @@ Make B<bf-clang> output all of the helper programs it calls.
 Point B<bf-clang> to the directory containing the Byfl library
 (F<libbyfl.a> or F<libbyfl.so>).
 
-=item B<-bf-plugin>=I<path/to/bytesflops.so>
+=item B<-bf-plugin>=I<path/to/bytesflops@LLVM_PLUGIN_EXT@>
 
-Point B<bf-clang> to the Byfl plugin (C<bytesflops.so>).
+Point B<bf-clang> to the Byfl plugin (C<bytesflops@LLVM_PLUGIN_EXT@>).
 
 =item B<-bf-disable>=I<feature>
 
@@ -408,9 +408,9 @@ Disable the Byfl plugin (i.e., inject no instrumentation into the code).
 That is, if B<bf-clang> fails to compile or link an application, try
 disabling C<byfl> to see if the problem is truly with Byfl.
 
-The Byfl plugin proper (F<bytesflops.so>) honors all of the command-line
-options listed above except B<-bf-verbose> and B<-bf-disable>.  Those
-options are specific to the B<bf-clang> script.
+The Byfl plugin proper (F<bytesflops@LLVM_PLUGIN_EXT@>) honors all of
+the command-line options listed above except B<-bf-verbose> and
+B<-bf-disable>.  Those options are specific to the B<bf-clang> script.
 
 =head2 Selective instrumentation
 

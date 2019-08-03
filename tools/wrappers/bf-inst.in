@@ -17,7 +17,7 @@ use strict;
 my $progname = basename $0;
 
 # Specify some installation locations and executable names.
-my $byfl_plugin = '@CMAKE_INSTALL_FULL_BYFL_PLUGIN_DIR@/bytesflops.so';
+my $byfl_plugin = '@CMAKE_INSTALL_FULL_BYFL_PLUGIN_DIR@/bytesflops@LLVM_PLUGIN_EXT@';
 my $byfl_libdir = '@CMAKE_INSTALL_FULL_LIBDIR@';
 my $llvm_as = '@LLVM_AS_EXECUTABLE@';
 my $llvm_dis = '@LLVM_DIS_EXECUTABLE@';
@@ -270,7 +270,7 @@ bf-inst
 [B<-O>I<opt_level>]
 [B<--bf-verbose>]
 [B<--bf-clang-args>]
-[B<-bf-plugin>=I<path/to/bytesflops.so>]
+[B<-bf-plugin>=I<path/to/bytesflops@LLVM_PLUGIN_EXT@>]
 [B<--bf-static>]
 [I<Byfl options>]
 I<bitcode_file>
@@ -309,9 +309,9 @@ bitcode I<after> Byfl instrumentation has been applied.
 
 Display all of the file operations that B<bf-inst> performs.
 
-=item B<-bf-plugin>=I<path/to/bytesflops.so>
+=item B<-bf-plugin>=I<path/to/bytesflops@LLVM_PLUGIN_EXT@>
 
-Point B<bf-inst> to the Byfl plugin (C<bytesflops.so>).
+Point B<bf-inst> to the Byfl plugin (C<bytesflops@LLVM_PLUGIN_EXT@>).
 
 =item B<--bf-clang-args>
 
