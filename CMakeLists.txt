@@ -129,6 +129,7 @@ check_weak_aliases()
 
 # OS X lacks a /proc/self/cmdline file, but it does provide a _NSGetArgv()
 # function to read the caller's command line.
+check_include_file_cxx(crt_externs.h HAVE_CRT_EXTERNS_H)
 check_cxx_symbol_exists(_NSGetArgv crt_externs.h HAVE__NSGETARGV)
 
 # The Byfl build process parses Instruction.def.  Ensure it exists.

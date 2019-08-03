@@ -18,12 +18,15 @@
 /* Define if the compiler and linker support weak function aliases. */
 #cmakedefine HAVE_WEAK_ALIASES
 
+/* Define if the crt_externs.h include file exists. */
+#cmakedefine HAVE_CRT_EXTERNS_H
+
 /* Define if the _NSGetArgv function is available. */
 #cmakedefine HAVE__NSGETARGV
 
 /* Define NUM_LLVM_OPCODES as one more than the maximum-valued opcode in the
-   LLVM IR and NUM_LLVM_OPCODES_POW2 as NUM_LLVM_OPCODES+2 rounded up to a
-   power of two. */
+ * LLVM IR and NUM_LLVM_OPCODES_POW2 as NUM_LLVM_OPCODES+2 rounded up to a
+ * power of two. */
 #cmakedefine NUM_LLVM_OPCODES @NUM_LLVM_OPCODES@
 #cmakedefine NUM_LLVM_OPCODES_POW2 @NUM_LLVM_OPCODES_POW2@
 
