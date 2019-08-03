@@ -133,9 +133,9 @@ check_cxx_symbol_exists(_NSGetArgv crt_externs.h HAVE__NSGETARGV)
 
 # The Byfl build process parses Instruction.def.  Ensure it exists.
 check_include_file_cxx(llvm/IR/Instruction.def _have_inst_def)
-if (NOT ${_have_inst_def})
+if (NOT _have_inst_def)
   message(FATAL_ERROR "Byfl requires the llvm/IR/Instruction.def C++ header file")
-endif (NOT ${_have_inst_def})
+endif (NOT _have_inst_def)
 
 # Tally the number of LLVM opcodes.
 tally_llvm_opcodes()
