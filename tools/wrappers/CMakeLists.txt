@@ -51,7 +51,8 @@ foreach(lib ${link_libs})
   list(APPEND _byfl_lib_depends ${_one_cxx_lib})
   unset(_one_cxx_lib CACHE)
 endforeach()
-set(BYFL_LIB_DEPENDS "${_byfl_lib_depends}" CACHE STRING "List of libraries on which the Byfl run-time library depends")
+set(BYFL_LIB_DEPENDS "${_byfl_lib_depends}" CACHE STRING
+  "List of libraries on which the Byfl run-time library depends")
 
 # Build and install a man page for the Perl module that parses compiler
 # options.

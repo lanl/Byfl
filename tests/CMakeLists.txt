@@ -36,9 +36,12 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/validate-byfl-output.sh.in"
   [=[
 #!@BASH@
 
+set -e
 set -x
 int_ops=`"@CMAKE_BINARY_DIR@/tools/postproc/bfbin2csv" --include=Program --flat-output "$1" | "@AWK_EXECUTABLE@" -F, '$3 ~ /Integer operations/ {print $4}'`
-if [ ! -z "$int_ops" ] && [ "$int_ops" -lt 100000 ] ; then
+if [ -z "$int_ops" ] ; then
+    exit 1
+elif [ "$int_ops" -lt 100000 ] ; then
     exit 1
 fi
 exit 0
@@ -63,6 +66,7 @@ outfile="$1"
 shift
 command="$1"
 shift
+set -e
 set -x
 "@CMAKE_BINARY_DIR@/tools/postproc/$command" "$@"
 if [ ! -s "$outfile" ] ; then
@@ -125,14 +129,14 @@ configure_file(
 add_test(
   NAME ClangSmokeTest
   COMMAND
-  ${CLANG_EXECUTABLE} -g -o simple-clang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.c"
+  ${CLANG_EXECUTABLE} ${CMAKE_C_FLAGS} -g -o simple-clang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.c"
   )
 
 # Do the Clang C++ compiler and linker work at all?
 add_test(
   NAME ClangXXSmokeTest
   COMMAND
-  ${CLANGXX_EXECUTABLE} -g -o simple-clang++-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp"
+  ${CLANGXX_EXECUTABLE} ${CMAKE_CXX_FLAGS} -g -o simple-clang++-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp"
   )
 
 # Do the Flang Fortan compiler and linker work at all?
@@ -140,7 +144,7 @@ if (${FLANG_EXECUTABLE})
   add_test(
     NAME FlangSmokeTest
     COMMAND
-    ${FLANG_EXECUTABLE} -g -o simple-flang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.f90"
+    ${FLANG_EXECUTABLE} ${CMAKE_Fortran_FLAGS} -g -o simple-flang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.f90"
     )
 endif (${FLANG_EXECUTABLE})
 
@@ -151,6 +155,7 @@ add_test(
   NAME BfClangNoByflCompiles
   COMMAND
   ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clang}
+  ${CMAKE_C_FLAGS}
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clang-no-byfl
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.c -L${byfl_lib_dir}
   -bf-disable=byfl
@@ -162,6 +167,7 @@ add_test(
   NAME BfClangNoOptsCompiles
   COMMAND
   ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clang}
+  ${CMAKE_C_FLAGS}
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clang-no-opts
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.c -L${byfl_lib_dir}
   )
@@ -194,7 +200,7 @@ add_test(
   NAME BfInstClangNoOptsCompiles
   COMMAND
   "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-bf-inst.sh" "${CLANG_EXECUTABLE}" simple-bf-inst-clang-no-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.c"
-  "-bf-plugin=${bytesflops_so}" -bf-verbose
+  ${CMAKE_C_FLAGS} "-bf-plugin=${bytesflops_so}" -bf-verbose
   )
 
 # Does the bf-inst instrumented C program run without error?
@@ -215,6 +221,7 @@ add_test(
   NAME BfClangOptsNoByflCompiles
   COMMAND
   ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clang}
+  ${CMAKE_C_FLAGS}
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clang-opts-no-byfl
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.c -L${byfl_lib_dir}
   ${extra_byfl_options}
@@ -228,6 +235,7 @@ add_test(
   NAME BfClangOptsCompiles
   COMMAND
   ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clang}
+  ${CMAKE_C_FLAGS}
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clang-opts
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.c -L${byfl_lib_dir}
   ${extra_byfl_options}
@@ -263,7 +271,7 @@ add_test(
   NAME BfInstClangOptsCompiles
   COMMAND
   "${BASH}" "${CMAKE_CURRENT_BINARY_DIR}/run-bf-inst.sh" "${CLANG_EXECUTABLE}" simple-bf-inst-clang-opts "${CMAKE_CURRENT_SOURCE_DIR}/simple.c"
-  "-bf-plugin=${bytesflops_so}" -bf-verbose
+  ${CMAKE_C_FLAGS} "-bf-plugin=${bytesflops_so}" -bf-verbose
   ${extra_byfl_options}
   )
 
@@ -284,6 +292,7 @@ add_test(
   NAME BfClangXXNoByflCompiles
   COMMAND
   ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clangxx}
+  ${CMAKE_CXX_FLAGS}
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clang++-no-byfl
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp -L${byfl_lib_dir}
   -bf-disable=byfl
@@ -295,6 +304,7 @@ add_test(
   NAME BfClangXXNoOptsCompiles
   COMMAND
   ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_clangxx}
+  ${CMAKE_CXX_FLAGS}
   -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-clangxx-no-opts
   ${CMAKE_CURRENT_SOURCE_DIR}/simple.cpp -L${byfl_lib_dir}
   )
@@ -331,6 +341,7 @@ if (${FLANG_EXECUTABLE})
     NAME BfFlangNoByflCompiles
     COMMAND
     ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_flang}
+    ${CMAKE_Fortran_FLAGS}
     -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-flang-no-byfl
     ${CMAKE_CURRENT_SOURCE_DIR}/simple.f90 -L${byfl_lib_dir}
     -bf-disable=byfl
@@ -342,6 +353,7 @@ if (${FLANG_EXECUTABLE})
     NAME BfFlangNoOptsCompiles
     COMMAND
     ${PERL_EXECUTABLE} -I${CMAKE_SOURCE_DIR}/tools/wrappers ${bf_flang}
+    ${CMAKE_Fortran_FLAGS}
     -bf-plugin=${bytesflops_so} -bf-verbose -g -o simple-bf-flang-no-opts
     ${CMAKE_CURRENT_SOURCE_DIR}/simple.f90 -L${byfl_lib_dir}
     )
