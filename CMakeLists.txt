@@ -17,12 +17,19 @@ set(PACKAGE_VERSION_MINOR 6)
 set(PACKAGE_VERSION_PATCH 1)
 set(BYFL_PACKAGE_VERSION ${PACKAGE_VERSION_MAJOR}.${PACKAGE_VERSION_MINOR}.${PACKAGE_VERSION_PATCH})
 
+# HandleLLVMOptions *ought* to define these itself but as of LLVM 8 still
+# neglects to do so.
+set(LLVM_ENABLE_EH OFF CACHE BOOL "Enable Exception handling")
+set(LLVM_ENABLE_RTTI OFF CACHE BOOL "Enable run time type information")
+set(LLVM_EXPORT_SYMBOLS_FOR_PLUGINS OFF CACHE BOOL "Export symbols from LLVM tools so that plugins can import them")
+
 # Load all the LLVM-specific CMake features we require.
 find_package(LLVM CONFIG REQUIRED)
 add_definitions(${LLVM_DEFINITIONS})
 list(APPEND CMAKE_MODULE_PATH ${LLVM_CMAKE_DIR} ${PROJECT_SOURCE_DIR}/cmake)
 include(LLVMConfig)
 include(AddLLVM)
+include(HandleLLVMOptions)
 mark_as_advanced(LLVM_DIR)
 
 # Load other required CMake features.
@@ -44,6 +51,12 @@ option(BUILD_SHARED_LIBS "Build the Byfl run-time library as a shared library" O
 # We don't currently support different build types so hide from the user the
 # option to select a build type.
 mark_as_advanced(CMAKE_BUILD_TYPE)
+
+# HandleLLVMOptions introduces a bunch of other cache variables the user
+# probably doesn't care about.
+foreach(_opt LLVM_ENABLE_EH LLVM_ENABLE_IDE LLVM_ENABLE_LTO LLVM_ENABLE_RTTI LLVM_EXPORT_SYMBOLS_FOR_PLUGINS LLVM_FORCE_ENABLE_STATS LLVM_PARALLEL_COMPILE_JOBS LLVM_PARALLEL_LINK_JOBS)
+  mark_as_advanced(${_opt})
+endforeach()
 
 # Let the user override the Clang compilers we'll use for testing.
 find_llvm_program(CLANG_EXECUTABLE "Clang C compiler" clang)
