@@ -49,6 +49,7 @@ script:
       -DCMAKE_CXX_COMPILER="$CXX"
       -DCMAKE_C_FLAGS="-I/usr/include/llvm-${LLVM_VERSION} -g"
       -DCMAKE_CXX_FLAGS="-I/usr/include/llvm-${LLVM_VERSION} -g"
+      -DCMAKE_MODULE_LINKER_FLAGS="-Wl,-znodelete"
       ..
   - make VERBOSE=1 -k
   - make CTEST_OUTPUT_ON_FAILURE=1 test
