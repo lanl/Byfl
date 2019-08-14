@@ -40,6 +40,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <dlfcn.h>
 #include "byfl-common.h"
 #include "functionkeygen.h"
 

@@ -163,6 +163,16 @@ namespace bytesflops_pass {
 
   // Initialize the BytesFlops pass.
   bool BytesFlops::doInitialization(Module& module) {
+    // Prevent the plugin from being unloaded.  Doing so prevents LLVM's
+    // destructor from crashing.  I believe the problem may be caused by LLVM
+    // winding up with a dangling pointer into plugin data when the plugin is
+    // unloaded.  A discussion of the problem and the recommendation to keeping
+    // the plugin's reference count from going to zero are discussed at
+    // https://stackoverflow.com/questions/51146196/what-happens-to-the-thread-spawned-by-a-shared-library-upon-dlclose
+    Dl_info self_info;
+    if (dladdr((const void *)prepend_to_ctor_list, &self_info) != 0)
+      (void) dlopen(self_info.dli_fname, RTLD_LAZY|RTLD_NODELETE);
+
     // Inject external declarations to various variables defined in byfl.c.
     LLVMContext& globctx = module.getContext();
     IntegerType* i32type = Type::getInt32Ty(globctx);
