@@ -38,6 +38,7 @@ Installation
 
 Once you've downloaded Byfl, the usual [CMake](https://cmake.org/) build procedure,
 ```bash
+cd Byfl
 mkdir build
 cd build
 cmake ..

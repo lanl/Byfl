@@ -1,74 +1,45 @@
 Byfl installation
 =================
 
-Byfl relies on [LLVM](http://www.llvm.org/) and [Clang](http://clang.llvm.org/) and can take advantage of [Flang](https://github.com/flang-compiler/flang).  The `llvm-3.9` branch of Byfl is designed to work with LLVM/Clang release 3.9.*x*.  The `llvm-4.0` branch of Byfl is designed to work with LLVM/Clang release 4.0.*x*.  The `llvm-5.0` branch of Byfl is designed to work with LLVM/Clang release 5.0.*x*.  The `master` branch of Byfl is designed to work with LLVM/Clang trunk (i.e., the post-5.0-release development code), but is often not kept up to date and is best avoided.
+Byfl relies on [LLVM](http://www.llvm.org/) and [Clang](http://clang.llvm.org/) and can take advantage of [Flang](https://github.com/flang-compiler/flang) (not yet thoroughly tested).  The [`env` section of Byfl's Travis CI configuration file](https://github.com/lanl/Byfl/blob/master/.travis.yml#L5-L8) indicates the LLVM/Clang versions that are currently being used for regression testing and can therefore be considered the most stable.
 
 Basic installation
 ------------------
 
-As long as LLVM's `llvm-config` program is in your path, the [Free Software Foundation](https://www.fsf.org/)'s canonical installation procedure for an out-of-source build should work:
+Once you've downloaded Byfl, follow the usual [CMake](https://cmake.org/) build procedure:
 ```bash
+cd Byfl
 mkdir build
 cd build
-../configure
+cmake ..
 make
 make install
 ```
 
-Note that `../configure` is included in Byfl releases but does not exist in the Git repository.  To create it, run
-```bash
-autoreconf -f -i
-```
+You may also want to run `make test` to verify the build.
 
-from the top-level Byfl directory.  It's been reported (in [issue #17](https://github.com/lanl/Byfl/issues/17)) that on some systems, the `autoreconf` line must be preceded by
-```bash
-libtoolize
-```
+Some commonly used [`cmake`](https://cmake.org/cmake/help/latest/manual/cmake.1.html) options include [`-DCMAKE_INSTALL_PREFIX`](https://cmake.org/cmake/help/latest/variable/CMAKE_INSTALL_PREFIX.html)=〈*directory*〉 to specify the top-level installation directory (default: `/usr/local`) and [`-DCMAKE_C_FLAGS`](https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_FLAGS.html)=〈*flags*〉 (and respectively, [`-DCMAKE_CXX_FLAGS`](https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_FLAGS.html) and [`-DCMAKE_Fortran_FLAGS`](https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_FLAGS.html)), which may be needed to point the compiler to the LLVM `include` directory, as in `-DCMAKE_C_FLAGS="-I/usr/include/llvm-8"`.
 
-Run `../configure --help` for usage information.  The [FSF's generic installation instructions](http://git.savannah.gnu.org/cgit/automake.git/tree/INSTALL) provide substantially more detail on customizing the configuration.
+You may want to use CMake's graphical [`cmake-gui`](https://cmake.org/cmake/help/latest/manual/cmake-gui.1.html) or [curses](https://en.wikipedia.org/wiki/Curses_(programming_library))-based [`ccmake`](https://cmake.org/cmake/help/latest/manual/ccmake.1.html) front ends instead of `cmake` to configure Byfl and generate [`Makefile`](https://en.wikipedia.org/wiki/Makefile)s.  Enable advanced mode to see the complete list of user-configurable parameters.
 
 Installation on Mac OS X
 ------------------------
-
-> These instructions currently apply to a no-longer-supported version of Byfl.  They will be updated eventually.
 
 A few extra steps are needed to build Byfl on OS X:
 
 1. Install [Xcode](https://developer.apple.com/xcode/), which provides various standard tools, header files, and libraries.
 
-2. Install [Homebrew](http://brew.sh/), which is needed to further download various packages that OS X doesn't provide by default.
+2. Install the Xcode command-line tools with `xcode-select --install`.
 
-3. Use Homebrew to install Byfl:
-```bash
-brew install https://github.com/lanl/Byfl/releases/download/v1.5-llvm-3.8.0/byfl15.rb
-```
+3. To avoid having to manually specify long directory names in which to search for standard headers and libraries, install the `/Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg` package (or the corresponding package for your OS X version).
 
-The preceding procedure installs Byfl 1.5 from the `llvm-3.8` branch of Byfl.  If you instead prefer to install a newer, pre-release version of Byfl (still from the `llvm-3.8` branch), you can use Homebrew to install Byfl's dependencies but download Byfl itself from GitHub.
+You'll also need to install CMake, LLVM, and Clang.  (The version of LLVM/Clang installed as part of Xcode lacks the CMake support files Byfl relies on.)  My preferred approach is to use the [Homebrew](http://brew.sh/) package manager:
 
-1. Use Homebrew to install the [GNU Autotools](https://en.wikipedia.org/wiki/GNU_build_system):
-```bash
-brew install autoconf
-brew install automake
-brew install libtool
-```
+4. Follow the instructions on http://brew.sh/ to install Homebrew.
 
-2. Use Homebrew to install [LLVM](http://www.llvm.org/) 3.8:
-```bash
-brew install llvm38
-```
-
-3. For a basic Byfl installation (see above) you'll need to point Byfl's `../configure` to the Homebrew-versioned `llvm-config` file:
-```bash
-../configure LLVM_CONFIG=llvm-config-3.8
-```
-
-Once you've built and installed Byfl, you'll probably need to set the following environment variables to point Byfl's [compiler wrapper scripts](https://github.com/lanl/Byfl/wiki) to the version of Clang that Byfl was built against:
-```bash
-export BF_CLANGXX=clang++-3.8
-export BF_CLANG=clang-3.8
-```
+5. Install CMake, LLVM, and Clang with `brew install cmake llvm`.  (The Homebrew `llvm` package includes Clang; there's not a separate package for it.)
 
 Other information
 -----------------
 
-Previously, Byfl separately supported LLVM versions 3.5–7.0 because of API differences.  Because LLVM's APIs have more-or-less stabilized, these Byfl versions are no longer maintained, and the corresponding branches have been removed.  However, they were first snapshotted as the tags [`llvm-3.5-final`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6-final`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7-final`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), [`llvm-3.8-final`](https://github.com/lanl/Byfl/tree/llvm-3.8-final), [`llvm-3.9-final`](https://github.com/lanl/Byfl/tree/llvm-3.9-final), [`llvm-4.0-final`](https://github.com/lanl/Byfl/tree/llvm-4.0-final), [`llvm-5.0-final`](https://github.com/lanl/Byfl/tree/llvm-5.0-final), [`llvm-6.0-final`](https://github.com/lanl/Byfl/tree/llvm-6.0-final), and [`llvm-7.0-final`](https://github.com/lanl/Byfl/tree/llvm-7.0-final) for posterity.
+Previously, the Byfl repository provided a separate branch for each supported LLVM version due to significant API differences across even minor versions.  Because LLVM's APIs have more-or-less stabilized, the corresponding branches have since been removed and versions of LLVM prior to 6.0 are no longer supported.  The old Byfl branches were first snapshotted as the tags [`llvm-3.5-final`](https://github.com/lanl/Byfl/tree/llvm-3.5-final), [`llvm-3.6-final`](https://github.com/lanl/Byfl/tree/llvm-3.6-final), [`llvm-3.7-final`](https://github.com/lanl/Byfl/tree/llvm-3.7-final), [`llvm-3.8-final`](https://github.com/lanl/Byfl/tree/llvm-3.8-final), [`llvm-3.9-final`](https://github.com/lanl/Byfl/tree/llvm-3.9-final), [`llvm-4.0-final`](https://github.com/lanl/Byfl/tree/llvm-4.0-final), [`llvm-5.0-final`](https://github.com/lanl/Byfl/tree/llvm-5.0-final), [`llvm-6.0-final`](https://github.com/lanl/Byfl/tree/llvm-6.0-final), and [`llvm-7.0-final`](https://github.com/lanl/Byfl/tree/llvm-7.0-final) for posterity.
