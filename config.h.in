@@ -11,9 +11,9 @@
 #cmakedefine TARGET_DESCRIPTION "@TARGET_DESCRIPTION@"
 
 /* Define as the LLVM major/minor version numbers. */
-#cmakedefine LLVM_VERSION_MAJOR @LLVM_VERSION_MAJOR@
-#cmakedefine LLVM_VERSION_MINOR @LLVM_VERSION_MINOR@
-#cmakedefine LLVM_PACKAGE_VERSION "@LLVM_PACKAGE_VERSION@"
+#define LLVM_VERSION_MAJOR @LLVM_VERSION_MAJOR@
+#define LLVM_VERSION_MINOR @LLVM_VERSION_MINOR@
+#define LLVM_PACKAGE_VERSION "@LLVM_PACKAGE_VERSION@"
 
 /* Define if the compiler and linker support weak function aliases. */
 #cmakedefine HAVE_WEAK_ALIASES
@@ -27,8 +27,8 @@
 /* Define NUM_LLVM_OPCODES as one more than the maximum-valued opcode in the
  * LLVM IR and NUM_LLVM_OPCODES_POW2 as NUM_LLVM_OPCODES+2 rounded up to a
  * power of two. */
-#cmakedefine NUM_LLVM_OPCODES @NUM_LLVM_OPCODES@
-#cmakedefine NUM_LLVM_OPCODES_POW2 @NUM_LLVM_OPCODES_POW2@
+#define NUM_LLVM_OPCODES @NUM_LLVM_OPCODES@
+#define NUM_LLVM_OPCODES_POW2 @NUM_LLVM_OPCODES_POW2@
 
 /* Define if the asprintf function is available. */
 #cmakedefine HAVE_ASPRINTF
