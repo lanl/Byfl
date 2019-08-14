@@ -24,7 +24,7 @@ addons:
       - gcc-8
       - g++-8
       - ccache
-#      - libhdf5-dev
+      - libhdf5-dev
       - libsqlite3-dev
 
 before_install:
@@ -35,8 +35,6 @@ before_install:
       export CXX="/usr/bin/clang++-${LLVM_VERSION}";
       export CC="/usr/bin/clang-${LLVM_VERSION}";
     fi
-  - export HDF5_CXX="$CXX"
-  - export HDF5_CXXLINKER="$CXX"
 
 script:
   - mkdir build

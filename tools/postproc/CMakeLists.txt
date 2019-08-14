@@ -34,13 +34,11 @@ if (SQLITE3_FOUND AND HAVE_GETOPT_LONG)
 endif (SQLITE3_FOUND AND HAVE_GETOPT_LONG)
 
 # If possible, build and install the converter to HDF5 format.
-#
-# We need to use the h5c++ compiler wrapper to build bfbin2hdf5, but I don't
-# know how to build *only* bfbin2hdf5 using h5c++.  Setting CMAKE_CXX_COMPILER
-# below unfortunately affects all files in this directory.
 if (HDF5_FOUND)
-  set(CMAKE_CXX_COMPILER ${HDF5_CXX_COMPILER_EXECUTABLE})
   add_postprocessing_tool(bfbin2hdf5)
+  target_compile_definitions(bfbin2hdf5 PRIVATE ${HDF5_CXX_DEFINITIONS})
+  target_include_directories(bfbin2hdf5 PRIVATE ${HDF5_CXX_INCLUDE_DIRS})
+  target_link_libraries(bfbin2hdf5 ${HDF5_CXX_LIBRARIES})
 endif (HDF5_FOUND)
 
 # Generate and install an example of parsing Byfl output from Python using
