@@ -620,17 +620,22 @@ namespace bytesflops_pass {
          dont_instrument->find(function_name_orig) != dont_instrument->end()))
       return false;
     if (function_name == "bf_categorize_counters")
-      // Avoid the endless recursion that would be caused if we were
-      // to instrument bf_categorize_counters() using
-      // bf_categorize_counters().
+      // Avoid the endless recursion that would be caused if we were to
+      // instrument bf_categorize_counters() using bf_categorize_counters().
       return false;
     if (function_name == "bf_func_key_map_ctor" || function_name == "bf_track_global_vars_ctor")
       // Ignore other Byfl-defined functions, too.
       return false;
     if (function_name == "_Znwm" || function_name == "_ZdlPv" || function_name == "_ZdaPv")
-      // Avoid the endless recursion that would be caused if we were
-      // to instrument operator new, operator delete, or operator
-      // delete[], all of which we invoke from the run-time library.
+      // Avoid the endless recursion that would be caused if we were to
+      // instrument operator new, operator delete, or operator delete[], all of
+      // which we invoke from the run-time library.
+      return false;
+    if (function_name.find("basic_string") != StringRef::npos ||
+        function_name.find("char_traits") != StringRef::npos)
+      // Avoid the endless recursion that would be caused if we were to
+      // instrument various string-related functions from the C++ STL that we
+      // invoke from the run-time library.
       return false;
     if (function.empty())
       return false;

@@ -168,6 +168,7 @@ void bf_initialize_if_necessary (void)
 {
   static bool initialized = false;
   if (!__builtin_expect(initialized, true)) {
+    initialized = true;
     start_time = current_local_time("%F %T");
     initialize_byfl();
     initialize_bblocks();
@@ -180,7 +181,6 @@ void bf_initialize_if_necessary (void)
     initialize_data_structures();
     initialize_strides();
     initialize_cache();
-    initialized = true;
   }
 }
 
