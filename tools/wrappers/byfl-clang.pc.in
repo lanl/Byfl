@@ -16,5 +16,5 @@ Name: byfl-clang
 Description: Instrument Clang-compiled programs with Byfl
 URL: https://github.com/lanl/Byfl
 Version: @BYFL_PACKAGE_VERSION@-llvm-@LLVM_PACKAGE_VERSION@
-Cflags: -Xclang -load -Xclang ${plugindir}/bytesflops@LLVM_PLUGIN_EXT@
-Libs: ${libs}
+Cflags: -I${includedir} -Xclang -load -Xclang ${plugindir}/bytesflops@LLVM_PLUGIN_EXT@
+Libs: -L${libdir} ${libs}
