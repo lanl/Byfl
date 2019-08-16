@@ -27,6 +27,20 @@ install(
   DESTINATION ${PERL_MODULE_DIRECTORY}
   )
 
+# Find a set of C++ libraries on which the Byfl run-time library depends.  The
+# wrapper scripts will explicitly link to those even when not invoking a C++
+# compiler.
+set(link_libs "${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES}")
+list(REMOVE_DUPLICATES link_libs)
+foreach(lib ${link_libs})
+  find_library(_one_cxx_lib NAME ${lib} PATHS ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES} "One library needed by C++")
+  list(APPEND _byfl_lib_depends ${_one_cxx_lib})
+  unset(_one_cxx_lib CACHE)
+endforeach()
+set(BYFL_LIB_DEPENDS "${_byfl_lib_depends}" CACHE STRING
+  "List of libraries on which the Byfl run-time library depends")
+string(JOIN " " SPLIT_BYFL_LIB_DEPENDS ${BYFL_LIB_DEPENDS})
+
 # Generate a Byfl pkg-config file.
 configure_file(byfl-clang.pc.in byfl-clang.pc @ONLY)
 set(
@@ -40,19 +54,6 @@ install(
   FILES ${CMAKE_CURRENT_BINARY_DIR}/byfl-clang.pc
   DESTINATION ${PKG_CONFIG_DIRECTORY}
   )
-
-# Find a set of C++ libraries on which the Byfl run-time library depends.  The
-# wrapper scripts will explicitly link to those even when not invoking a C++
-# compiler.
-set(link_libs "${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES}")
-list(REMOVE_DUPLICATES link_libs)
-foreach(lib ${link_libs})
-  find_library(_one_cxx_lib NAME ${lib} PATHS ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES} "One library needed by C++")
-  list(APPEND _byfl_lib_depends ${_one_cxx_lib})
-  unset(_one_cxx_lib CACHE)
-endforeach()
-set(BYFL_LIB_DEPENDS "${_byfl_lib_depends}" CACHE STRING
-  "List of libraries on which the Byfl run-time library depends")
 
 # Build and install a man page for the Perl module that parses compiler
 # options.

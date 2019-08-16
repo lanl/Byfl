@@ -9,12 +9,12 @@ prefix=@CMAKE_INSTALL_PREFIX@
 exec_prefix=@CMAKE_INSTALL_PREFIX@
 libdir=@CMAKE_INSTALL_FULL_LIBDIR@
 includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
-plugindir=@CMAKE_INSTALL_FULL_PLUGINDIR@
-libs=-lbyfl @CMAKE_EXE_LINKER_FLAGS@ -lstdc++
+plugindir=@CMAKE_INSTALL_FULL_BYFL_PLUGIN_DIR@
+libs=@CMAKE_EXE_LINKER_FLAGS@ -lbyfl @SPLIT_BYFL_LIB_DEPENDS@
 
 Name: byfl-clang
 Description: Instrument Clang-compiled programs with Byfl
 URL: https://github.com/lanl/Byfl
-Version: @BYFL_PACKAGE_VERSION@
-Cflags: -Xclang -load -Xclang ${plugindir}/bytesflops.so
+Version: @BYFL_PACKAGE_VERSION@-llvm-@LLVM_PACKAGE_VERSION@
+Cflags: -Xclang -load -Xclang ${plugindir}/bytesflops@LLVM_PLUGIN_EXT@
 Libs: ${libs}
