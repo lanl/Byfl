@@ -120,7 +120,8 @@ string bfbin_filename;           // File name associated with the above
 bool bf_abnormal_exit = false;   // false=exit normally; true=get out fast
 bool bf_suppress_counting = false;        // false=normal operation; true=don't update state
 static CallStack* call_stack = nullptr;   // The calling process's current call stack
-static string start_time;        // Time at which initialize_byfl() was called
+static string current_local_time (const char *);
+static string start_time = current_local_time("%F %T");  // Time at which the program began execution
 
 // As a kludge, set a global variable indicating that all of the constructors
 // in this file have been called.  Because of the "C++ static initialization
@@ -169,7 +170,6 @@ void bf_initialize_if_necessary (void)
   static bool initialized = false;
   if (!__builtin_expect(initialized, true)) {
     initialized = true;
-    start_time = current_local_time("%F %T");
     initialize_byfl();
     initialize_bblocks();
     initialize_reuse();
