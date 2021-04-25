@@ -284,7 +284,7 @@ void BytesFlops::mark_as_used(Module& module, Constant* protected_var)
   llvm_used->setSection("llvm.metadata");
   std::vector<Constant*> llvm_used_elts;
   llvm_used_elts.push_back(ConstantExpr::getCast(Instruction::BitCast,
-                                                 protected_var, /*Builder.getInt8PtrTy()*/ptr8));
+                                                 protected_var, ptr8));
   llvm_used->setInitializer(ConstantArray::get(ptr8_array, llvm_used_elts));
 }
 
