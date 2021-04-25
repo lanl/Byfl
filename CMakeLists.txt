@@ -74,8 +74,8 @@ set(CMAKE_INSTALL_BYFL_PLUGIN_DIR ${CMAKE_INSTALL_LIBEXECDIR}/byfl CACHE PATH
 mark_as_advanced(CMAKE_INSTALL_BYFL_PLUGIN_DIR)
 file(TO_NATIVE_PATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BYFL_PLUGIN_DIR}" CMAKE_INSTALL_FULL_BYFL_PLUGIN_DIR)
 
-# Byfl requires C++11.
-set(CMAKE_CXX_STANDARD 11)
+# Byfl requires C++14.
+set(CMAKE_CXX_STANDARD 14)
 
 # Specify various fixed strings to use in man pages.
 include(FindGit)
