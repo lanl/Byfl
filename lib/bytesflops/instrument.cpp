@@ -93,7 +93,7 @@ namespace bytesflops_pass {
     uint64_t memagg;
     if (current_type->isVectorTy()) {
       memagg = BF_AGG_VECTOR;
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
       auto *vectorType = dyn_cast<FixedVectorType>(current_type);
       current_type = vectorType->getElementType();
 #else
@@ -738,7 +738,7 @@ namespace bytesflops_pass {
         increment_global_variable(insert_before, op_bits_var, num_bits);
         must_clear |= CLEAR_OP_BITS;
       }
-#if LLVM_VERSION_MAJOR >12
+#if LLVM_VERSION_MAJOR >= 13
       static_ops += instType->isVectorTy() ? dyn_cast<FixedVectorType>(instType)->getNumElements() : 1;
 #else      
       static_ops += instType->isVectorTy() ? dyn_cast<VectorType>(instType)->getNumElements() : 1;
@@ -791,7 +791,7 @@ namespace bytesflops_pass {
 
         // Tally this vector operation.
         vector<Value*> arg_list;
-#if LLVM_VERSION_MAJOR > 12
+#if LLVM_VERSION_MAJOR >= 13
         uint64_t elt_count = dyn_cast<FixedVectorType>(vt)->getNumElements();
 #else	
 	uint64_t elt_count = vt->getNumElements();
@@ -1015,7 +1015,7 @@ namespace bytesflops_pass {
                                               /*Linkage=*/    GlobalValue::PrivateLinkage,
                                               /*Initializer=*/0, // has initializer, specified below
                                               /*Name=*/       gv_name.c_str());
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
         gvar_array_str->setAlignment(MaybeAlign(1));
 #else
         gvar_array_str->setAlignment(1);
@@ -1044,7 +1044,7 @@ namespace bytesflops_pass {
                                            /*Linkage=*/     GlobalValue::InternalLinkage,
                                            /*Initializer=*/ const_array_keys, // has initializer, specified below
                                            /*Name=*/        string("bf_keys") + string(".data"));
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
       gvar_key_data->setAlignment(MaybeAlign(16));
 #else
       gvar_key_data->setAlignment(16);
@@ -1075,7 +1075,7 @@ namespace bytesflops_pass {
                                               /*Linkage=*/    GlobalValue::InternalLinkage,
                                               /*Initializer=*/const_array_fnames, // has initializer, specified below
                                               /*Name=*/       string("bf_fnames") + string(".data"));
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
       gvar_fnames_data->setAlignment(MaybeAlign(16));
 #else
       gvar_fnames_data->setAlignment(16);

@@ -111,7 +111,7 @@ InternalSymbolInfo::InternalSymbolInfo(Value* value, string defn_loc)
   // Populate our fields.
   // Attempt 1: Use the value's debug information if that exists.
   if (parent_func->hasName())
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
     function = string(parent_func->getName());
 #else
     function = parent_func->getName();
@@ -120,7 +120,7 @@ InternalSymbolInfo::InternalSymbolInfo(Value* value, string defn_loc)
     // We found the value's debug information. Fill in all the information we
     // have.
     if (DIVariable* var_var = dyn_cast<DIVariable>(var_node)) {
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
       symbol = string(var_var->getName());
 #else
       symbol = var_var->getName();
@@ -136,7 +136,7 @@ InternalSymbolInfo::InternalSymbolInfo(Value* value, string defn_loc)
   // Attempt 2: Use the symbol's internally generated name instead of the
   // user-assigned name.
   if (symbol == "*UNNAMED*" && value->hasName())
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
     symbol = string(value->getName());
 #else
     symbol = value->getName();
@@ -212,7 +212,7 @@ InternalSymbolInfo::InternalSymbolInfo(Function* funcptr)
   if (fiter == func2loc->end())
     return;
   if (funcptr->hasName())
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
     symbol = function = string(funcptr->getName());
 #else
     symbol = function = funcptr->getName();

@@ -206,7 +206,7 @@ namespace bytesflops_pass {
     PointerType* ptr_to_char_arg = PointerType::get(uint8_arg, 0);
 
     // Declare a bf_symbol_info_t struct type and a pointer to it.
-#if LLVM_VERSION_MAJOR > 11
+#if LLVM_VERSION_MAJOR >= 12
     syminfo_type = StructType::getTypeByName(globctx, "struct.bf_symbol_info_t");
 #else
     syminfo_type = module.getTypeByName("struct.bf_symbol_info_t");
@@ -625,7 +625,7 @@ namespace bytesflops_pass {
     StringRef function_name = function.getName();
     string function_name_orig = demangle_func_name(function_name.str());
     remove_all_instances(function_name_orig, ' ');  // Normalize the name by removing spaces.
-#if LLVM_VERSION_MAJOR > 10
+#if LLVM_VERSION_MAJOR >= 11
     if (instrument_only != nullptr &&
         instrument_only->find(string(function_name)) == instrument_only->end() &&
         instrument_only->find(function_name_orig) == instrument_only->end())
