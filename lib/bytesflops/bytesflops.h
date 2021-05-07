@@ -531,18 +531,18 @@ namespace bytesflops_pass {
     FunctionKeyGen::KeyID record_func(const std::string & fname);
 
     // Initialize the BytesFlops pass.
-    virtual bool doInitialization(Module& module);
+    virtual bool doInitialization(Module& module) override;
 
     // Insert code for incrementing our byte, flop, etc. counters.
     virtual bool runOnFunction(Function& function);
 
-    virtual bool runOnModule(Module & module);
+    virtual bool runOnModule(Module & module) override;
 
     // Insert code for incrementing our byte, flop, etc. counters.
-    virtual bool doFinalization(Module& module);
+    virtual bool doFinalization(Module& module) override;
 
     // Output what we instrumented.
-    virtual void print(raw_ostream &outfile, const Module *module) const;
+    virtual void print(raw_ostream &outfile, const Module *module) const override;
   };
 
 }  // namespace bytesflops_pass

@@ -42,7 +42,7 @@ private:
 
 public:
   // Increment the tallies associated with a range of bytes, clamping each at 1.
-  void increment(size_t pos1, size_t pos2);
+  void increment(size_t pos1, size_t pos2) override;
 
   // Merge the counts from another BitPageTableEntry into ours.
   void merge(BitPageTableEntry* other);
@@ -61,7 +61,7 @@ private:
 public:
   // Increment the tallies associated with a range of bytes, clamping each at
   // the maximum word value.
-  void increment(size_t pos1, size_t pos2);
+  void increment(size_t pos1, size_t pos2) override;
 
   // Merge the counts from another WordPageTableEntry into ours.
   void merge(WordPageTableEntry* other);

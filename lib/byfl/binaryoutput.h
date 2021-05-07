@@ -31,15 +31,15 @@ class BinaryOStreamReal : public BinaryOStream
 public:
   BinaryOStreamReal(std::ostream& wrapped_stream) : ostr(wrapped_stream) { }
 
-  void flush() {
+  void flush() override {
     ostr.flush();
   }
 
-  BinaryOStreamReal& operator<<(const uint8_t val);
-  BinaryOStreamReal& operator<<(const uint64_t val);
-  BinaryOStreamReal& operator<<(const char *str);
-  BinaryOStreamReal& operator<<(const string& str);
-  BinaryOStreamReal& operator<<(const bool val);
+  BinaryOStreamReal& operator<<(const uint8_t val) override;
+  BinaryOStreamReal& operator<<(const uint64_t val) override;
+  BinaryOStreamReal& operator<<(const char *str) override;
+  BinaryOStreamReal& operator<<(const string& str) override;
+  BinaryOStreamReal& operator<<(const bool val) override;
 
 private:
   std::ostream& ostr;    // Underlying output stream
