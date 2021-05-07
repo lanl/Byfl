@@ -626,8 +626,6 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
   unsigned int opcode = inst.getOpcode();   // Terminator instruction's opcode
   LLVMContext& globctx = module->getContext();
 #if LLVM_VERSION_MAJOR >= 9
-  IntegerType* i32type = Type::getInt32Ty(globctx);
-  IntegerType* i64type = Type::getInt64Ty(globctx);
   PointerType* i64ptrtype = Type::getInt64PtrTy(globctx);
 #endif
 
@@ -764,8 +762,6 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
         ConstantInt::get(globctx, APInt(8, 0));
       static ConstantInt* mem_insts_size =
         ConstantInt::get(globctx, APInt(64, NUM_MEM_INSTS*sizeof(uint64_t)));
-      static ConstantInt* mem_insts_align =
-        ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
       static ConstantInt* zero_1bit =
         ConstantInt::get(globctx, APInt(1, 0));
       std::vector<Value*> func_args;
@@ -773,6 +769,8 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
       func_args.push_back(zero_8bit);
       func_args.push_back(mem_insts_size);
 #if LLVM_VERSION_MAJOR <= 6
+      static ConstantInt* mem_insts_align =
+        ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
       func_args.push_back(mem_insts_align);
 #endif
       func_args.push_back(zero_1bit);
@@ -802,8 +800,6 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
       static uint64_t totalInstCount = uint64_t(Instruction::OtherOpsEnd);
       static ConstantInt* tally_insts_size =
         ConstantInt::get(globctx, APInt(64, totalInstCount*sizeof(uint64_t)));
-      static ConstantInt* tally_insts_align =
-        ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
       static ConstantInt* zero_1bit =
         ConstantInt::get(globctx, APInt(1, 0));
       std::vector<Value*> func_args;
@@ -811,6 +807,8 @@ void BytesFlops::insert_end_bb_code (Module* module, KeyType_t funcKey,
       func_args.push_back(zero_8bit);
       func_args.push_back(tally_insts_size);
 #if LLVM_VERSION_MAJOR <= 6
+      static ConstantInt* tally_insts_align =
+        ConstantInt::get(globctx, APInt(32, sizeof(uint64_t)));
       func_args.push_back(tally_insts_align);
 #endif
       func_args.push_back(zero_1bit);
@@ -1005,9 +1003,6 @@ AllocaInst* BytesFlops::find_value_provenance(Module& module,
   // Stack-allocate a bf_symbol_info_t in the generated code.
   LLVMContext& globctx = module.getContext();
 #if LLVM_VERSION_MAJOR >= 9
-  IntegerType* i32type = Type::getInt32Ty(globctx);
-  IntegerType* i64type = Type::getInt64Ty(globctx);
-  PointerType* i64ptrtype = Type::getInt64PtrTy(globctx);
   PointerType* i64i8ptrtype = PointerType::get(IntegerType::get(globctx, 8), 0);
 #endif
   if (syminfo_struct == nullptr) {
