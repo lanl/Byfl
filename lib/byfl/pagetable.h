@@ -33,6 +33,9 @@ public:
   // Increment the tallies associated with a range of bytes, clamping each at
   // the maximum allowed value.
   virtual void increment(size_t pos1, size_t pos2) = 0;
+
+  // Ensure that we declare a virtual destructor.
+  virtual ~BasePageTableEntry() { }
 };
 
 // Specialize BasePageTableEntry for bit-sized counters.

@@ -16,6 +16,7 @@ namespace bytesflops {
 class BinaryOStream {
 public:
   virtual void flush() { }
+  virtual ~BinaryOStream() { }
 
   virtual BinaryOStream& operator<<(const uint8_t val);
   virtual BinaryOStream& operator<<(const uint64_t val);
@@ -30,6 +31,7 @@ class BinaryOStreamReal : public BinaryOStream
 {
 public:
   BinaryOStreamReal(std::ostream& wrapped_stream) : ostr(wrapped_stream) { }
+  virtual ~BinaryOStreamReal() { }
 
   void flush() override {
     ostr.flush();
