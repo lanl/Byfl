@@ -384,7 +384,7 @@ Constant* BytesFlops::create_global_constant(Module& module,
 ConstantInt* BytesFlops::get_vector_length(LLVMContext& bbctx, const Type* dataType, ConstantInt* scalarValue)
 {
   if (dataType->isVectorTy()) {
-#if LLVM_VERSION_MAJOR >= 13
+#if LLVM_VERSION_MAJOR >= 12
     unsigned int num_elts = dyn_cast<FixedVectorType>(dataType)->getNumElements();
 #else
     unsigned int num_elts = dyn_cast<VectorType>(dataType)->getNumElements();
