@@ -145,16 +145,17 @@ void WordPageTableEntry::increment(size_t pos1, size_t pos2)
   for (size_t pos = pos1; pos <= pos2; pos++)
     switch (byte_counter[pos]) {
       case bf_max_bytecount:
-        /* Maxed out our counter -- don't increment it further. */
+        // Maxed out our counter -- don't increment it further.
         break;
 
       case 0:
-        /* First time a byte was touched */
+        // First time a byte was touched
         bytes_touched++;
-        /* No break */
+        byte_counter[pos]++;
+        break;
 
       default:
-        /* Common case -- increment the counter. */
+        // Common case -- increment the counter.
         byte_counter[pos]++;
         break;
     }
