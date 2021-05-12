@@ -738,7 +738,7 @@ namespace bytesflops_pass {
         increment_global_variable(insert_before, op_bits_var, num_bits);
         must_clear |= CLEAR_OP_BITS;
       }
-#if LLVM_VERSION_MAJOR >= 13
+#if LLVM_VERSION_MAJOR >= 12
       static_ops += instType->isVectorTy() ? dyn_cast<FixedVectorType>(instType)->getNumElements() : 1;
 #else      
       static_ops += instType->isVectorTy() ? dyn_cast<VectorType>(instType)->getNumElements() : 1;
@@ -791,7 +791,7 @@ namespace bytesflops_pass {
 
         // Tally this vector operation.
         vector<Value*> arg_list;
-#if LLVM_VERSION_MAJOR >= 13
+#if LLVM_VERSION_MAJOR >= 12
         uint64_t elt_count = dyn_cast<FixedVectorType>(vt)->getNumElements();
 #else	
 	uint64_t elt_count = vt->getNumElements();
